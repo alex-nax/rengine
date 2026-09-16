@@ -5,7 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { installExternalProject } from '../external-project.mjs';
+import { installExternalProject } from './external-install.mjs';
 
 const run = promisify(execFile);
 async function fixture(t) {

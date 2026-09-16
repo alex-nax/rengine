@@ -12,7 +12,7 @@ For a project whose Red capabilities must live outside its checkout, use the ext
 installer (spec 085). All four paths are explicit and absolute:
 
 ```sh
-node orchestrator/external-project.mjs \
+red-project install-external \
   --project /absolute/path/to/web-project \
   --profile /absolute/path/to/redit-profiles/web-project \
   --launcher /absolute/path/to/open-web-project.command \

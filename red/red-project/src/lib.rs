@@ -11,6 +11,7 @@ pub mod conversations;
 pub mod dashboard;
 pub mod declaration;
 pub mod devices;
+pub mod external;
 pub mod games;
 pub mod preview;
 pub mod recipes;

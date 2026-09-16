@@ -5,7 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { startServer } from './red-host-fixture.mjs';
 import { request } from './sidecar.mjs';
-import { installExternalProject } from '../external-project.mjs';
+import { installExternalProject } from './external-install.mjs';
 import { nativeClient } from './native-client.mjs';
 
 test('native external project shows its identity, source tree and working external dashboard', { timeout: 90000 }, async () => {

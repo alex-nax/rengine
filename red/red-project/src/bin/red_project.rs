@@ -293,6 +293,86 @@ fn main() -> ExitCode {
         }
         /* What git already knows about a root's repository (F190, spec 134). Read-only: the survey
            that decides whether a worktree may be removed, never the removal. */
+        Some("install-external") => {
+            /* `orchestrator/external-project.mjs` (spec 146). The three binaries and the PATH are
+               resolved HERE rather than inside the module: this is the composition root, and the
+               module is judged on what it is handed. */
+            /* An explicitly EMPTY value is a value: `--title ''` is a title the declaration reader
+               then refuses by name, which is a better answer than this layer calling it missing. A
+               flag is missing its value only when nothing follows it, or another flag does. */
+            let named = |flag: &str| {
+                argv.iter().position(|value| value == flag).and_then(|at| argv.get(at + 1)).cloned().unwrap_or_default()
+            };
+            let value_missing = |flag: &str| {
+                argv.iter().position(|value| value == flag).is_some_and(|at| {
+                    argv.get(at + 1).is_none_or(|next| next.starts_with("--"))
+                })
+            };
+            let has = |flag: &str| argv.iter().any(|value| value == flag);
+            if has("--help") {
+                println!("red-project install-external --project DIR --profile DIR --launcher FILE --state DIR [--title NAME] [--minimal] [--dry-run]");
+                return ExitCode::SUCCESS;
+            }
+            const TAKES_VALUE: [&str; 5] = ["--project", "--profile", "--launcher", "--state", "--title"];
+            const BARE: [&str; 3] = ["--minimal", "--dry-run", "--help"];
+            let mut unknown = None;
+            let mut at = 1;
+            while at < argv.len() {
+                let flag = argv[at].as_str();
+                if TAKES_VALUE.contains(&flag) {
+                    at += 2;
+                    continue;
+                }
+                if !BARE.contains(&flag) {
+                    unknown = Some(argv[at].clone());
+                    break;
+                }
+                at += 1;
+            }
+            let missing = ["--project", "--profile", "--launcher", "--state", "--title"]
+                .into_iter()
+                .find(|flag| value_missing(flag));
+            let reader = std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("red-project"));
+            let launch = red_core::service::serve_binary("RENGINE_RED_LAUNCH", "red-launch");
+            let node = red_core::env::node_path();
+            let path = std::env::var("PATH").unwrap_or_default();
+            let title = named("--title");
+            let declared_title = has("--title");
+            if let Some(flag) = unknown {
+                eprintln!("Unknown option: {flag}");
+                return ExitCode::FAILURE;
+            }
+            if let Some(flag) = missing {
+                eprintln!("Missing value for {flag}");
+                return ExitCode::FAILURE;
+            }
+            let launch = match launch {
+                Ok(path) => path,
+                Err(message) => {
+                    eprintln!("{message}");
+                    return ExitCode::FAILURE;
+                }
+            };
+            let (project, profile, launcher, state) = (named("--project"), named("--profile"), named("--launcher"), named("--state"));
+            let options = red_project::external::Install {
+                project: &project,
+                profile: &profile,
+                launcher: &launcher,
+                state: &state,
+                title: if declared_title { Some(&title) } else { None },
+                minimal: has("--minimal"),
+                dry_run: has("--dry-run"),
+                reader: &reader,
+                launch: &launch,
+                node: &node,
+                path: &path,
+            };
+            red_project::external::install(&options)
+                .map(|done| done.as_json())
+                /* The installer's refusals are sentences a person reads, with no status: this is a
+                   command someone runs, not a route somebody calls. */
+                .map_err(|message| red_project::recordings::Fail { message, status: None })
+        }
         Some("worktrees") => {
             let environment: Vec<(String, String)> = std::env::vars().collect();
             red_project::worktrees::worktrees(arg(1).unwrap_or_default(), &environment)
