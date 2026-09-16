@@ -266,7 +266,7 @@ mod tests {
        restatement of it. A test that carried its own list would go on passing after the registry
        dropped one. */
     fn shipped() -> Vec<(String, crate::Value)> {
-        let text = std::fs::read_to_string("../../orchestrator/agents/registry.toml").expect("the registry");
+        let text = std::fs::read_to_string("../../agents/registry.toml").expect("the registry");
         crate::load_registry(&text, "registry.toml", None).expect("a registry that cooks")
     }
     fn envelope(

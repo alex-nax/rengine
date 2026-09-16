@@ -181,7 +181,7 @@ stdin (payload recorded on this machine against 2.1.263; see the evidence). So r
 | what | how |
 | --- | --- |
 | where the hook lives | a per-launch `settings.json` written beside `mcp.json`, passed as `--settings` — the person's own and the project's settings files are never touched |
-| what it runs | `orchestrator/agents/report-session.mjs`, under the launcher's own node, by absolute path, given this launch's context file as `--context` — so a session started by hand from the line `bind.mjs` prints, which inherits none of the launcher's environment, reports itself as a pane does |
+| what it runs | `agents/report-session.mjs`, under the launcher's own node, by absolute path, given this launch's context file as `--context` — so a session started by hand from the line `bind.mjs` prints, which inherits none of the launcher's environment, reports itself as a pane does |
 | what it does | finds this launch's binding — its own `--context`, else the way the tool worker does (`RENGINE_MCP_CONFIG` → the per-launch `mcp.json` → its `--context` file, else `RENGINE_WORKSPACE_CONTEXT`), posts `POST /api/agent-conversation` exactly as `launch.mjs` reports at launch, and rewrites the per-launch context's identity — `agentId`, `label`, and `session` with `source: 'reported'` |
 | what it never does | fail the CLI it runs inside (stderr only, always exit 0), write to stdout (a `SessionStart` hook's stdout is added to that CLI's context), or act outside a workspace pane (no binding environment, silent exit 0) |
 | what it never touches | `pid` and `startedAt`. They are the launcher's, and liveness is measured on the pid |
@@ -234,7 +234,7 @@ launcher replaces that shell and its own pid **is** the pid the host lists. The 
 either the launcher's pid or its parent's, and records `sessionId` when one of them is a listed agent
 session. Where neither matches, the label and pid stand.
 
-**Binding from outside.** `node orchestrator/agents/bind.mjs --project DIR [--agent NAME]
+**Binding from outside.** `node agents/bind.mjs --project DIR [--agent NAME]
 [--session UUID] [--state DIR]` walks the sidecar descriptors under the state directory, asks each
 live instance for its roots, picks the one whose root is `DIR`, gives the agent an identity, writes
 the per-launch context and MCP configuration, and prints the configuration path and the CLI line that

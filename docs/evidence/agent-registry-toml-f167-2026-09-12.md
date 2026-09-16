@@ -1,7 +1,7 @@
 # F167 (F148a) — the agent recipe registry becomes one TOML document (2026-09-12)
 
 The data half of F148 (spec 129, KI-092; owner approved the split 2026-09-12: "approved, do
-now"). `orchestrator/agents/registry.toml` is now the ONE recipe table: `registry.mjs` (until
+now"). `agents/registry.toml` is now the ONE recipe table: `registry.mjs` (until
 F149) and the new `red-agents` crate both parse it through the same bounded subset, cook()
 validation runs on both sides in the same words, and a JSON dump from the Rust side proves the
 two resolve identical recipes for every CLI. The spawn-env composition half is F168.
@@ -10,7 +10,7 @@ two resolve identical recipes for every CLI. The spawn-env composition half is F
 
 1. **One TOML recipe document is the only recipe table; JS and Rust resolve identical recipes
    for every CLI.**
-   - The document: `orchestrator/agents/registry.toml` — the five shipped recipes with absent
+   - The document: `agents/registry.toml` — the five shipped recipes with absent
      capabilities as omitted tables (TOML has no null), id-shape regexes as literal strings,
      and a `recipes.*` shape the EXTRA file shares.
    - The subset (both parsers implement exactly it, refusing the rest by name with `file:line`):
@@ -53,7 +53,7 @@ registry.toml did not exist). After implementation:
    complete, valid, and named once` and `every consumer reads the one table` both red — the JS
    runtime provably reads the TOML, not a shadow table. Restored green.
 2. **Unterminated string** in registry.toml: importing registry.mjs throws
-   `orchestrator/agents/registry.toml:17: unterminated string` — file and line named, the way a
+   `agents/registry.toml:17: unterminated string` — file and line named, the way a
    malformed const would not have compiled. Restored.
 3. **Rust projection drift** (`resumeLine` → `resume_line` in red-agents): the parity subtest
    `JS and Rust resolve identical recipes for every CLI` red. Restored green.

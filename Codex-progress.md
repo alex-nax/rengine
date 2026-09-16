@@ -2494,7 +2494,7 @@ its "as long as it lives" is now much longer than a host's.
 
 ## Session 132 (macos) — 2026-09-13 — registry/config/bind deleted; F149 complete (F173 / F149c)
 
-The last of the agent half. `orchestrator/agents/{registry,config,bind}.mjs` — 703 lines — are gone,
+The last of the agent half. `agents/{registry,config,bind}.mjs` — 703 lines — are gone,
 and `agents-client.mjs` stands in their place with no decisions in it: the synchronous recipe
 surface is primed per document from `red-agents dump`, and `agentLaunch`, `agentIdentity`,
 `describeSession`, `bind` and `stateDirectories` are JSON-RPC calls to `red-agents-serve`. Two owner
@@ -2587,7 +2587,7 @@ host recorded"), the launcher writing `node report-session.mjs` into the hook li
 again (red on "trouble goes to stderr and nowhere else"). Evidence in
 `docs/evidence/report-session-f172-2026-09-13.md`.
 
-**F172 passes.** `orchestrator/agents/report-session.mjs` is deleted in this commit, which is what
+**F172 passes.** `agents/report-session.mjs` is deleted in this commit, which is what
 its second criterion asks for.
 
 ## Session 130 (macos) — 2026-09-13 — red-pty: the PTY core in Rust, scenario-parity with the JS host (F176 / F151a)
@@ -2936,7 +2936,7 @@ run implemented F148a immediately rather than waiting a tick. New rows carry the
 F167/F168 for F148's halves, F169/F170 for F147's; parents stay open until every criterion has
 evidence.
 
-**The document.** `orchestrator/agents/registry.toml` is the ONE recipe table: the five shipped
+**The document.** `agents/registry.toml` is the ONE recipe table: the five shipped
 recipes with absent capabilities as omitted tables (TOML has no null), id-shape regexes as
 literal strings, and a `recipes.*` shape the EXTRA file shares — which moved JSON→TOML (the
 contract change KI-092 recorded; its only surface was registry.mjs's header and the tests).
@@ -3620,7 +3620,7 @@ frame model, worth doing when a consumer needs the frames.
 
 ## Session 110 (macos) — 2026-09-11 — one agent recipe registry, and codex's hook trust gate (F113)
 
-**The four private tables are one declared registry.** `orchestrator/agents/registry.mjs` is now the
+**The four private tables are one declared registry.** `agents/registry.mjs` is now the
 single source for an agent's package, update mode, model flag, conversation/resume spellings with
 their id shapes and argv parsers, MCP overlay kind, hooks overlay kind and IDE connect — cooked from
 declarative data so an extra registry named in `RENGINE_AGENT_REGISTRY_EXTRA` adds an agent as DATA.
@@ -5909,7 +5909,7 @@ sidecar anchor line. Gates: `npm run build` clean, zero warnings; `npm test` **1
 `tracker.c` gains one of its own — why the menu and the chooser are file scope, why the chooser is
 inline, and why the two capability gates are not one.
 
-Untouched: `orchestrator/runtime`, `orchestrator/agents`, `orchestrator/server`, and
+Untouched: `orchestrator/runtime`, `agents`, `orchestrator/server`, and
 `orchestrator/native/workspace.c`. `token.{c,h}` changed only to let the one sender carry a root and
 an `agentId`, which is what "no second path" required. The tab enum is unchanged; the two new
 operations sort below `OP_BYTES` and each carries its own static assertion. F105 stays
@@ -6006,7 +6006,7 @@ Gates on the merged tip (a5bb1c8 is an ancestor of it): `npm run build` clean, z
 `npm run build:surface` is a prerequisite for the two recorder specs; without it they fail on a
 missing SDL fixture rather than on anything real.
 
-Untouched by this change: `orchestrator/runtime` (the ledger and the worker), `orchestrator/agents`,
+Untouched by this change: `orchestrator/runtime` (the ledger and the worker), `agents`,
 `orchestrator/server`, and `orchestrator/native/tracker.c` (another lane) — they enter the branch only
 through the merge. The tab enum and the OP_* ordering are unchanged; the one new metric is
 `sessions.token-width` in `theme.json`. Sidecar anchors for the three edited files are re-pointed, and
@@ -6038,7 +6038,7 @@ they land.
   rendered prompt as the CLI's positional initial argument, then `task` recorded on the conversation.
   **`GET /api/agents-menu`**: the declared menu or rEngine's known lists, plus the live agent panes
   with the task each is working. Feed frames `task.added`, `task.updated`, `agent.spawned`.
-- **Prompts** shipped at `orchestrator/templates/prompts/{task,decompose}.md`, overridable at
+- **Prompts** shipped at `templates/prompts/{task,decompose}.md`, overridable at
   `.rengine/prompts/<name>.md`; a placeholder a project misspells is named in the refusal.
 - **MCP**: `task_add`, `task_update`, `task_decompose`, `spawn_agent` (holder only) and
   `list_agents_menu` (read), gated on `taskWrites`/`agentSpawn`/`agentsMenu`.
@@ -7182,7 +7182,7 @@ older launch) stays anonymous and sends nothing. `request()` carries only `X-Ren
 printable values, laid down before Authorization so a caller cannot displace it. Nothing enforces the
 header — that is stage 2.
 
-New `orchestrator/agents/bind.mjs` (npm script `bind`) binds an agent the workspace never spawned: it
+New `agents/bind.mjs` (npm script `bind`) binds an agent the workspace never spawned: it
 scans the sidecar descriptors under the state directory, asks each live instance for its roots, picks
 the one serving `--project`, mints the same identity a pane-spawned agent gets, and prints the
 configuration path with the flag that consumes it. Two instances claiming the directory is a refusal
@@ -8044,7 +8044,7 @@ its surface rather than being a peer, it closes with it, and Escape closes the l
 surface second, which is what "closes the top surface" already meant.
 
 Also fixed a defect the nolf-improved session reported after it cost them a live session, which is
-mine because it is in the recipe's template. `orchestrator/templates/project/editor.sh` passed no
+mine because it is in the recipe's template. `templates/project/editor.sh` passed no
 state directory, so every scaffolded project fell back to the shared default and two projects bound
 both their roots into one workspace. The project selector appeared not to switch, and a host restart
 from one checkout took the other project's retained agent with it, because live PTYs belong to the
@@ -8773,7 +8773,7 @@ Add project button should automate. `orchestrator/actions/integrate-project.sh` 
 wizard in the `lib/wizard.sh` conventions (verify the repository and that the remote advertises the
 pin, add and pin `third_party/rengine`, install `editor.sh`, write the declaration, copy the
 declaration test) that never overwrites, prints a plan under `--dry-run` and prompts only on a TTY.
-`orchestrator/templates/project/` — `editor.sh`, the reference contract-2 `project.json`, a generic
+`templates/project/` — `editor.sh`, the reference contract-2 `project.json`, a generic
 `test_rengine_project_decl.py` (structure always, pinned schema when the pin carries the declared
 contract, behaviour when the CLI is built) and a README naming each destination; no template names
 a game or a format.

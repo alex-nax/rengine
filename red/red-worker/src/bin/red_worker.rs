@@ -1999,7 +1999,7 @@ fn about_project(worker: &Worker, head: &Head, body: &str) -> Result<serde_json:
 fn shipped_prompts() -> std::path::PathBuf {
     std::env::current_exe()
         .ok()
-        .and_then(|exe| exe.ancestors().nth(4).map(|checkout| checkout.join("orchestrator/templates/prompts")))
+        .and_then(|exe| exe.ancestors().nth(4).map(|checkout| checkout.join("templates/prompts")))
         .unwrap_or_default()
 }
 

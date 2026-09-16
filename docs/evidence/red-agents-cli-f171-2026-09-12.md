@@ -61,7 +61,7 @@ implementation, each sabotage with a file backup and a restore:
 ## Notes for F172/F173
 
 - `red-agents` resolves the registry document as `$RENGINE_AGENT_REGISTRY`, else
-  `orchestrator/agents/registry.toml` relative to the binary (debug/release both work); F172's
+  `agents/registry.toml` relative to the binary (debug/release both work); F172's
   report-session should resolve it the same way.
 - The parsers' `Parsed` shape `(Option<String>, &'static str)` is what F173's identity port
   consumes; the JS parsers stay the reference until registry.mjs is deleted there.

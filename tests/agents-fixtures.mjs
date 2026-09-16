@@ -55,8 +55,8 @@ export async function recordLaunch(agentLaunch, kase, directory) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
-  const { agentLaunch, codexHookKey, codexHookTrustHash } = await import('../orchestrator/agents/config.mjs');
-  const { agentNames, resolvedRecipes } = await import('../orchestrator/agents/registry.mjs');
+  const { agentLaunch, codexHookKey, codexHookTrustHash } = await import('../agents/config.mjs');
+  const { agentNames, resolvedRecipes } = await import('../agents/registry.mjs');
   const command = "'/opt/red-agents' report-session --provider codex --context '/tmp/c.json'";
   const launches = {};
   for (const kase of LAUNCHES) {

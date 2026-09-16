@@ -75,7 +75,7 @@ Read off real behaviour, not source:
 | a language server | a recorder server writes down the `initialize` params it receives | `clientInfo.name === "Red"` |
 | the tracker sign-in callback | a real loopback request to the listener `begin()` opened | `<title>Red</title>` |
 
-`orchestrator/agents/ide-connect.mjs` needed no change and is asserted rather than assumed:
+`agents/ide-connect.mjs` needed no change and is asserted rather than assumed:
 `IDE_NAME === PRODUCT_NAME`, and its "is this editor ours?" test fixtures publish `IDE_NAME` instead
 of a literal — a fixture holding the old word would have kept passing while auto-connect (F103)
 silently stopped recognising this workspace's own editor.

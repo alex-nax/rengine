@@ -40,7 +40,7 @@ function binary(declared, name, crate) {
 
 export const MCP_OVERLAYS = ['flag', 'config-args', 'env-defaults', 'env-inline', 'project-file'];
 export const HOOK_OVERLAYS = [null, 'per-launch-settings', 'per-launch-config', 'guided-bootstrap'];
-export const REGISTRY_DOCUMENT = fileURLToPath(new URL('../orchestrator/agents/registry.toml', import.meta.url));
+export const REGISTRY_DOCUMENT = fileURLToPath(new URL('../agents/registry.toml', import.meta.url));
 
 /* Primed once per process, and re-primed when the extra document's name changes: the module this
    replaces read RENGINE_AGENT_REGISTRY_EXTRA at call time so a recipe added as data needed no
@@ -157,7 +157,12 @@ function open() {
 export const closeAgents = () => { service?.child.kill(); service = null; };
 
 const NODE = process.execPath;
-/* The path the FROZEN RECORD carries, which is a string rather than a file: `agents/mcp.mjs` is
+/* The path the FROZEN RECORD carries, which is a string rather than a file, and a directory that
+   no longer exists either (charter D71 moved agents/ to the root). It is spelled the old way ON
+   PURPOSE: `fileURLToPath` composes a string without touching the disk, and the string the record
+   was taken with is the one the comparison needs. Rewriting this path to match today's tree would
+   change the record's meaning rather than the code's.
+   Originally: `agents/mcp.mjs` is
    deleted, and a pane's server is `red-mcp --facade` now (spec 146). This fixture exists to drive
    `launch_plan` through the older `mcpMain` shape the record was taken through, so it keeps naming
    what the record names. What a real launch composes is asserted directly in

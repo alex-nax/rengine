@@ -73,7 +73,7 @@ pub struct Age {
    two files — so it under-reports rather than over-reports, which is the safe direction for a
    notice that tells someone to restart. KI-126. */
 pub const CODE_AREAS: [&str; 5] =
-    ["orchestrator/server", "orchestrator/launcher", "orchestrator/agents", "scripts", "contracts"];
+    ["orchestrator/server", "orchestrator/launcher", "agents", "scripts", "contracts"];
 
 /// `sidecar.json` is written at host start, so its time is the host's — a heuristic, and the notice
 /// says so.

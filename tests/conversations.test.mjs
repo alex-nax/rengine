@@ -105,7 +105,7 @@ provider = "shoutycli"
 resumeLine = "shoutycli --resume {id}"
 `);
   process.env.RENGINE_AGENT_REGISTRY_EXTRA = extra;
-  process.env.RENGINE_AGENT_REGISTRY = path.resolve('orchestrator/agents/registry.toml');
+  process.env.RENGINE_AGENT_REGISTRY = path.resolve('agents/registry.toml');
   t.after(() => { delete process.env.RENGINE_AGENT_REGISTRY_EXTRA; delete process.env.RENGINE_AGENT_REGISTRY; });
 
   const store = await WorkspaceStore.open(path.join(dir, 'state'));

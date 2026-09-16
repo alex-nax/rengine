@@ -97,7 +97,7 @@ mod tests {
     fn recipes() -> Value {
         let text = std::fs::read_to_string(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().and_then(|red| red.parent())
-                .expect("the checkout").join("orchestrator/agents/registry.toml"),
+                .expect("the checkout").join("agents/registry.toml"),
         )
         .expect("the registry");
         red_agents::projection(&red_agents::load_registry(&text, "registry.toml", None).expect("a registry"))

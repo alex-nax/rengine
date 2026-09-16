@@ -4,7 +4,7 @@ RE_ACTION_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 RE_ENGINE_ROOT=$(CDPATH= cd -- "$RE_ACTION_DIR/../.." && pwd)
 # shellcheck source=lib/wizard.sh
 source "$RE_ACTION_DIR/lib/wizard.sh"
-RE_TEMPLATES="$RE_ENGINE_ROOT/orchestrator/templates/project"
+RE_TEMPLATES="$RE_ENGINE_ROOT/templates/project"
 RE_PROJECT='' RE_NAME='' RE_URL='' RE_PIN='' RE_CONTRACT='' RE_DRY=0 RE_SUBMODULE=1
 RE_GAME_TITLE='' RE_GAME_EXE='' RE_GAME_SURFACE=external
 RE_NAME_RE='^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$'
@@ -34,7 +34,7 @@ docs/runbooks/project-integration.md (spec 077).
   --help                  this text
 
 The game arguments scaffold ONE record in the declaration's "games" array. Further targets
-on the same engine are added by hand from orchestrator/templates/project/project.json, which
+on the same engine are added by hand from templates/project/project.json, which
 carries the multi-record reference; ids must stay unique across the array.
 
 Missing values are prompted only in a human terminal; supplied arguments run unattended.
@@ -189,7 +189,7 @@ Follow-ups this wizard deliberately leaves to the project:
      in .rengine/project.json with \${file}/\${entry} argv.
   4. Fill the dashboard groups (quick start, device, distribution) with the project's scripts.
   5. Add any further game targets to the "games" array by hand (unique kebab-case ids); the
-     multi-record reference is orchestrator/templates/project/project.json.
+     multi-record reference is templates/project/project.json.
   6. Run ./editor.sh --check, then ./editor.sh to open the project window.
 Recipe: docs/runbooks/project-integration.md
 FOLLOWUPS

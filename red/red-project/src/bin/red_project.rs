@@ -27,7 +27,7 @@ use std::process::ExitCode;
 fn recipes() -> serde_json::Value {
     let declared = std::env::var("RENGINE_AGENT_REGISTRY").ok().filter(|path| !path.is_empty());
     let path = declared.map(std::path::PathBuf::from).or_else(|| {
-        std::env::current_exe().ok().and_then(|exe| exe.ancestors().nth(4).map(|checkout| checkout.join("orchestrator/agents/registry.toml")))
+        std::env::current_exe().ok().and_then(|exe| exe.ancestors().nth(4).map(|checkout| checkout.join("agents/registry.toml")))
     });
     path.and_then(|path| std::fs::read_to_string(&path).ok().map(|text| (text, path)))
         .and_then(|(text, path)| red_agents::load_registry(&text, &path.to_string_lossy(), None).ok())
@@ -71,7 +71,7 @@ impl red_project::tracker_remote::Fetching for Recorded {
 fn shipped_prompts() -> std::path::PathBuf {
     std::env::current_exe()
         .ok()
-        .and_then(|exe| exe.ancestors().nth(4).map(|checkout| checkout.join("orchestrator/templates/prompts")))
+        .and_then(|exe| exe.ancestors().nth(4).map(|checkout| checkout.join("templates/prompts")))
         .unwrap_or_default()
 }
 

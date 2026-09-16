@@ -66,7 +66,7 @@ orchestrator/native/theme.json   "product": { "name": "Red", "suite": "Red Suite
                          └── server/tracker-auth.mjs   the callback page
 ```
 
-`orchestrator/agents/ide-connect.mjs` needs no change: it already decides "is this editor ours?" by
+`agents/ide-connect.mjs` needs no change: it already decides "is this editor ours?" by
 comparing a lock's `ideName` against the imported `IDE_NAME`, so it follows the rename by
 construction. That indirection is load-bearing — a workspace that stopped recognising its own editor
 would silently stop auto-connecting agent panes (F103) with no error anywhere.

@@ -3,7 +3,7 @@
 2026-09-11, macOS, codex-cli 0.153.4 (installed at `/Users/alex/.n/bin/codex`), node 22.
 Consumer-path evidence for F113 criterion 6 (a codex launch carries the SessionStart hook
 overlay beside its MCP wiring) and the basis for `codexHookKey`/`codexHookTrustHash` in
-`orchestrator/agents/config.mjs`.
+`agents/config.mjs`.
 
 ## What had to be true
 

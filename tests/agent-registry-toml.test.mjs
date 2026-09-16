@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const REGISTRY = path.join(ROOT, 'orchestrator/agents/registry.toml');
+const REGISTRY = path.join(ROOT, 'agents/registry.toml');
 const DUMP = path.join(ROOT, 'red/target/debug/red-agents-dump');
 const run = promisify(execFile);
 

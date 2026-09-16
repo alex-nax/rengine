@@ -131,7 +131,7 @@ test('two scaffolded projects do not share one workspace', async () => {
 });
 
 test('the reference template declaration follows the same contract rules and shows the games array', async () => {
-  const templates = path.join(ENGINE, 'orchestrator/templates/project');
+  const templates = path.join(ENGINE, 'templates/project');
   const template = JSON.parse(await readFile(path.join(templates, 'project.json'), 'utf8'));
   const { problems, scripts } = await declarationProblems(template, templates);
   assert.deepEqual(problems, []);

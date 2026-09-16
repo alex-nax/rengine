@@ -1,6 +1,6 @@
 //! The pane's stable MCP endpoint, with a worker that can be replaced underneath it (F163, spec 146).
 //!
-//! `orchestrator/agents/mcp.mjs`. It is NOT a shim, and that is the whole reason it exists: a CLI
+//! `agents/mcp.mjs`. It is NOT a shim, and that is the whole reason it exists: a CLI
 //! opens one stdio connection to its MCP server and keeps it for the life of the session, so a
 //! workspace that wants to update its tools while an agent is mid-conversation has to keep that
 //! connection while changing what is behind it. This process is the part that does not move.

@@ -282,7 +282,7 @@ to its own without asking anyone.
 
 F103 originally said auto-connect could only reach a running workspace by replacing its session
 host, on the KI-043 reasoning that the launch environment is host-composed. That is wrong. The host
-spawns `scripts/agent.sh`, which execs `orchestrator/agents/launch.mjs` **from the checkout at every
+spawns `scripts/agent.sh`, which execs `agents/launch.mjs` **from the checkout at every
 pane launch**. The decision is therefore made in the pane, by code read from disk, and reaches a
 running workspace with no host replacement and no layered update at all. The row records the
 correction rather than quietly dropping the claim.

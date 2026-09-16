@@ -2,7 +2,7 @@
 
 Date: 2026-09-07. Machine: macos. Branch: `feat/report-session-hook`, from `origin/main` at `6f61640`.
 Not merged. A concurrent lane on the same checkout has unpushed commits up to `2de6088` that also touch
-`orchestrator/agents/mcp-worker.mjs` and `mcp.mjs` (F98, spec 101) — a merge, not a conflict of intent:
+`agents/mcp-worker.mjs` and `mcp.mjs` (F98, spec 101) — a merge, not a conflict of intent:
 that lane changes how the facade refreshes its worker, this one changes what the worker reads per call.
 Parent evidence: [conversation-is-identity-2026-09-07.md](conversation-is-identity-2026-09-07.md),
 which reconciled the two lanes that both minted a UUID. This closes what that reconciliation left open.
@@ -74,11 +74,11 @@ the payload for `source: resume`, and that a hook inherits the launch environmen
 
 | file | change |
 | --- | --- |
-| `orchestrator/agents/report-session.mjs` (new) | reads the hook payload from stdin, finds this launch's binding, posts `POST /api/agent-conversation`, and rewrites the per-launch `context.json` identity |
+| `agents/report-session.mjs` (new) | reads the hook payload from stdin, finds this launch's binding, posts `POST /api/agent-conversation`, and rewrites the per-launch `context.json` identity |
 | | it is given that context on its own command line (`--context`), so a session started by hand from the line `bind.mjs` prints — which inherits none of the launcher's environment — is bound as well as a pane is; the environment is the fallback |
-| `orchestrator/agents/config.mjs` | writes that hook into a per-launch `settings.json` beside `mcp.json`, and passes `--settings` on a claude launch |
-| `orchestrator/agents/bind.mjs` | prints the same `--settings` flag, so a session started outside the workspace reports itself too |
-| `orchestrator/agents/mcp-worker.mjs` | re-reads the identity from the context file once per tool call; the binding stays the facade's snapshot |
+| `agents/config.mjs` | writes that hook into a per-launch `settings.json` beside `mcp.json`, and passes `--settings` on a claude launch |
+| `agents/bind.mjs` | prints the same `--settings` flag, so a session started outside the workspace reports itself too |
+| `agents/mcp-worker.mjs` | re-reads the identity from the context file once per tool call; the binding stays the facade's snapshot |
 
 No `orchestrator/server/*` change — the `agent-conversation` route already existed for `launch.mjs` —
 and no `orchestrator/native/*` change: the ledger identity follows because its header comes from the
@@ -111,7 +111,7 @@ The settings the launcher wrote, verbatim:
   "hooks": {
     "SessionStart": [
       { "hooks": [ { "type": "command",
-        "command": "/Users/alex/.n/bin/node /Users/alex/rengine/.cache/worktrees/report-session/orchestrator/agents/report-session.mjs --context /var/folders/…/rengine_123456781234-ad8e0882-…/context.json" } ] }
+        "command": "/Users/alex/.n/bin/node /Users/alex/rengine/.cache/worktrees/report-session/agents/report-session.mjs --context /var/folders/…/rengine_123456781234-ad8e0882-…/context.json" } ] }
     ]
   }
 }

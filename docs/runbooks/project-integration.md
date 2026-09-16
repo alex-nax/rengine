@@ -58,7 +58,7 @@ the declaration test, then prints the follow-ups. `--dry-run` prints the plan an
 `--no-submodule` skips the pin stage; `--contract 1` writes a formats-only declaration; existing
 files are reported and skipped. The game arguments scaffold **one** record in the declaration's
 `games` array (at `contract: 3`); further targets on the same engine are added by hand from the
-multi-record reference in `orchestrator/templates/project/project.json`. Everything below is what
+multi-record reference in `templates/project/project.json`. Everything below is what
 that command does, why, and the parts it deliberately leaves to a human.
 
 ## 1. Prerequisites
@@ -98,7 +98,7 @@ git -C /path/to/project commit -m "chore(rengine): pin <sha> — <reason>"
 
 ## 3. `editor.sh` — the launching point
 
-Copy `orchestrator/templates/project/editor.sh` to the project root (mode 755). It bootstraps what
+Copy `templates/project/editor.sh` to the project root (mode 755). It bootstraps what
 is missing and `exec`s the launcher on the project root:
 
 ```sh
@@ -120,7 +120,7 @@ the project's `git status` stays clean. State defaults to rEngine's `~/.local/st
 The contracts nest: contract 1 is `contract`, `project` and `formats`; contract 2 adds an optional
 `dashboard`; contract 3 adds an optional `games` array. Declare the lowest contract that carries
 what you write, and a declaration that carries `games` **must** say `contract: 3`. There is no
-singular `game` key. The full reference is `orchestrator/templates/project/project.json`; the rules
+singular `game` key. The full reference is `templates/project/project.json`; the rules
 are specs 074 (formats), 075 (dashboard) and 078 (game targets).
 
 ```json
@@ -198,7 +198,7 @@ Rules that bite:
 
 ## 5. Tests the project keeps
 
-Copy `orchestrator/templates/project/test_rengine_project_decl.py` to `tests/`. It has three tiers
+Copy `templates/project/test_rengine_project_decl.py` to `tests/`. It has three tiers
 and needs no network and no running orchestrator:
 
 | Tier | Runs | Checks |

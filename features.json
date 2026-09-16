@@ -638,12 +638,12 @@
       "acceptance_criteria": [
         "docs/runbooks/project-integration.md carries the ordered recipe with runnable commands (prerequisites, submodule pin policy, editor.sh launching point, contract-3 .rengine/project.json, the tests a consumer keeps and how to register them, skills/AGENTS wiring, the cross-vendor review gate, opening the project window, layered updates, owner-verified consumer gates, pin bumps), the nolf-improved and vtmb-vr instances as tables, and what the orchestrator UI will automate.",
         "orchestrator/actions/integrate-project.sh follows the lib/wizard.sh conventions and scaffolds a consumer in five stages (verify the repository and the advertised pin, pin third_party/rengine, install editor.sh, write .rengine/project.json, copy the declaration test); explicit arguments run unattended, missing values prompt only on a TTY, existing files are reported and skipped, --dry-run prints the plan and writes nothing, and the follow-ups it leaves to the project are printed.",
-        "orchestrator/templates/project/ holds editor.sh, the reference project.json, the generic test_rengine_project_decl.py and a README naming each destination, none of them naming a specific game or format; tests/integrate-project.test.mjs scaffolds a temporary git repository and asserts the declared structure through the shipped schema and cross-rule modules, the contract-1 core through readDeclaration, the launcher dry runs, the copied Python test, skip-never-overwrite, an empty --dry-run and the pinned submodule."
+        "templates/project/ holds editor.sh, the reference project.json, the generic test_rengine_project_decl.py and a README naming each destination, none of them naming a specific game or format; tests/integrate-project.test.mjs scaffolds a temporary git repository and asserts the declared structure through the shipped schema and cross-rule modules, the contract-1 core through readDeclaration, the launcher dry runs, the copied Python test, skip-never-overwrite, an empty --dry-run and the pinned submodule."
       ],
       "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/077-project-integration-recipe.md, docs/runbooks/project-integration.md, actions/posix/integrate-project.sh, orchestrator/templates/project/ and tests/integrate-project.test.mjs",
+      "deliverable": "docs/specs/077-project-integration-recipe.md, docs/runbooks/project-integration.md, actions/posix/integrate-project.sh, templates/project/ and tests/integrate-project.test.mjs",
       "external_references": [
         "nolf-improved docs/specs/feature-1700-rengine-submodule.md",
         "nolf-improved docs/specs/feature-1703-editor-launcher.md",
@@ -747,7 +747,7 @@
         72
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/078-project-game-declaration.md (layered-update asymmetry), orchestrator/server/games.mjs and main.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, tests/games.test.mjs and dashboard.test.mjs",
+      "deliverable": "docs/specs/078-project-game-declaration.md (layered-update asymmetry), orchestrator/server/games.mjs and main.mjs, orchestrator/runtime/worker.mjs, agents/mcp-worker.mjs, tests/games.test.mjs and dashboard.test.mjs",
       "external_references": [
         "vtmb-vr and nolf-improved .rengine/project.json declarations"
       ],
@@ -772,7 +772,7 @@
         74
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/081-game-recording.md, editor/recording.c and jpeg.c, orchestrator/server/recordings.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, editor/tests/recording_test.c, tests/recordings.test.mjs and native-recording.spec.mjs",
+      "deliverable": "docs/specs/081-game-recording.md, editor/recording.c and jpeg.c, orchestrator/server/recordings.mjs, orchestrator/runtime/worker.mjs, agents/mcp-worker.mjs, editor/tests/recording_test.c, tests/recordings.test.mjs and native-recording.spec.mjs",
       "external_references": [
         "capture-mcp (per-app audio and transcription) \u2014 KI-044"
       ],
@@ -798,7 +798,7 @@
         74
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/082-project-devices.md, contracts/project-v1.schema.json, orchestrator/server/{device-rules,devices,formats,games,dashboard}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, editor/{devices.c,devices.h,app.c,workspace.c,theme.json}, tests/{devices.test.mjs,device-fixtures.mjs,native-devices.spec.mjs}",
+      "deliverable": "docs/specs/082-project-devices.md, contracts/project-v1.schema.json, orchestrator/server/{device-rules,devices,formats,games,dashboard}.mjs, orchestrator/runtime/worker.mjs, agents/mcp-worker.mjs, editor/{devices.c,devices.h,app.c,workspace.c,theme.json}, tests/{devices.test.mjs,device-fixtures.mjs,native-devices.spec.mjs}",
       "external_references": [
         "vtmb-vr/docs/specs/feature-1146-device-targets.md (consumer proposal)",
         "vtmb-vr and nolf-improved .rengine/project.json declarations"
@@ -824,7 +824,7 @@
         71
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/078-project-game-declaration.md, contracts/project-v1.schema.json, orchestrator/server/{game-rules,games}.mjs, editor/app.c, actions/posix/integrate-project.sh, orchestrator/templates/project/test_rengine_project_decl.py, docs/runbooks/project-integration.md, tests/{cooperative.test.mjs,surface-producer.mjs,game-fixtures.mjs,native-cooperative.spec.mjs}",
+      "deliverable": "docs/specs/078-project-game-declaration.md, contracts/project-v1.schema.json, orchestrator/server/{game-rules,games}.mjs, editor/app.c, actions/posix/integrate-project.sh, templates/project/test_rengine_project_decl.py, docs/runbooks/project-integration.md, tests/{cooperative.test.mjs,surface-producer.mjs,game-fixtures.mjs,native-cooperative.spec.mjs}",
       "external_references": [
         "vtmb-vr F1147 (the consumer's own surface-protocol client, src/platform/workspace_surface.cpp)"
       ],
@@ -911,7 +911,7 @@
         76
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/082-project-devices.md, orchestrator/server/{devices,main}.mjs, orchestrator/runtime/worker.mjs, orchestrator/agents/mcp-worker.mjs, editor/{devices.c,theme.json,theme.h}, tests/{devices.test.mjs,native-devices.spec.mjs} (input seam merged with 1a9c591)",
+      "deliverable": "docs/specs/082-project-devices.md, orchestrator/server/{devices,main}.mjs, orchestrator/runtime/worker.mjs, agents/mcp-worker.mjs, editor/{devices.c,theme.json,theme.h}, tests/{devices.test.mjs,native-devices.spec.mjs} (input seam merged with 1a9c591)",
       "external_references": [
         "vtmb-vr scripts/wizards/remote-rengine.sh, the pcvr-bound install action this makes reachable"
       ],
@@ -991,7 +991,7 @@
         81
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/095-project-token.md; identity in orchestrator/agents/{config,launch}.mjs and a new bind.mjs; ledger, feed and gates in orchestrator/runtime/worker.mjs; token_*/feed_* tools and the identity header in orchestrator/agents/mcp-worker.mjs; the status-bar segment in editor/app.c",
+      "deliverable": "docs/specs/095-project-token.md; identity in agents/{config,launch}.mjs and a new bind.mjs; ledger, feed and gates in orchestrator/runtime/worker.mjs; token_*/feed_* tools and the identity header in agents/mcp-worker.mjs; the status-bar segment in editor/app.c",
       "external_references": [],
       "evidence": [
         "docs/evidence/agent-identity-2026-09-07.md",
@@ -1043,7 +1043,7 @@
         91
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/096-agent-session-resume.md; agentConversation and agentLaunch in orchestrator/agents/config.mjs; orchestrator/agents/launch.mjs; spawnTerminal, snapshot and restartAgent in orchestrator/server/sessions.mjs; /api/agent-restart and the agentConversations capability in orchestrator/server/main.mjs; the restart_agent tool in orchestrator/agents/mcp-worker.mjs; tests/{agent-config,sessions}.test.mjs.",
+      "deliverable": "docs/specs/096-agent-session-resume.md; agentConversation and agentLaunch in agents/config.mjs; agents/launch.mjs; spawnTerminal, snapshot and restartAgent in orchestrator/server/sessions.mjs; /api/agent-restart and the agentConversations capability in orchestrator/server/main.mjs; the restart_agent tool in agents/mcp-worker.mjs; tests/{agent-config,sessions}.test.mjs.",
       "external_references": [],
       "evidence": [
         "tests/agent-config.test.mjs: rEngine names the conversation it launches and resumes that same one",
@@ -1076,7 +1076,7 @@
         92
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/097-agent-conversation-persistence.md; listConversations and recordConversation in orchestrator/server/store.mjs; the listing, describeAge and Sessions.recordConversation in orchestrator/server/sessions.mjs; the report in orchestrator/agents/launch.mjs; /api/agent-conversation and conversations on /api/state in orchestrator/server/main.mjs; scoped conversations in orchestrator/agents/mcp-worker.mjs; choose_conversation in actions/pane/posix/agent.sh; tests/{conversations,conversation-picker}.test.mjs.",
+      "deliverable": "docs/specs/097-agent-conversation-persistence.md; listConversations and recordConversation in orchestrator/server/store.mjs; the listing, describeAge and Sessions.recordConversation in orchestrator/server/sessions.mjs; the report in agents/launch.mjs; /api/agent-conversation and conversations on /api/state in orchestrator/server/main.mjs; scoped conversations in agents/mcp-worker.mjs; choose_conversation in actions/pane/posix/agent.sh; tests/{conversations,conversation-picker}.test.mjs.",
       "external_references": [],
       "evidence": [
         "tests/conversations.test.mjs: conversations outlive the session host that recorded them",
@@ -1164,7 +1164,7 @@
         95
       ],
       "owner_workspace": "rengine",
-      "deliverable": "A spec under docs/specs/; discovery beside orchestrator/agents/handoff.mjs, whose codex rollout lookup is the existing precedent; surfaced through the same /api/state conversations path the Sessions tab already reads.",
+      "deliverable": "A spec under docs/specs/; discovery beside agents/handoff.mjs, whose codex rollout lookup is the existing precedent; surfaced through the same /api/state conversations path the Sessions tab already reads.",
       "external_references": [],
       "evidence": []
     },
@@ -1225,7 +1225,7 @@
         78
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/101-live-capability-updates.md; orchestrator/runtime/tracker.mjs; the tracker routes and tracker capability in orchestrator/runtime/worker.mjs; stateDir on /api/state in orchestrator/server/main.mjs with the shared signIn in orchestrator/server/tracker-auth.mjs; toolWorker in the supervisor descriptor (orchestrator/runtime/supervisor.mjs); the descriptor watcher, probed-worker choice and stale-name answer in orchestrator/agents/mcp.mjs; list_tasks in orchestrator/agents/mcp-worker.mjs; tests/hot-update.test.mjs with its stale-tool-worker.mjs fixture.",
+      "deliverable": "docs/specs/101-live-capability-updates.md; orchestrator/runtime/tracker.mjs; the tracker routes and tracker capability in orchestrator/runtime/worker.mjs; stateDir on /api/state in orchestrator/server/main.mjs with the shared signIn in orchestrator/server/tracker-auth.mjs; toolWorker in the supervisor descriptor (orchestrator/runtime/supervisor.mjs); the descriptor watcher, probed-worker choice and stale-name answer in agents/mcp.mjs; list_tasks in agents/mcp-worker.mjs; tests/hot-update.test.mjs with its stale-tool-worker.mjs fixture.",
       "external_references": [],
       "evidence": [
         "tests/hot-update.test.mjs: the tracker routes are served by the worker above a retained host that never had them",
@@ -1368,7 +1368,7 @@
         "The option is carried by a table in the agent launch configuration, so adding a CLI that supports it is a declaration rather than a code change.",
         "The pane connects to THIS workspace's editor, named by port rather than chosen by counting: the session host is an ancestor of every pane it forks, so the lock naming a pid in this process's ancestor chain is ours, and its port is passed as CLAUDE_CODE_SSE_PORT, which the CLI honours to select one editor outright. Counting was the first rule and would have declined forever on this machine, where two workspaces bind /Users/alex/rengine; it remains the fallback when the ancestor chain identifies none of the offered editors.",
         "An editor is offered for a directory only when a declared folder actually contains it: a sibling whose name merely starts with the folder's name (/work/rengine-old against /work/rengine) is not inside it, and a lock whose process is gone is not offered at all.",
-        "CORRECTED: an earlier criterion said this could only reach a running workspace by replacing its session host. That is wrong. The host spawns scripts/agent.sh, which execs orchestrator/agents/launch.mjs from the checkout at every pane launch, so the decision is made in the pane by code read from disk \u2014 it reaches a running workspace with no host replacement and no layered update.",
+        "CORRECTED: an earlier criterion said this could only reach a running workspace by replacing its session host. That is wrong. The host spawns scripts/agent.sh, which execs agents/launch.mjs from the checkout at every pane launch, so the decision is made in the pane by code read from disk \u2014 it reaches a running workspace with no host replacement and no layered update.",
         "Each regression was observed failing for its own reason: the flag passed whenever any editor is offered, a bare prefix used for containment, a dead editor still offered, and every CLI given the flag.",
         "LIVE, done 2026-09-07: a newly opened Claude pane in this workspace came up connected without a slash command. Its /ide menu listed two editors \u2014 hirebase-v2's workspace (which also binds /Users/alex/rengine) and this one \u2014 with the check mark already on this one, and POST /api/ide-selection reported delivered: 2, the existing pane and the new one. The launch resolved this pane's ancestors to session host 33465 and passed CLAUDE_CODE_SSE_PORT=65353. Recorded in docs/evidence/editor-as-claude-ide-2026-09-07.md."
       ],
@@ -1377,7 +1377,7 @@
         99
       ],
       "owner_workspace": "rengine",
-      "deliverable": "orchestrator/agents/ide-connect.mjs; the FLAGS table and the plan's ide decision in orchestrator/agents/config.mjs; the cwd and the printed reason in orchestrator/agents/launch.mjs; tests/ide-connect.test.mjs.",
+      "deliverable": "agents/ide-connect.mjs; the FLAGS table and the plan's ide decision in agents/config.mjs; the cwd and the printed reason in agents/launch.mjs; tests/ide-connect.test.mjs.",
       "external_references": [],
       "evidence": [
         "tests/ide-connect.test.mjs: exactly one is the rule, because that is the rule the CLI applies",
@@ -1413,7 +1413,7 @@
         95
       ],
       "owner_workspace": "rengine",
-      "deliverable": "docs/specs/103-task-driven-agents.md; Sessions-tab token controls in editor/workspace.c; task write routes and agent-spawn in orchestrator/runtime/worker.mjs; task_*/spawn_agent tools in orchestrator/agents/mcp-worker.mjs; Tasks-pane controls in editor/tracker.c; contract 6 in contracts/project-v1.schema.json; shipped prompts under orchestrator/templates/prompts",
+      "deliverable": "docs/specs/103-task-driven-agents.md; Sessions-tab token controls in editor/workspace.c; task write routes and agent-spawn in orchestrator/runtime/worker.mjs; task_*/spawn_agent tools in agents/mcp-worker.mjs; Tasks-pane controls in editor/tracker.c; contract 6 in contracts/project-v1.schema.json; shipped prompts under templates/prompts",
       "external_references": [],
       "evidence": []
     },
@@ -1550,7 +1550,7 @@
         "The name is declared once and generated: theme.json carries the product block, tools/design.py generate writes RE_PRODUCT_NAME and RE_PRODUCT_SUITE into theme.h and PRODUCT_NAME and PRODUCT_SUITE into orchestrator/runtime/product.mjs, and design.py check fails when either generated file is stale or hand-edited.",
         "All four consumers read the generated value: RE_DEFAULT_TITLE is an alias of RE_PRODUCT_NAME, IDE_NAME is PRODUCT_NAME, the LSP clientInfo name is PRODUCT_NAME, and the tracker sign-in callback page takes its title from PRODUCT_NAME.",
         "The rename to Red is complete in shipping code: grepping the shipping tree finds the declaration, the generated output and one deliberate canary, and nothing hand-written; dated records (Codex-progress.md, docs/evidence, earlier features rows, charter D36's own wording) keep the old name on purpose.",
-        "The published change is safe: the lock file publishes the declared name and orchestrator/agents/ide-connect.mjs still recognises this workspace's own editor by comparing against the same export, so auto-connect (F103) cannot silently stop matching after a rename.",
+        "The published change is safe: the lock file publishes the declared name and agents/ide-connect.mjs still recognises this workspace's own editor by comparing against the same export, so auto-connect (F103) cannot silently stop matching after a rename.",
         "A guard fails when a literal product name \u2014 current or retired \u2014 is reintroduced in shipping code, in a string or outside one, while a comment naming the product is left alone.",
         "Breaking the generated path fails loudly rather than falling back to a stale string: without the generated module the JS consumers throw at import, and without the macro the desktop does not compile.",
         "Each regression was observed failing for its own reason, with the runs recorded: a hard-coded current name, a hard-coded retired name, a hand-edited theme.h, a hand-edited product.mjs, a declaration changed without regenerating, a deleted module and a deleted macro."
@@ -1639,11 +1639,11 @@
       "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "The recipe registry module and its schema, the rewired orchestrator/agents/config.mjs, orchestrator/agents/ide-connect.mjs, orchestrator/server/tasks.mjs and actions/pane/posix/agent.sh, the CLAUDE_CONFIG_DIR fix in orchestrator/runtime/ide.mjs, and its tests.",
+      "deliverable": "The recipe registry module and its schema, the rewired agents/config.mjs, agents/ide-connect.mjs, orchestrator/server/tasks.mjs and actions/pane/posix/agent.sh, the CLAUDE_CONFIG_DIR fix in orchestrator/runtime/ide.mjs, and its tests.",
       "external_references": [],
       "evidence": [
         "docs/specs/114-dev-suite-roadmap.md: why protocol before embedding, and where the implicit registry lives today",
-        "orchestrator/agents/registry.mjs: the one declared table (package, update mode, model flag, conversation/resume spellings with id shapes and parsers, MCP overlay kind, hooks overlay kind, IDE connect) plus its shell surface (list/show) for agent.sh; config.mjs, tasks.mjs, ide-connect.mjs, store.mjs, worker.mjs, report-session.mjs, bind.mjs and agent.sh all read it",
+        "agents/registry.mjs: the one declared table (package, update mode, model flag, conversation/resume spellings with id shapes and parsers, MCP overlay kind, hooks overlay kind, IDE connect) plus its shell surface (list/show) for agent.sh; config.mjs, tasks.mjs, ide-connect.mjs, store.mjs, worker.mjs, report-session.mjs, bind.mjs and agent.sh all read it",
         "tests/agent-registry.test.mjs: recipe validity, every consumer reading the one table, a recipe added as DATA becoming an agent end to end (selectable, installable, launchable, spawnable) with no file edited, per-capability named refusal, the codex hook overlay, and CLAUDE_CONFIG_DIR",
         "docs/evidence/codex-sessionstart-hook-2026-09-11.md: codex's hook trust gate, the verified self-trust formula (key + trusted_hash in the same -c layer, no ~/.codex write), SessionStart's live payload, and the end-to-end report to the workspace route under provider codex",
         "sabotage checks 2026-09-11: a private model-flag table in tasks.mjs reddened the data-added-agent test, a dropped features.hooks reddened the overlay test, and a hardcoded agent.sh list reddened both listing tests \u2014 each restored green",
@@ -1772,7 +1772,7 @@
       "passes": false,
       "dependencies": [],
       "owner_workspace": "rengine",
-      "deliverable": "The game_input, game_frame, recording_toggle and recording_commit tools in orchestrator/agents/mcp-worker.mjs, their routes and the ownership refusal in orchestrator/server/surfaces.mjs and the recording path, and its tests.",
+      "deliverable": "The game_input, game_frame, recording_toggle and recording_commit tools in agents/mcp-worker.mjs, their routes and the ownership refusal in orchestrator/server/surfaces.mjs and the recording path, and its tests.",
       "external_references": [],
       "evidence": [
         "docs/specs/114-dev-suite-roadmap.md: the input seam measured at surfaces.mjs:63-82, and KI-024's missing oracle"
@@ -2332,7 +2332,7 @@
       "category": "integration",
       "priority": "high",
       "description": "Kimi Code is a named agent with the same pane functionality as the other four CLIs, because the owner directed unified integration \u2014 the same for everyone, including session listing+discovery. A kimi pane is detected, installed and updated through agent.sh; its launch wires the workspace MCP through the project-level .kimi-code/mcp.json (the only per-project channel kimi publishes), owning exactly one namespaced key and preserving every foreign entry; its session identity comes from its own --session flags with kimi --session <id> as the resume line and an honest unknown for -c or the selector; and live session reporting arrives through a SessionStart hook installed only by an explicit, reversible guided dashboard action, never by a silent write to the person's global config (owner, 2026-09-11; spec 127). F113 stays the follow-up that collapses the per-consumer tables into one registry.",
-      "deliverable": "The kimi entries in orchestrator/agents/config.mjs, orchestrator/server/tasks.mjs and actions/pane/posix/agent.sh, the .kimi-code/mcp.json merge, env-preferred context resolution in orchestrator/agents/mcp.mjs, --provider kimi in orchestrator/agents/report-session.mjs, the actions/posix/bootstrap-agent-hooks.sh guided action declared in .rengine/project.json, the usage-string updates, the AGENTS.md entry-points refresh, and the tests that saw each behavior fail first.",
+      "deliverable": "The kimi entries in agents/config.mjs, orchestrator/server/tasks.mjs and actions/pane/posix/agent.sh, the .kimi-code/mcp.json merge, env-preferred context resolution in agents/mcp.mjs, --provider kimi in agents/report-session.mjs, the actions/posix/bootstrap-agent-hooks.sh guided action declared in .rengine/project.json, the usage-string updates, the AGENTS.md entry-points refresh, and the tests that saw each behavior fail first.",
       "acceptance_criteria": [
         "kimi is named everywhere the other four CLIs are named: launcher and bind usage strings, agent.sh list/install/update, KNOWN_AGENTS and MODEL_FLAGS.",
         "A kimi pane launch wires the workspace MCP through .kimi-code/mcp.json at the pane's repository root: the file is created when absent, every foreign entry is preserved, only rEngine's own rengine_<rootId12> key is replaced, and invalid existing JSON is refused with the file left untouched.",
@@ -2625,7 +2625,7 @@
         "docs/evidence/report-session-f172-2026-09-13.md",
         "docs/evidence/red-agents-cli-f171-2026-09-12.md",
         "docs/evidence/agents-swap-f173-2026-09-13.md",
-        "orchestrator/agents/{registry,config,report-session,bind}.mjs are deleted (4209680, 6c4e756); agents-client.mjs is a thin client over red-agents-serve, and tests/red-agents-cli.test.mjs holds the byte-exact CLI, parser and codex trust-hash comparisons against the frozen JS answers."
+        "agents/{registry,config,report-session,bind}.mjs are deleted (4209680, 6c4e756); agents-client.mjs is a thin client over red-agents-serve, and tests/red-agents-cli.test.mjs holds the byte-exact CLI, parser and codex trust-hash comparisons against the frozen JS answers."
       ]
     },
     {
@@ -3045,9 +3045,9 @@
       "milestone": "J0",
       "category": "workspace",
       "priority": "medium",
-      "description": "F148a (the data half of F148): the agent recipe registry is one TOML document \u2014 orchestrator/agents/registry.toml is the only recipe table, parsed by the remaining JS and the red-agents crate through the same bounded subset, with the EXTRA file moving from JSON to TOML (owner, 2026-09-12; spec 129, KI-092).",
+      "description": "F148a (the data half of F148): the agent recipe registry is one TOML document \u2014 agents/registry.toml is the only recipe table, parsed by the remaining JS and the red-agents crate through the same bounded subset, with the EXTRA file moving from JSON to TOML (owner, 2026-09-12; spec 129, KI-092).",
       "acceptance_criteria": [
-        "orchestrator/agents/registry.toml is the only recipe table: registry.mjs parses it through the subset the red-agents crate mirrors, cook() and the exported API are byte-stable, and the EXTRA file is TOML data on both sides with redeclaration refused in the same words.",
+        "agents/registry.toml is the only recipe table: registry.mjs parses it through the subset the red-agents crate mirrors, cook() and the exported API are byte-stable, and the EXTRA file is TOML data on both sides with redeclaration refused in the same words.",
         "JS and Rust resolve identical recipes for every CLI, proven against the red-agents-dump JSON projection; malformed documents are refused with file:line by both parsers."
       ],
       "passes": true,
@@ -3171,7 +3171,7 @@
         "tests/red-report-session.test.mjs: fourteen cases against answers the JS CLI recorded before deletion (report-session-fixtures.json) \u2014 exit code, stderr, stdout, the POST body and the context file afterwards, for the three reporting providers, the two refusals, both binding orders, the gating and the malformed edges (c1).",
         "tests/report-session.test.mjs: the pre-existing eight tests ported to the binary \u2014 the launcher's settings file and hook line, the line `bind` prints running with no environment, the conversation replacing the identity, the kimi and codex hooks with their own resume spellings, and the tool worker's next call following the CLI (c2).",
         "Sabotage-verified, each for its own reason: the POST body's fields reordered (red on 'the POST the host recorded'), the launcher writing `node report-session.mjs` again (red on 'the hook runs the red-agents binary by absolute path'), and unparseable stdin swallowed into {} again (red on 'trouble goes to stderr and nowhere else').",
-        "npm test: 297 of 297 with orchestrator/agents/report-session.mjs deleted in the same commit."
+        "npm test: 297 of 297 with agents/report-session.mjs deleted in the same commit."
       ]
     },
     {
@@ -3194,7 +3194,7 @@
       "external_references": [],
       "evidence": [
         "docs/evidence/agents-swap-f173-2026-09-13.md",
-        "orchestrator/agents/agents-client.mjs with red-agents-serve: ide-connect, worker, tasks, sessions and the agent launcher read recipes and launch plans from the Rust side, with modelArgs and ideConnectFlag still synchronous \u2014 F173 c1's 'external API unchanged' (c1).",
+        "agents/agents-client.mjs with red-agents-serve: ide-connect, worker, tasks, sessions and the agent launcher read recipes and launch plans from the Rust side, with modelArgs and ideConnectFlag still synchronous \u2014 F173 c1's 'external API unchanged' (c1).",
         "tests/red-agents-launch.test.mjs: a full launch plan for each of the five CLIs against the answers config.mjs gave \u2014 args, consumed flags, identity, and every per-launch file by content and by mode; tests/red-agents-serve.test.mjs and red-agents-cli.test.mjs for the recipes, the CLI surface, the parsers and the codex hook math (c1).",
         "registry.mjs, config.mjs and bind.mjs are deleted in the same commit; `bind` is a red-agents subcommand, verified against the live workspace on 2026-09-13 (c2).",
         "Sabotage-verified, each for its own reason: the settings file not written, the kimi project file accumulating rengine_ entries, the client not naming the documents per request, a dropped --settings flag, and the trust hash computed for the wrong matcher.",
@@ -3496,7 +3496,7 @@
       "evidence": [
         "docs/evidence/mcp-cutover-f187-2026-09-13.md",
         "The decision: the connector layer's contract is unchanged and its payload is an executable \u2014 the layer builds (cargo build -p red-mcp), probes by running the binary's own --probe, and adopts by bumping connectorGeneration, which is the desktop layer's order. Spec 065's completion-vs-acceptance, the generation and per-launch spawning are untouched.",
-        "orchestrator/agents/mcp-worker.mjs and orchestrator/runtime/tools.mjs are deleted; agents/mcp.mjs spawns its worker as a command; six suites that drove the JS worker directly now drive the binary unchanged.",
+        "agents/mcp-worker.mjs and orchestrator/runtime/tools.mjs are deleted; agents/mcp.mjs spawns its worker as a command; six suites that drove the JS worker directly now drive the binary unchanged.",
         "tests/incomplete-tool-worker.mjs pins the probe's required tools \u2014 a candidate that starts and answers but cannot serve the update path is refused naming what it lacks, and the generation does not move. Added because emptying the probe's required list changed no test."
       ],
       "external_references": []
@@ -4106,7 +4106,7 @@
       "evidence": [
         "docs/specs/141-provider-abstraction.md",
         "tests/red-agents-cli.test.mjs",
-        "orchestrator/agents/registry.toml"
+        "agents/registry.toml"
       ]
     },
     {
@@ -4264,7 +4264,7 @@
       "milestone": "O1",
       "category": "workspace",
       "priority": "medium",
-      "description": "Per-CLI knowledge that lives in shared code because it has nowhere declared to go: the CLAUDE_CODE_* identity variables a pane scrubs (spawn.rs and sessions-client.mjs, KI-113), the install directories a PATH search adds (.opencode/bin), red-ide's whole claude-shaped bridge (the lock directory, the discovery path, the x-claude-code-ide-authorization header), red-project's tasks.rs and its codexModels method, red-mcp's message and orchestrator/agents/mcp.mjs's explanation that two CLIs differ in how they take a changed tool list, and launch.mjs's usage line listing the five agents. Each is either a recipe key or an adapter file; tools/agent_names.py carries all of them as declared exceptions, which is the list this row works through.",
+      "description": "Per-CLI knowledge that lives in shared code because it has nowhere declared to go: the CLAUDE_CODE_* identity variables a pane scrubs (spawn.rs and sessions-client.mjs, KI-113), the install directories a PATH search adds (.opencode/bin), red-ide's whole claude-shaped bridge (the lock directory, the discovery path, the x-claude-code-ide-authorization header), red-project's tasks.rs and its codexModels method, red-mcp's message and agents/mcp.mjs's explanation that two CLIs differ in how they take a changed tool list, and launch.mjs's usage line listing the five agents. Each is either a recipe key or an adapter file; tools/agent_names.py carries all of them as declared exceptions, which is the list this row works through.",
       "acceptance_criteria": [
         "Each place is resolved as a declared recipe key or as an adapter file named for its agent, and the choice is recorded per place.",
         "red-ide gets the adapter split red-project's conversations already have, or a recorded reason why the bridge is one CLI's protocol and belongs whole.",

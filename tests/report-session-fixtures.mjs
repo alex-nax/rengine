@@ -13,6 +13,10 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+/* Where the JS reporter WAS when this record was captured. The module is deleted and the path's
+   directory has moved since (charter D71); both are true and neither matters, because this constant
+   is only reached by the regenerate path — which must never run again (F172). Spelled as it was, so
+   the file says what it recorded rather than what today's tree looks like. */
 const REPORTER = path.join(ROOT, 'orchestrator/agents/report-session.mjs');
 const OLD = '3f85774e-05bb-4791-bb9f-1c90dc37d0e6';
 const NEW = 'aaaaaaaa-1111-4222-8333-444444444444';

@@ -165,7 +165,7 @@ now `Handoff requires a workspace launcher for a CLI that can be handed a conver
 means something different than it did — not "you are not codex" but "this CLI declares no handoff" —
 and leaving the old wording on the new meaning would be worse than changing it.
 
-`orchestrator/agents/handoff.mjs` still reads codex's rollouts in JavaScript. That is the JS half of
+`agents/handoff.mjs` still reads codex's rollouts in JavaScript. That is the JS half of
 the `rollout-jsonl` kind, retiring under D57 with the rest of the JS host; its gate and its probe now
 ask the recipe, so the two halves agree about *who* can be handed a conversation.
 

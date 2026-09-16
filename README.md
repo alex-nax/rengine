@@ -106,7 +106,7 @@ To bring a **new** project into rEngine, follow the
 `.rengine/project.json`, and keep the declaration test the project runs itself. The mechanical part
 is one command — `bash actions/posix/integrate-project.sh --project ABS_DIR --name NAME`
 (add `--game-title`/`--game-exe`, or `--dry-run` to see the plan) — which copies the templates in
-`orchestrator/templates/project/`, never overwrites an existing file and prints the follow-ups it
+`templates/project/`, never overwrites an existing file and prints the follow-ups it
 leaves to the project. nolf-improved and vtmb-vr are the worked instances in that runbook.
 
 Terminal output waits for space in bounded receive queues. A dropped session stream reports

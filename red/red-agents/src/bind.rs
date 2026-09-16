@@ -1,4 +1,4 @@
-//! `red-agents bind` (F173, F149c, spec 129), ported from `orchestrator/agents/bind.mjs`.
+//! `red-agents bind` (F173, F149c, spec 129), ported from `agents/bind.mjs`.
 //!
 //! Binds an agent this workspace never spawned: finds the live instance already serving a project,
 //! gives the agent an identity and writes the MCP configuration to start it with. Nothing is

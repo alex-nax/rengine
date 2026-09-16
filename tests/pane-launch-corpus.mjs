@@ -29,7 +29,7 @@ const ROOT_ID = '12345678-1234-1234-1234-123456789abc';
    no CLI and one added as data is covered the day it is declared. */
 export async function identityNames() {
   const { readFile } = await import('node:fs/promises');
-  const registry = await readFile(path.join(ROOT, 'orchestrator/agents/registry.toml'), 'utf8');
+  const registry = await readFile(path.join(ROOT, 'agents/registry.toml'), 'utf8');
   const names = new Set();
   let inside = false;
   for (const line of registry.split('\n')) {
@@ -135,7 +135,7 @@ export async function recordLaunch(launcher, kase, directory) {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const directory = await mkdtemp(path.join(tmpdir(), 'rengine-pane-launch-'));
   try {
-    const launcher = { command: process.execPath, args: [path.join(ROOT, 'orchestrator/agents/launch.mjs')] };
+    const launcher = { command: process.execPath, args: [path.join(ROOT, 'agents/launch.mjs')] };
     const cases = [];
     for (const kase of CASES) cases.push(await recordLaunch(launcher, kase, directory));
     console.log(JSON.stringify({ identityNames: await identityNames(), cases }, null, 2));

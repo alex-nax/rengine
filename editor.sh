@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # editor.sh — open THIS checkout's own workspace in the editor, without npm (F163, spec 145).
 #
-# The project's own front door. `orchestrator/templates/project/editor.sh` is the one a GAME project
+# The project's own front door. `templates/project/editor.sh` is the one a GAME project
 # copies to its root, which bootstraps a pinned rEngine under `third_party/rengine` and opens itself
 # as that rEngine's project; this one opens rEngine in rEngine and bootstraps nothing it does not
 # build from source here.
@@ -226,7 +226,7 @@ done < <(awk '
             print substr(line, RSTART + 1, RLENGTH - 2)
             line = substr(line, RSTART + RLENGTH)
         }
-    }' "$ROOT/orchestrator/agents/registry.toml")
+    }' "$ROOT/agents/registry.toml")
 
 ARGS=(--project "$ROOT" --state "$STATE_DIR")
 [ ${#LAUNCH_ARGS[@]} -gt 0 ] && ARGS+=("${LAUNCH_ARGS[@]}")

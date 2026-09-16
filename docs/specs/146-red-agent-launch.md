@@ -5,7 +5,7 @@ split), spec 102/133 (red-ide), spec 145 (red-launch).
 
 ## What this is
 
-`scripts/agent.sh` ends by execing `orchestrator/agents/launch.mjs`, and that module is what a
+`scripts/agent.sh` ends by execing `agents/launch.mjs`, and that module is what a
 person's CLI actually runs inside. It is the last **live** JavaScript entry point in a pane, and it
 holds the remaining production tree up: it imports `agents-client.mjs`, and through it
 `service-client.mjs`, `launcher/sidecar.mjs`, `runtime/protocol.mjs`, `agents/handoff/`, and — for

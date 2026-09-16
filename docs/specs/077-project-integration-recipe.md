@@ -19,7 +19,7 @@ the single `game` object with a `games` array on 2026-09-06 and every artifact b
 - `orchestrator/actions/integrate-project.sh` — a wizard in the `lib/wizard.sh` conventions
   (explicit arguments first, `re_ask` only in a human terminal, stage logs on stderr) that
   scaffolds a consumer: submodule pin, `editor.sh`, `.rengine/project.json`, declaration test.
-- `orchestrator/templates/project/` — the copied artifacts (`editor.sh`, `project.json`,
+- `templates/project/` — the copied artifacts (`editor.sh`, `project.json`,
   `test_rengine_project_decl.py`) plus a README naming each one's destination. Templates are
   project-agnostic: no game, engine or archive format is named in them.
 - `orchestrator/tests/integrate-project.test.mjs` — scaffolds a temporary git repository and

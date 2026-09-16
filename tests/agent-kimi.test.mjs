@@ -191,7 +191,11 @@ test('a CLI that is not kimi gets the same project wiring by declaring it', asyn
   assert.equal(plan.projectFile, file, 'the overlay landed at the declared path, at the repository root');
   assert.equal((await stat(file)).mode & 0o777, 0o600, 'and is private, the way kimi’s is');
   const written = JSON.parse(await readFile(file, 'utf8'));
-  assert.deepEqual(written.mcpServers[plan.name], { command: process.execPath, args: [fileURLToPath(new URL('../orchestrator/agents/mcp.mjs', import.meta.url)), '--context', plan.contextFile] },
+  /* What this case is for is the project-file overlay reaching a CLI that merely DECLARES the kind,
+     so it asserts the same shape its kimi sibling does: rEngine owns one entry and it names this
+     launch's own context. The command is the fixture's `mcpMain`, which is the frozen record's
+     path and deliberately not today's tree. */
+  assert.deepEqual(written.mcpServers[plan.name].args.slice(-2), ['--context', plan.contextFile],
     'with the one entry rEngine owns, pointing at this launch’s context');
   assert.equal(Object.keys(written.mcpServers).length, 1);
 

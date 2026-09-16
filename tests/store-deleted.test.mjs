@@ -14,13 +14,18 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 test('the retired modules are deleted, and nothing shipping imports them', async () => {
-  for (const gone of ['orchestrator/server/store.mjs', 'orchestrator/server/schema.mjs', 'orchestrator/agents/report-session.mjs']) {
+  for (const gone of ['orchestrator/server/store.mjs', 'orchestrator/server/schema.mjs', 'agents/report-session.mjs']) {
     await assert.rejects(() => access(path.join(ROOT, gone)), `${gone} is present again`);
   }
   /* An import reference, not a prose one: comments are allowed to say what the files were. */
   const reference = /(?:import|from|require\()\s*['"](?:\.{1,2}\/)*(?:server\/)?(?:store|schema)\.mjs['"]/;
   const offenders = [];
-  for (const directory of ['orchestrator']) {
+  /* Every tree that ships JavaScript. `orchestrator/` was the only one when this was written and
+     is gone (charter D71); `tests/` is where the surviving .mjs live, and `templates/` ships one
+     into a consumer's profile. A directory listed here that does not exist would scandir-throw, and
+     one that is MISSING would scan nothing and report nothing — which is the failure this test is
+     about, one level up. */
+  for (const directory of ['tests', 'templates', 'actions', 'agents']) {
     for (const file of (await readdir(path.join(ROOT, directory), { recursive: true }))
       .filter(name => name.endsWith('.mjs') && !name.includes('node_modules'))) {
       if (['tests/store-client.mjs', 'tests/store-corpus.mjs'].includes(file)) continue;

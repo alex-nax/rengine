@@ -1,7 +1,7 @@
 //! The red-agents stdio service (F173, F149c, spec 129, KI-093): the recipe registry as a
 //! process, speaking newline-delimited JSON-RPC over stdin/stdout — the same channel shape
 //! red-store-serve established (F174) and the same one the thin client in
-//! `orchestrator/agents/agents-client.mjs` presents the old JS surface over.
+//! `agents/agents-client.mjs` presents the old JS surface over.
 //!
 //!   red-agents-serve
 //!
@@ -30,7 +30,7 @@ fn registry_path() -> Result<String, String> {
         .parent()
         .and_then(std::path::Path::parent)
         .ok_or_else(|| "cannot locate the checkout".to_string())?;
-    Ok(checkout.join("orchestrator/agents/registry.toml").to_string_lossy().into_owned())
+    Ok(checkout.join("agents/registry.toml").to_string_lossy().into_owned())
 }
 
 thread_local! {

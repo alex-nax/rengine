@@ -1,6 +1,6 @@
 //! red-agents: the agent recipe registry as data (F148a, spec 129, KI-092; charter D46).
 //!
-//! One TOML document — `orchestrator/agents/registry.toml` — is the only recipe table: the
+//! One TOML document — `agents/registry.toml` — is the only recipe table: the
 //! remaining JS (registry.mjs, until F149) and this crate both parse it, through the same bounded
 //! subset, so the two sides resolve identical recipes for every CLI. The subset exists so "the
 //! same document" means the same thing on both sides; a general TOML crate would accept a
@@ -53,7 +53,7 @@ pub mod mint {
 pub mod handoff;
 
 /// The registry document this build reads: `$RENGINE_AGENT_REGISTRY`, else the one beside the
-/// checkout's `orchestrator/agents/`. Here rather than beside one binary because three of them ask.
+/// checkout's `agents/`. Here rather than beside one binary because three of them ask.
 pub fn registry_path() -> Result<String, String> {
     if let Ok(declared) = std::env::var("RENGINE_AGENT_REGISTRY") {
         return Ok(declared);
@@ -62,7 +62,7 @@ pub fn registry_path() -> Result<String, String> {
     // red/target/debug/<binary> -> debug/ .. target/ .. red/ .. the repository root.
     exe.parent()
         .and_then(|directory| directory.ancestors().nth(3))
-        .map(|root| root.join("orchestrator/agents/registry.toml").to_string_lossy().into_owned())
+        .map(|root| root.join("agents/registry.toml").to_string_lossy().into_owned())
         .ok_or_else(|| "the registry document needs RENGINE_AGENT_REGISTRY".to_string())
 }
 
@@ -526,7 +526,7 @@ pub fn shipped_recipes() -> Vec<(String, Value)> {
             .ok()
             .and_then(|exe| {
                 exe.ancestors()
-                    .map(|directory| directory.join("orchestrator/agents/registry.toml"))
+                    .map(|directory| directory.join("agents/registry.toml"))
                     .find(|candidate| candidate.is_file())
             })
             .map(|path| path.to_string_lossy().into_owned())
@@ -656,9 +656,9 @@ mod tests {
     use super::*;
 
     fn shipped() -> Vec<(String, Value)> {
-        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../orchestrator/agents/registry.toml");
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../agents/registry.toml");
         let text = std::fs::read_to_string(path).expect("the shipped registry document");
-        load_registry(&text, "orchestrator/agents/registry.toml", None).expect("it cooks")
+        load_registry(&text, "agents/registry.toml", None).expect("it cooks")
     }
 
     #[test]
@@ -780,7 +780,7 @@ mod tests {
        what F213 shipped broken for an afternoon. */
     #[test]
     fn the_declared_read_block_reaches_the_conversation_view() {
-        let recipes = load_registry(&std::fs::read_to_string("../../orchestrator/agents/registry.toml").unwrap(), "registry.toml", None).unwrap();
+        let recipes = load_registry(&std::fs::read_to_string("../../agents/registry.toml").unwrap(), "registry.toml", None).unwrap();
         for (cli, spelling) in [("claude", "flags"), ("kimi", "flags"), ("codex", "subcommand")] {
             let talk = launch::conversation_of(&recipes, cli).expect("a shipped CLI that resumes");
             assert_eq!(talk.get("read").and_then(|read| read.get("kind")).and_then(serde_json::Value::as_str), Some(spelling),

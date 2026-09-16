@@ -5,7 +5,7 @@ Spec 078 implements F71: the toolbar's hard-coded "NOLF" button and the `nolf_pr
 a toolbar control labelled from the declaration, generic `game_preflight` / `launch_game` tools
 taking an optional `gameId`, and an `external` surface that opens the game's own window. Work
 happened on branch `feat/project-game` in a worktree; no live orchestrator, sidecar, agent or real
-game window was touched. `rg -i nolf -g '!*._llm.json' orchestrator/server orchestrator/agents
+game window was touched. `rg -i nolf -g '!*._llm.json' orchestrator/server agents
 orchestrator/native orchestrator/runtime orchestrator/launcher orchestrator/*.mjs package.json
 contracts/` returns exactly one line: the qualification script name `test:game-nolf` in
 `package.json`. (The `._llm.json` sidecars excluded there mention it only in `docs/specs/055-…`
@@ -118,7 +118,7 @@ from one side:
   routes are forwarded to the host, so `projectGame` correctly comes from the host.
 - `orchestrator/server/sessions.mjs`: the optional session `title` serves both lanes' callers, plus
   the game session's `surface`, `game` and the confined `cwd`; the derived default names no game.
-- `orchestrator/agents/mcp-worker.mjs`: `dashboard_actions`/`dashboard_capture` and
+- `agents/mcp-worker.mjs`: `dashboard_actions`/`dashboard_capture` and
   `game_preflight`/`launch_game` coexist, each behind its own capability guard, with
   `dashboard_capture` and `launch_game` both in `openWorldHint`.
 - `orchestrator/native/workspace.c`: one toolbar array of 12 columns — brand, Tree, Dashboard

@@ -24,7 +24,7 @@ one registry as data when it lands.
 Skills are already unified: `.agents/skills/` is a documented project-level skill location for both
 Codex and Kimi Code, with the canonical definitions in `.claude/skills/` — yet AGENTS.md described
 entry points for Claude Code and Codex only, and a kimi **pane** got nothing at all. `NAMED` in
-`orchestrator/agents/config.mjs` listed four CLIs, so a kimi launch fell into `plan.custom` and
+`agents/config.mjs` listed four CLIs, so a kimi launch fell into `plan.custom` and
 printed "Configure this CLI to consume it": no workspace MCP, no session identity, no conversation
 on the session record, no resume line, no restart-into-conversation. Session listing+discovery was
 not the same for everyone.

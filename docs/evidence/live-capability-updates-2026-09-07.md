@@ -19,7 +19,7 @@ All read-only, around 12:40.
 | supervisor `GET /api/state` | capabilities `handoff, desktopActions, layeredUpdates, scriptActions, formatRegistry, dashboard, projectGame, recordings, projectDevices, projectWindows` |
 | supervisor `GET /api/update-status` | workspace pid 79969, last `workspace` layer job `999b2ed9` at 2026-09-06 23:22, ten `desktop` layer jobs since, all succeeded |
 | MCP servers against this host | 93041 (pre-facade, under `claude` 92680), 20159 (pre-facade, under `codex` 20121), 27212+27238, 52144+88078, 11302+80386 (facade + worker) |
-| `git show bdae7a3:orchestrator/agents/mcp.mjs` | the pre-facade file: exactly `workspace_info, list_files, read_file, list_sessions, session_output, nolf_preflight, launch_nolf, stop_session` |
+| `git show bdae7a3:agents/mcp.mjs` | the pre-facade file: exactly `workspace_info, list_files, read_file, list_sessions, session_output, nolf_preflight, launch_nolf, stop_session` |
 | Claude Code 2.1.263 | documentation: refreshes on `list_changed` (2.1.0+; before 2.1.214 a failed refresh emptied the list); `/mcp` → Reconnect respawns a server |
 | Codex 0.153.4 | binary carries the notification's name only as a serde constant; openai/codex #10105, #19155, #33266 (open, 2026-07): not acted on |
 
@@ -36,7 +36,7 @@ All read-only, around 12:40.
 | nolf-improved root | `provider: local`, 1315 rows |
 | vtmb-vr root | `provider: local`, 526 rows |
 | that worker `POST /api/tracker/signin` rEngine root | `ok: false`, setup step 3 names `/Users/alex/rengine/.cache/orchestrator-development/trackers/oauth.json` — the live state directory, found from the process table by instance, since the host does not say it |
-| `startRuntime` from this worktree in a scratch directory above the same host | runtime.json with `connectorGeneration: 1`, `toolWorker: …/orchestrator/agents/mcp-worker.mjs` |
+| `startRuntime` from this worktree in a scratch directory above the same host | runtime.json with `connectorGeneration: 1`, `toolWorker: …/agents/mcp-worker.mjs` |
 | facade (`agents/mcp.mjs` from this worktree) `tools/list` | 27 tools, `list_tasks` among them |
 | facade `list_tasks` | the same 50 rows |
 | `update-workspace {layers: ['connector']}` to the scratch supervisor, then nothing through the facade | job succeeded in 166 ms; `tools/list_changed` arrived at the idle facade **914 ms** later; `update_status` then reports generation 2 and a new tool-worker pid (93981 → 93997) |

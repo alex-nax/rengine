@@ -1,4 +1,4 @@
-//! The launch plan, ported from `orchestrator/agents/config.mjs` (F173, F149c, spec 129).
+//! The launch plan, ported from `agents/config.mjs` (F173, F149c, spec 129).
 //!
 //! Owner decision, 2026-09-13: the DECISIONS live here and the environment-dependent inputs are
 //! supplied by the caller — the root context, the workspace's session list and the IDE probe's

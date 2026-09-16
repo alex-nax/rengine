@@ -5,7 +5,7 @@ Date: 2026-09-07. Machine: macos. Branch: `feat/conversation-is-identity`, merge
 
 ## What was wrong
 
-Two lanes taught `orchestrator/agents/config.mjs` to pass Claude's `--session-id`, from two ends.
+Two lanes taught `agents/config.mjs` to pass Claude's `--session-id`, from two ends.
 
 | lane | where the UUID came from | what it injected |
 | --- | --- | --- |

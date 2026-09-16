@@ -92,7 +92,9 @@ test('every owned source is text, so a search of the repository can see it', asy
   const crates = (await readdir(path.join(ROOT, 'red'), { withFileTypes: true }))
     .filter(entry => entry.isDirectory() && entry.name.startsWith('red-')).map(entry => `red/${entry.name}/src`);
   assert.ok(crates.length >= 12, `the workspace's crates are found rather than listed: ${crates.length}`);
-  const roots = ['orchestrator', ...crates, 'tools'];
+  /* The owned trees, after charter D71 split orchestrator/ apart. Listed rather than discovered
+     because the set is a decision (what this repository OWNS) rather than a fact about the disk. */
+  const roots = ['editor', 'tests', 'actions', 'agents', 'templates', ...crates, 'tools'];
   const SOURCE = /\.(mjs|js|rs|c|h|py|json|toml|sh|md|css|html)$/;
   const opaque = [];
   const walk = async directory => {

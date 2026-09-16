@@ -10,7 +10,7 @@ Three tiers, none of which needs a network or a running orchestrator:
   placeholders substituted, cwd = root, no shell); skips per case when the declared
   executable is not built or no file in the root matches the format.
 
-Copied from rEngine orchestrator/templates/project/; recipe: rEngine
+Copied from rEngine templates/project/; recipe: rEngine
 docs/runbooks/project-integration.md. Run standalone or from the project's test runner:
 
     python3 tests/test_rengine_project_decl.py [--root DIR] [--rengine DIR]

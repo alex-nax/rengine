@@ -24,7 +24,7 @@ import { CASES, KIMI_ID, RECORDED, SID } from './pane-composition-fixtures.mjs';
 import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const REGISTRY = path.join(ROOT, 'orchestrator/agents/registry.toml');
+const REGISTRY = path.join(ROOT, 'agents/registry.toml');
 const BIN = path.join(ROOT, 'red/target/debug/red-agent-env');
 const run = promisify(execFile);
 

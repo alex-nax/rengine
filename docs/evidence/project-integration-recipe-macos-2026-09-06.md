@@ -9,7 +9,7 @@ Documentation and shell/JS tooling only: no native code, no service route, no co
 | --- | --- |
 | `npm test` | 43/43 pass, exit 0 (70 s), including the 8 new checks in `orchestrator/tests/integrate-project.test.mjs` |
 | `node --test orchestrator/tests/integrate-project.test.mjs` | 8/8 pass (9.2 s) |
-| `bash -n` | clean on `orchestrator/actions/integrate-project.sh` and `orchestrator/templates/project/editor.sh` |
+| `bash -n` | clean on `orchestrator/actions/integrate-project.sh` and `templates/project/editor.sh` |
 | `./init.sh` | harness checks pass, 25 features validated |
 | `python3 tools/design.py check` | clean |
 | sidecar repair/review/stamp/check | clean (`--index .cache/sidecars-integration-recipe.sqlite`) |
@@ -58,7 +58,7 @@ contract-2 run and is left as recorded; the gates below re-run on the retargeted
 | --- | --- |
 | `npm test` | 47/47 pass, exit 0 (6.4 s), 9 checks in `orchestrator/tests/integrate-project.test.mjs` |
 | `node --test orchestrator/tests/integrate-project.test.mjs` | 9/9 pass; red on 4 of them before the wizard and template moved |
-| `bash -n` | clean on `orchestrator/actions/integrate-project.sh` and `orchestrator/templates/project/editor.sh` |
+| `bash -n` | clean on `orchestrator/actions/integrate-project.sh` and `templates/project/editor.sh` |
 | `./init.sh` | harness checks pass, 30 features validated |
 | `python3 tools/design.py check` | clean |
 | `python3 tools/features.py validate` | 30 features, no dependency cycle |

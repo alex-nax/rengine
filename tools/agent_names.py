@@ -12,7 +12,7 @@ this costs when it is only prose: spec 140 said "one adapter per CLI" and the co
 was written in the same session, by the agent that had written the spec. `design.py check` has
 failed the build on a hand-written product name for a year; an agent name had nothing.
 
-WHAT IT READS. The roster is the registry's — `orchestrator/agents/registry.toml` — so this check
+WHAT IT READS. The roster is the registry's — `agents/registry.toml` — so this check
 cannot drift from the document it defends, and a CLI added as data is guarded the day it is added.
 
 WHAT IT SKIPS, and why each is not a loophole:
@@ -37,7 +37,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-REGISTRY = ROOT / "orchestrator/agents/registry.toml"
+REGISTRY = ROOT / "agents/registry.toml"
 SOURCES = [("red", (".rs",)), ("orchestrator", (".mjs", ".c", ".h", ".js"))]
 SKIP = ("node_modules", "red/target", "third_party", ".cache", "/tests/", "tests")
 
@@ -50,7 +50,7 @@ EXCEPTIONS = [
     ("editor/render/syntax_theme.h", "Claude Design",
      "PERMANENT. The name of a DESIGN SOURCE, not an agent: the theme this workspace's colours came "
      "from (spec 064). It is the one place the word is not about a CLI."),
-    ("orchestrator/agents/handoff/index.mjs", 'codex',
+    ("agents/handoff/index.mjs", 'codex',
      "PERMANENT. The adapter roster, in the JavaScript mirror of the same split: the import of the "
      "adapter file and the arm mapping a declared KIND to it."),
     ("red/red-agents/src/handoff/mod.rs", 'codex',

@@ -42,7 +42,7 @@ fn registry() -> String {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(std::path::Path::parent)
-        .map(|checkout| checkout.join("orchestrator/agents/registry.toml").to_string_lossy().into_owned())
+        .map(|checkout| checkout.join("agents/registry.toml").to_string_lossy().into_owned())
         .unwrap_or_default()
 }
 

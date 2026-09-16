@@ -179,8 +179,8 @@ with one acceptance criterion, none implemented; report the ids; release the tok
 
 Decisions 2–4 and 6–9, plus decision 5's `assign` for the Tasks pane's *Hold token*, are in
 `contracts/project-v1.schema.json`, `orchestrator/server/tasks.mjs`, `orchestrator/runtime/worker.mjs`,
-`orchestrator/runtime/token.mjs`, `orchestrator/agents/mcp-worker.mjs` and
-`orchestrator/templates/prompts/`. The native halves — the Sessions tab's Revoke/Free and the Tasks
+`orchestrator/runtime/token.mjs`, `agents/mcp-worker.mjs` and
+`templates/prompts/`. The native halves — the Sessions tab's Revoke/Free and the Tasks
 pane's control cluster — are separate lanes against the routes below. Evidence, including the
 sabotage table, is [task-writes-2026-09-07](../evidence/task-writes-2026-09-07.md). Corrections
 against the paragraphs above, each because the code says otherwise:
@@ -212,9 +212,9 @@ against the paragraphs above, each because the code says otherwise:
 - **`assign` refreshes the host state first.** It resolves an id against the conversations the project
   remembers, and the desktop's `/events` socket has no other reason to re-read them, so a conversation
   started since the worker did would otherwise be an id the frame could not name.
-- **The declaration template is prose, not JSON.** `orchestrator/templates/project/project.json` is a
+- **The declaration template is prose, not JSON.** `templates/project/project.json` is a
   contract-3 reference a consumer copies from, and JSON carries no comments; contract 6's two keys are
-  documented in `orchestrator/templates/project/README.md` instead, with the schema-freeze order
+  documented in `templates/project/README.md` instead, with the schema-freeze order
   (spec 098) stated beside them. rEngine's own `.rengine/project.json` stays where it is: declarations
   change last.
 

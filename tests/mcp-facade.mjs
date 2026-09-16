@@ -1,6 +1,6 @@
 /* The pane's MCP endpoint, as a spec starts one (spec 146).
  *
- * It was `node orchestrator/agents/mcp.mjs`; it is `red-mcp --facade` now. One place knows that, so
+ * It was `node agents/mcp.mjs`; it is `red-mcp --facade` now. One place knows that, so
  * a spec asserting about tools is not also asserting about how the server is started — and so the
  * switch was one edit rather than nine.
  */
