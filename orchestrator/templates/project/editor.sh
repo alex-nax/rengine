@@ -140,9 +140,16 @@ check_tool() {  # name, required-version, brew formula
 }
 check_tool git "" git
 check_tool cmake "$CMAKE_REQUIRED" cmake
+command -v cargo >/dev/null 2>&1 && log "ok      cargo $(cargo --version 2>/dev/null | awk '{print $2}')" \
+    || { log "MISSING cargo (install rustup: https://rustup.rs); the launcher and the services are Rust"; PROBLEMS+=("no cargo"); }
 command -v cc >/dev/null 2>&1 && log "ok      cc $(command -v cc)" || { log "MISSING C compiler (macOS: xcode-select --install)"; PROBLEMS+=("no C compiler"); }
 
-NODE="${RENGINE_NODE:-$(command -v node 2>/dev/null || true)}"
+# RENGINE_NODE is exported into every pane, and a host older than this pin exports the bare word
+# `node` rather than a path — so `[ -x "$NODE" ]` says no on a machine that has node, and this
+# script offers to install one. A value with no separator is a NAME: resolve it the way a shell
+# would before testing it.
+NODE="${RENGINE_NODE:-node}"
+case "$NODE" in */*) ;; *) NODE="$(command -v "$NODE" 2>/dev/null || true)" ;; esac
 if [ -n "$NODE" ] && [ -x "$NODE" ]; then
     NODE_VERSION="$("$NODE" -p 'process.versions.node')"
     if version_ge "$NODE_VERSION" "$NODE_REQUIRED"; then log "ok      node $NODE_VERSION ($NODE)"; else PROBLEMS+=("node $NODE_VERSION at $NODE is older than $NODE_REQUIRED (set RENGINE_NODE or install node >= 22.12)"); fi
@@ -164,7 +171,7 @@ if [ ${#BREW_MISSING[@]} -gt 0 ]; then
         PROBLEMS+=("missing: ${BREW_MISSING[*]}")
     elif [ "$PLATFORM" = macos ] && command -v brew >/dev/null 2>&1; then
         run brew install "${BREW_MISSING[@]}"
-        NODE="${RENGINE_NODE:-$(command -v node 2>/dev/null || true)}"
+        NODE="${RENGINE_NODE:-node}"; case "$NODE" in */*) ;; *) NODE="$(command -v "$NODE" 2>/dev/null || true)" ;; esac
     else
         PROBLEMS+=("install first: ${BREW_MISSING[*]} (macOS: brew install ${BREW_MISSING[*]}; Debian: apt install cmake libsdl2-dev nodejs)")
     fi
@@ -175,7 +182,7 @@ if [ "$PLATFORM" = windows ]; then
 fi
 
 if [ "$MODE" = check ]; then
-    for step in "node_modules:npm ci" ".cache/native/$SURFACE_LIB:npm run build:surface" "$DESKTOP_BIN:npm run build"; do
+    for step in "node_modules:npm ci" "red/target/debug/red-launch:cargo build --manifest-path red/Cargo.toml --bins" ".cache/native/$SURFACE_LIB:npm run build:surface" "$DESKTOP_BIN:npm run build"; do
         target="${step%%:*}"; cmd="${step#*:}"
         if [ -e "$RENGINE/$target" ]; then log "built   $target"; else log "pending $target ($cmd)"; fi
     done
@@ -208,11 +215,25 @@ fi
 [ "$MODE" = bootstrap-only ] && { log "bootstrap complete; launch with ./editor.sh"; exit 0; }
 
 # ---- 4. launch ----------------------------------------------------------------------
-if [ ${#LAUNCH_ARGS[@]} -gt 0 ]; then
-    if [ "$DRY" = 1 ]; then printf '+ %s\n' "$NODE orchestrator/launch.mjs --project $ROOT ${LAUNCH_ARGS[*]}"; exit 0; fi
-    log "+ $NODE orchestrator/launch.mjs --project $ROOT ${LAUNCH_ARGS[*]}"
-    exec "$NODE" orchestrator/launch.mjs --project "$ROOT" "${LAUNCH_ARGS[@]}"
+# The launcher is a binary (spec 145), and the Rust binaries are rebuilt on EVERY launch rather
+# than only when they are missing (KI-112). Nothing else in the launch path rebuilds them: the
+# launcher resolves the session host, the store, the PTY service and the agent registry out of
+# red/target, so a pinned tree that moved leaves a binary one pin behind — a committed fix that
+# silently is not there, which reads as broken rather than as absent. The step above builds the
+# DESKTOP and only when its output is missing, which is exactly the case this has to cover.
+LAUNCH=${RENGINE_RED_LAUNCH:-}
+if [ -z "$LAUNCH" ]; then
+    run cargo build --manifest-path red/Cargo.toml --bins
+    for profile in release debug; do
+        [ -x "red/target/$profile/red-launch" ] && { LAUNCH="$PWD/red/target/$profile/red-launch"; break; }
+    done
 fi
-if [ "$DRY" = 1 ]; then printf '+ %s\n' "$NODE orchestrator/launch.mjs --project $ROOT"; exit 0; fi
-log "+ $NODE orchestrator/launch.mjs --project $ROOT"
-exec "$NODE" orchestrator/launch.mjs --project "$ROOT"
+[ -n "$LAUNCH" ] || LAUNCH="$PWD/red/target/debug/red-launch"
+if [ ${#LAUNCH_ARGS[@]} -gt 0 ]; then
+    if [ "$DRY" = 1 ]; then printf '+ %s\n' "$LAUNCH --project $ROOT ${LAUNCH_ARGS[*]}"; exit 0; fi
+    log "+ $LAUNCH --project $ROOT ${LAUNCH_ARGS[*]}"
+    exec "$LAUNCH" --project "$ROOT" "${LAUNCH_ARGS[@]}"
+fi
+if [ "$DRY" = 1 ]; then printf '+ %s\n' "$LAUNCH --project $ROOT"; exit 0; fi
+log "+ $LAUNCH --project $ROOT"
+exec "$LAUNCH" --project "$ROOT"

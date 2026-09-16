@@ -110,7 +110,7 @@ is missing and `exec`s the launcher on the project root:
 ```
 
 `--agent`, `--state`, `--launch-game`, `--no-agent`, `--inspect-ui` and everything after `--` are
-forwarded to `orchestrator/launch.mjs`. Everything installed lands under
+forwarded to `red-launch`. Everything installed lands under
 `third_party/rengine/{node_modules,.cache}`, which the pinned tree's own `.gitignore` covers, so
 the project's `git status` stays clean. State defaults to rEngine's `~/.local/state/rengine`;
 `--state DIR` isolates a workspace so a consumer never disturbs the development orchestrator.
