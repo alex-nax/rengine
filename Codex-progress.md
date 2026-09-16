@@ -1,3 +1,99 @@
+## Session 162 (macos) — 2026-09-16 — a brief reaches the CLI that could not be handed one (F221, spec 146)
+
+Reported from the NOLF workspace as a pane that died in two seconds:
+
+```
+Workspace identity: kimi ec36a646
+unknown command '# F1765 — Replay fidelity: …'. See 'kimi --help'.
+```
+
+Everything the workspace does was right — MCP wired, identity stamped, pane retained — and then
+`agent_spawn` appended the rendered brief to the pane's argv, under a comment saying that is "how
+both of the CLIs that take one take it". Two of five take one that way. **A brief is not a neutral
+thing to append**: a CLI with subcommands reads the first bare word as the subcommand, so the brief
+was not ignored, it was a command that does not exist.
+
+The same class the model flag was already held to — `model_args` refuses by name rather than
+guessing a flag — with no such rule for the prompt. So there is one: **`prompt.kind` in the recipe**,
+`argv` or `paste`, and a CLI that declares neither is refused by name with nothing started.
+
+### Seven measurements before a line of design
+
+Against the installed CLI with its base URL pointed at a closed port, so no turn is ever taken. The
+two that shaped it:
+
+- **There is no readiness marker.** `ESC[?2004h` is emitted once at startup, *before* the CLI's own
+  trust dialog — so "the composer is up" cannot be watched for, and anything that waited for it
+  would type into whatever is on screen.
+- **A paste into a modal costs six bytes and does nothing.** It is decoded as one paste event and
+  ignored. That is what makes typing into an unknown state safe, and what makes pressing **Enter**
+  into one unsafe: the highlighted option in that dialog is "Trust this folder".
+
+So the handshake asks rather than watches: settle, paste, and send the carriage return **only** when
+the pane echoes the line back. Unconfirmed is unsubmitted, forever, and the pane's record says
+`seed: "unconfirmed"` rather than letting a brief that never arrived look like one that did.
+
+A third measurement chose the payload. A 31-line paste collapses to `[paste #1 +31 lines]` and
+echoes no text; a single line comes back verbatim. An echo is the only thing that can earn an Enter,
+so the brief goes to `<state>/integrations/<id>.brief.md` and what is typed is one line naming it.
+
+### Where each layer is allowed to stop knowing
+
+The registry says the kind; `red_agents::launch::prompt_delivery` answers it or refuses; the worker
+appends or seeds; `red-host` writes the file and composes the line and the token; `red-pty` runs the
+handshake and knows only that something asked to be typed. No agent name entered shared code —
+`agent_names.py check` still reports five declared and five declared exceptions.
+
+### The fixture had to become a TUI before its green meant anything
+
+The end-to-end test failed first. The stand-in CLI left its stdin **cooked**, so the kernel echoed
+the paste back on its behalf and `ICRNL` turned the workspace's `\r` into `\n`: the handshake looked
+like it worked against the *kernel's* echo while the application saw neither the paste nor the
+Enter. A real TUI sets raw mode. The fixture does now, and the echo the Enter is earned by is the
+application's own.
+
+### What the full suite found that the spec alone could not
+
+The end-to-end spec passed alone and **failed under the loaded suite**, and the second thing that
+came out of that is worth more than the first. The first is a budget measured on an idle machine
+(KI-124's lesson again): fifteen seconds of waiting for a handshake whose own worst case is fifteen
+seconds. The second is a real hole — **a CLI that never falls silent would never have been typed into
+at all**, because the settle rule waits for quiet and a spinner or a status-line clock means quiet
+never comes. The watcher types after ten seconds of continuous talking as well, which is safe for the
+same reason the retries are: only the echo earns the Enter.
+
+### Sabotages
+
+Ten, each observed failing at its own assertion, each compiled before it ran (KI-120): the brief
+back on the command line (which reproduces the reported failure exactly), the host composing no
+seed, an undeclared CLI falling back to a positional, `cook` accepting any delivery, the echo gate
+removed, normalisation removed so a wrapped token is two tokens, a silent pane counting as quiet, a
+talking pane waiting for a silence that never comes, one attempt instead of three, and a paste that
+presses Enter itself. One sabotage **passed** first
+time round and was worth more than the ones that failed: the host edit did not compile, so the test
+judged a stale binary and came back green.
+
+### What is not proven, and one thing the owner should look at
+
+A pane of the real CLI opened from the real workspace. That is the same owner-run step **F186**
+already exists for; every mechanism it stands on was measured against the real CLI first.
+
+Inside that, one choice worth a second opinion: the brief file is written to
+`<state>/integrations/<id>.brief.md`, beside every other per-launch file, which puts it **outside the
+pane's working directory**. A CLI that confines its reads to its workspace may ask before opening it.
+The alternatives — writing it into the person's checkout, or declaring a flag that widens a CLI's
+readable directories — are both larger than this row, and nothing is lost in the bad case: the path
+is on screen. Recorded in spec 146 as open rather than decided.
+
+Commands: `cargo test --workspace` 360/360, `npm test` 365/366, `./init.sh` green. The one failure is
+`red-agents-launch.test.mjs` and it is not this branch's — baselined rather than assumed: stashed, it
+fails at HEAD with the same two paths side by side, because `agents-fixtures.json` freezes the
+recorder's own checkout path in eleven places and no other directory can match it. Filed as KI-127.
+Evidence: `docs/evidence/agent-prompt-delivery-f221-2026-09-16.md`.
+
+Left behind, and not mine to fix: `red_pty_serve.rs`'s sidecar entry `why-the-port-and-not-the-pid`
+anchors a function F159's descriptor consolidation removed. Recorded rather than deleted.
+
 ## Session 161 (opus-5) — 2026-09-16 — The tracker and the supervisor are deleted
 
 Owner goal: *"finish remaining js"*.

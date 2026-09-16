@@ -398,6 +398,9 @@ flowchart TD
   F217 --> F219
   F220["F220: passing"]
   F217 --> F220
+  F221["F221: passing"]
+  F138 --> F221
+  F217 --> F221
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -574,3 +577,4 @@ flowchart TD
 | F218 | O1 | rengine | passing | bind's start hints for a CUSTOM agent are a per-CLI catalogue written out in shared code: red-agents/src/bind.rs prints claude's --mcp-config/--settings line, codex's -c mcp_servers line, and a sentence naming gemini, opencode and kimi. F214 declared those spellings in the registry, so the catalogue now DUPLICATES them — change a recipe's flag and bind's hint silently lies. The hints should be generated from what each recipe declares. |
 | F219 | O1 | rengine | passing | Two identity DEFAULTS: red-agents/src/report.rs defaults an absent --provider to claude, from when only claude reported a session, and orchestrator/native/workspace.c falls back to "codex" when no agent is chosen. Both are one CLI's name standing in for "the first one declared", and both are load-bearing — changing the reporter's default moves hooks already installed in people's CLI configuration, and changing the desktop's changes what a person gets when they press the button. tools/agent_names.py carries them as declared exceptions. |
 | F220 | O1 | rengine | passing | Per-CLI knowledge that lives in shared code because it has nowhere declared to go: the CLAUDE_CODE_* identity variables a pane scrubs (spawn.rs and sessions-client.mjs, KI-113), the install directories a PATH search adds (.opencode/bin), red-ide's whole claude-shaped bridge (the lock directory, the discovery path, the x-claude-code-ide-authorization header), red-project's tasks.rs and its codexModels method, red-mcp's message and orchestrator/agents/mcp.mjs's explanation that two CLIs differ in how they take a changed tool list, and launch.mjs's usage line listing the five agents. Each is either a recipe key or an adapter file; tools/agent_names.py carries all of them as declared exceptions, which is the list this row works through. |
+| F221 | O1 | rengine | passing | How a CLI is handed the brief a spawn carries is a declared capability rather than an assumption. A spawn appended the rendered brief to the pane's argv for every CLI, which is how two of the five take one — and a CLI that reads a bare word as a subcommand answered "unknown command '# F1765 …'" and exited 1 about two seconds after its pane opened, with the workspace reporting the session as having no conversation. `prompt.kind` declares the delivery: `argv` is the last positional argument, `paste` is typed into the pane as a bracketed paste by the service that owns its PTY, submitted only once the pane echoes the line back, and a CLI that declares neither is refused by name with nothing started — the treatment `model_args` already gives a model flag rEngine does not know. |

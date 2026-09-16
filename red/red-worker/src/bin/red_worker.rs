@@ -1528,16 +1528,27 @@ fn agent_spawn(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::V
     let brief = data.get("brief").and_then(serde_json::Value::as_str).unwrap_or("task").to_string();
     let listed = ask_host(worker, "GET", &format!("/api/tracker?rootId={root_id}"), "")?;
     let row = red_worker::tasks::row_of(&listed, data.get("taskKey")).map_err(refused)?;
-    let recipes = red_agents::projection(&red_agents::shipped_recipes());
+    let shipped = red_agents::shipped_recipes();
+    let recipes = red_agents::projection(&shipped);
     let model = data.get("model").and_then(serde_json::Value::as_str);
     let mut args = red_project::tasks::model_args(&recipes, &agent, model)
         .map_err(|fail| format!("{}|{}", fail.status.unwrap_or(500), fail.message))?;
-    /* The CLI's own initial prompt is a positional argument after the model flag, which is how both
-       of the CLIs that take one take it. The pane's launcher appends these after the MCP wiring. */
+    /* How this CLI is handed a brief is the recipe's to say, and a CLI that has not said is refused
+       here with nothing started (F221, spec 146). It used to be a positional argument for everyone,
+       which is how a brief reached a CLI that reads a bare word as a subcommand and exits on it. */
+    let delivery = red_agents::launch::prompt_delivery(&shipped, &agent).map_err(|message| format!("409|{message}"))?;
     let written = red_project::tasks::prompt_for(&root_path, &brief, &red_project::tasks::prompt_values(&row), &shipped_prompts())
         .map_err(|fail| format!("{}|{}", fail.status.unwrap_or(500), fail.message))?;
-    args.push(written.get("text").and_then(serde_json::Value::as_str).unwrap_or_default().to_string());
-    let mut payload = serde_json::json!({ "rootId": root_id, "type": "agent", "agent": agent, "action": "launch", "args": args });
+    let text = written.get("text").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let mut seed = serde_json::Value::Null;
+    match delivery.as_str() {
+        /* The launcher appends these after the MCP wiring, so the brief is the CLI's last argument. */
+        "argv" => args.push(text),
+        /* Typed into the pane instead, by the service that holds its master side. */
+        "paste" => seed = serde_json::json!({ "text": text }),
+        other => return Err(format!("500|rEngine declares the {other} prompt delivery for {agent} and does not implement it. Nothing was started.")),
+    }
+    let mut payload = serde_json::json!({ "rootId": root_id, "type": "agent", "agent": agent, "action": "launch", "args": args, "seed": seed });
     /* Named here rather than left to the host, and only for a CLI that accepts being told which
        conversation to start: one that can only resume, or that names its own, is started unnamed
        and records none — never a refusal for a spawn that named nothing the caller chose. */

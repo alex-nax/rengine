@@ -28,6 +28,13 @@ kind = "static"
 list = ["claude-fable-5-1", "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5-20251001"]
 default = "claude-opus-5"
 
+# How this CLI is handed the brief a spawn carries (F221, spec 146). The KIND is what rEngine
+# implements — `argv` puts the brief in the CLI's last positional argument, `paste` types it into the
+# pane — and a recipe that declares neither is refused by name rather than started with a bare
+# positional it would read as a subcommand and exit on.
+[recipes.claude.prompt]
+kind = "argv"
+
 [recipes.claude.conversation]
 ids = '^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
 parser = "claude-flags"
@@ -93,6 +100,9 @@ flag = "-m"
 
 [recipes.codex.models]
 kind = "help"
+
+[recipes.codex.prompt]
+kind = "argv"
 
 [recipes.codex.conversation]
 ids = '^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
@@ -183,6 +193,11 @@ flag = "-m"
 
 [recipes.kimi.models]
 kind = "none"
+
+# kimi parses a bare positional as a SUBCOMMAND, so a brief passed as one exits the pane in about
+# two seconds. Its composer takes a bracketed paste whole; spec 146 records what was measured.
+[recipes.kimi.prompt]
+kind = "paste"
 
 [recipes.kimi.conversation]
 ids = '^(?:session_)?(?:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})$'

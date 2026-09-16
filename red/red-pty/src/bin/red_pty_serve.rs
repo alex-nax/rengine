@@ -103,7 +103,15 @@ fn answer(host: &Mutex<Host>, mint: &Mutex<Mint>, request: &Value) -> Value {
                 /* The caller's own record of the pane, kept as it was sent: this service has no
                    opinion about what a session means to the host that made it. */
                 let meta = options.get("meta").cloned().unwrap_or(Value::Null);
-                host.spawn(id, file, &argv, &env, cwd, cols, rows, meta)
+                /* What this launch asks to be TYPED into the pane once it is listening, for a CLI
+                   that takes no initial prompt on its command line (F221, spec 146). Both halves
+                   are required: a line with nothing to match it back against could only be
+                   submitted blind, and this service never presses Enter on a guess. */
+                let seed = options.get("seed").and_then(|asked| {
+                    let text = |key: &str| asked.get(key).and_then(Value::as_str).filter(|value| !value.is_empty());
+                    Some(red_pty::Seed { paste: text("paste")?.to_string(), confirm: text("confirm")?.to_string() })
+                });
+                host.spawn(id, file, &argv, &env, cwd, cols, rows, meta, seed)
             }
             "input" => host.input(arg(0).as_str().unwrap_or(""), arg(1).as_str().unwrap_or("")).map(|_| Value::Null),
             "resize" => {
