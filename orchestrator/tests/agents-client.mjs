@@ -157,8 +157,11 @@ function open() {
 export const closeAgents = () => { service?.child.kill(); service = null; };
 
 const NODE = process.execPath;
-/* Still the shipped facade, which has not moved: this client is a spec fixture now, but the path it
-   composes is the one a real launch composes, and the frozen record is what says so. */
+/* The path the FROZEN RECORD carries, which is a string rather than a file: `agents/mcp.mjs` is
+   deleted, and a pane's server is `red-mcp --facade` now (spec 146). This fixture exists to drive
+   `launch_plan` through the older `mcpMain` shape the record was taken through, so it keeps naming
+   what the record names. What a real launch composes is asserted directly in
+   red-agents-launch.test.mjs, and that assertion is what would catch this going stale. */
 const MCP_MAIN = fileURLToPath(new URL('../agents/mcp.mjs', import.meta.url));
 const redAgentsBinary = () => binary('RENGINE_RED_AGENTS', 'red-agents', 'red-agents');
 

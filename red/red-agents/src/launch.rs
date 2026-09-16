@@ -494,9 +494,27 @@ pub fn launch_plan(
     bound_context.insert("agent".into(), identity.clone());
     let bound_file = private_json(&home.join("context.json"), &Json::Object(bound_context))?;
 
+    /* What starts this pane's MCP server, as an argv PREFIX. `mcpCommand` is the whole of it and
+       wins where it is given; `mcpMain` is the older shape, which named a script for an interpreter
+       to run and is kept because the frozen record (`agents-fixtures.json`, F173) is taken through
+       it. A native server cannot be expressed as `mcpMain`: it would compose `node /path/to/binary`,
+       which is a server that cannot start, in a file a person reads (spec 146). */
     let node = text(inputs, "nodeExecutable").unwrap_or("node");
     let mcp_main = text(inputs, "mcpMain").unwrap_or("");
-    let server = json!({ "type": "stdio", "command": node, "args": [mcp_main, "--context", bound_file] });
+    let prefix: Vec<String> = match inputs.get("mcpCommand").and_then(Json::as_array) {
+        Some(items) if !items.is_empty() => items.iter().filter_map(Json::as_str).map(str::to_string).collect(),
+        _ => vec![node.to_string(), mcp_main.to_string()],
+    };
+    let (server_command, leading) = prefix.split_first().map(|(head, rest)| (head.clone(), rest.to_vec())).unwrap_or_default();
+    /* One composer, because four overlays write this same server entry in four spellings and a
+       fifth that disagreed with them would be a pane whose MCP server is a different process. */
+    let server_args = |file: &str| -> Vec<Json> {
+        leading.iter().cloned().map(Json::String).chain([json!("--context"), json!(file)]).collect()
+    };
+    let server_argv = |file: &str| -> Vec<Json> {
+        std::iter::once(Json::String(server_command.clone())).chain(server_args(file)).collect()
+    };
+    let server = json!({ "type": "stdio", "command": server_command, "args": server_args(&bound_file) });
     let generic = private_json(&home.join("mcp.json"), &json!({ "mcpServers": { name.clone(): server.clone() } }))?;
 
     let mut plan = Map::new();
@@ -525,7 +543,7 @@ pub fn launch_plan(
                 return Err(format!("Recipe {agent} takes its MCP configuration as config arguments but does not declare which flag carries them."));
             };
             consume_args = vec![
-                flag.into(), format!("mcp_servers.{name}.command={}", json!(node)),
+                flag.into(), format!("mcp_servers.{name}.command={}", server["command"]),
                 flag.into(), format!("mcp_servers.{name}.args={}", server["args"]),
                 flag.into(), format!("mcp_servers.{name}.required=true"),
             ];
@@ -592,7 +610,7 @@ pub fn launch_plan(
             let mut merged = previous.as_object().cloned().unwrap_or_default();
             merged.insert(
                 "mcp".into(),
-                add(previous.get("mcp"), &name, json!({ "type": "local", "command": [node, mcp_main, "--context", bound_file], "enabled": true }))?,
+                add(previous.get("mcp"), &name, json!({ "type": "local", "command": server_argv(&bound_file), "enabled": true }))?,
             );
             consume_env.insert(var.to_string(), json!(serde_json::to_string(&Json::Object(merged)).map_err(|e| e.to_string())?));
         }
@@ -610,7 +628,7 @@ pub fn launch_plan(
             let mut merged = previous.as_object().cloned().unwrap_or_default();
             merged.insert(
                 "mcpServers".into(),
-                add(previous.get("mcpServers"), &name, json!({ "command": node, "args": [mcp_main, "--context", bound_file] }))?,
+                add(previous.get("mcpServers"), &name, json!({ "command": server_command, "args": server_args(&bound_file) }))?,
             );
             let Some(name) = declared.get("mcp").and_then(|mcp| mcp.get("path")).and_then(Json::as_str) else {
                 return Err(format!("Recipe {agent} writes a defaults file but does not declare what it is called."));
@@ -653,7 +671,7 @@ pub fn launch_plan(
             for (key, value) in existing.and_then(Json::as_object).cloned().unwrap_or_default() {
                 if !key.starts_with("rengine_") { servers.insert(key, value); }
             }
-            servers.insert(name.clone(), json!({ "command": node, "args": [mcp_main, "--context", bound_file] }));
+            servers.insert(name.clone(), json!({ "command": server_command, "args": server_args(&bound_file) }));
             let mut merged = previous.as_object().cloned().unwrap_or_default();
             merged.insert("mcpServers".into(), Json::Object(servers));
             let directory = file.parent().expect("the declared path names a file");

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { facadeCommand, facadeArgs } from './mcp-facade.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -20,7 +21,7 @@ test('real MCP stdio tools keep files and sessions bound to the original project
   const contextFile = path.join(directory, 'context.json');
   await writeFile(contextFile, JSON.stringify({ url: server.url, token: server.token, instance: server.instance, rootId: a.id }), { mode: 0o600 });
   const client = new Client({ name: 'rengine-test', version: '1.0.0' });
-  const transport = new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp.mjs'), '--context', contextFile], stderr: 'pipe' });
+  const transport = new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(contextFile), stderr: 'pipe' });
   t.after(async () => { await client.close(); await server.close(); await rm(directory, { recursive: true, force: true }); });
   await client.connect(transport);
   const tools = await client.listTools();
@@ -57,7 +58,7 @@ test('real MCP stdio tools keep files and sessions bound to the original project
   await client.close();
   await writeFile(contextFile, JSON.stringify({ url: server.url, token: server.token, instance: 'different-instance', rootId: a.id }), { mode: 0o600 });
   const staleClient = new Client({ name: 'rengine-stale-test', version: '1.0.0' });
-  const staleTransport = new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp.mjs'), '--context', contextFile], stderr: 'pipe' });
+  const staleTransport = new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(contextFile), stderr: 'pipe' });
   t.after(() => staleClient.close());
   await assert.rejects(staleClient.connect(staleTransport), /Connection closed/);
 });

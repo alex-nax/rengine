@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { facadeCommand, facadeArgs } from './mcp-facade.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -66,7 +67,7 @@ chmod +x ${JSON.stringify(shim)}
     const contextFile = path.join(directory, 'context.json');
     await writeFile(contextFile, JSON.stringify({ url: host.url, token: host.token, instance: host.instance, rootId: root.id, runtimeDirectory: runtimeDir }), { mode: 0o600 });
     mcp = new Client({ name: 'native-layered-update', version: '1.0.0' });
-    const transport = new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp.mjs'), '--context', contextFile], stderr: 'pipe' });
+    const transport = new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(contextFile), stderr: 'pipe' });
     await mcp.connect(transport);
     const call = async (name, args = {}) => {
       const result = await mcp.callTool({ name, arguments: args }); assert.ok(!result.isError, JSON.stringify(result)); return result.structuredContent ?? JSON.parse(result.content[0].text);

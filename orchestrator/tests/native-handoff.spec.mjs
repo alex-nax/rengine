@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { facadeCommand, facadeArgs } from './mcp-facade.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises';
 import path from 'node:path';
@@ -89,7 +90,7 @@ process.stdin.on('data', () => console.log('CLI_RECEIVED_INPUT'));
     const contextFile = path.join(dir, 'desktop-context.json');
     await writeFile(contextFile, JSON.stringify({ url: server.url, token: server.token, instance: server.instance, rootId: root.id }), { mode: 0o600 });
     mcp = new Client({ name: 'native-desktop-actions', version: '1.0.0' });
-    await mcp.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp.mjs'), '--context', contextFile], stderr: 'pipe' }));
+    await mcp.connect(new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(contextFile), stderr: 'pipe' }));
     const listed = await mcp.callTool({ name: 'list_desktops', arguments: {} }); assert.ok(!listed.isError);
     const desktops = JSON.parse(listed.content[0].text).desktops;
     assert.equal(desktops.length, 1); assert.equal(desktops[0].canReload, true);

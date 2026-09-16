@@ -9,6 +9,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { agentLaunch, describeSession } from './agents-client.mjs';
 import { built } from './cargo.mjs';
+import { facadeCommand, facadeArgs } from './mcp-facade.mjs';
 
 /* This spec drives a Rust binary through the service client, so it builds one first: run alone — or
    used to check that a regression fails for its own reason — it would otherwise judge whatever
@@ -52,8 +53,13 @@ test('a kimi launch wires the workspace MCP into the project it runs in, and now
   assert.equal(plan.projectFile, file, 'the project file lands at the repository root, not the pane’s subdirectory');
   assert.equal((await stat(file)).mode & 0o777, 0o600);
   const written = JSON.parse(await readFile(file, 'utf8'));
-  assert.deepEqual(written.mcpServers[plan.name], { command: process.execPath, args: [fileURLToPath(new URL('../agents/mcp.mjs', import.meta.url)), '--context', plan.contextFile] },
-    'the one entry rEngine owns starts the facade on this launch’s own context');
+  /* What this case is for is the project-file OVERLAY — where the file lands, who owns which entry,
+     and which context it names. Which binary serves is `launch_plan`'s, and is asserted where that
+     is the subject (red-agents-launch.test.mjs); this fixture drives the older `mcpMain` shape the
+     frozen record was taken through, so pinning a command here would pin the fixture, not the
+     product. */
+  assert.deepEqual(written.mcpServers[plan.name].args.slice(-2), ['--context', plan.contextFile],
+    'the one entry rEngine owns starts on this launch’s own context');
   assert.equal(Object.keys(written.mcpServers).length, 1, 'and rEngine owns nothing else in the file');
   assert.equal(plan.env.RENGINE_MCP_CONFIG, plan.generic, 'and the pane’s environment still names its own per-launch configuration');
 
@@ -128,18 +134,18 @@ test('the MCP facade resolves its context from the pane environment before the s
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   t.after(() => new Promise(resolve => { server.closeAllConnections(); server.close(resolve); }));
 
-  const facade = fileURLToPath(new URL('../agents/mcp.mjs', import.meta.url));
+  const facade = facadeCommand();
   const paneA = path.join(directory, 'pane-a-context.json');
   await writeFile(paneA, JSON.stringify({ url: `http://127.0.0.1:${server.address().port}`, token: TOKEN, instance: INSTANCE, rootId: ROOT_ID }));
   const genericA = path.join(directory, 'pane-a-mcp.json');
-  await writeFile(genericA, JSON.stringify({ mcpServers: { rengine_123456781234: { type: 'stdio', command: process.execPath, args: [facade, '--context', paneA] } } }));
+  await writeFile(genericA, JSON.stringify({ mcpServers: { rengine_123456781234: { type: 'stdio', command: facade, args: facadeArgs(paneA) } } }));
   /* What the shared project file says after a second pane launched: pane B's context, which is
      unreachable here. If the facade trusts argv over the environment it starts on pane B's. */
   const paneB = path.join(directory, 'pane-b-context.json');
   await writeFile(paneB, JSON.stringify({ url: 'http://127.0.0.1:1/', token: TOKEN, instance: INSTANCE, rootId: ROOT_ID }));
 
   const client = new Client({ name: 'rengine-kimi-facade-test', version: '1.0.0' });
-  await client.connect(new StdioClientTransport({ command: process.execPath, args: [facade, '--context', paneB], stderr: 'pipe',
+  await client.connect(new StdioClientTransport({ command: facade, args: facadeArgs(paneB), stderr: 'pipe',
     env: { ...process.env, RENGINE_MCP_CONFIG: genericA } }));
   t.after(() => client.close());
   const info = await client.callTool({ name: 'workspace_info', arguments: {} });

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { facadeCommand, facadeArgs } from './mcp-facade.mjs';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import path from 'node:path';
@@ -21,7 +22,7 @@ import { endStateServices } from './state-services.mjs';
 process.env.RENGINE_IDE_DIRECTORY ??= await mkdtemp(path.join(tmpdir(), 'rengine-spec-ide-'));
 
 
-const FACADE = path.resolve('orchestrator/agents/mcp.mjs');
+
 const INVENTORY = {
   schema_version: 1, project: 'fixture', review_status: 'approved',
   features: [
@@ -70,7 +71,7 @@ async function stopHost(host) {
 }
 async function facade(contextFile) {
   const client = new Client({ name: 'hot-update-test', version: '1.0.0' });
-  const transport = new StdioClientTransport({ command: process.execPath, args: [FACADE, '--context', contextFile], stderr: 'pipe' });
+  const transport = new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(contextFile), stderr: 'pipe' });
   await client.connect(transport);
   const call = async (name, args = {}) => {
     const result = await client.callTool({ name, arguments: args });
@@ -162,7 +163,7 @@ test('an idle facade learns of a connector update without a request, and a stale
     let notifications = 0;
     client = new Client({ name: 'hot-update-idle', version: '1.0.0' });
     client.setNotificationHandler(ToolListChangedNotificationSchema, () => { notifications++; });
-    const transport = new StdioClientTransport({ command: process.execPath, args: [FACADE, '--context', contextFile], stderr: 'pipe' });
+    const transport = new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(contextFile), stderr: 'pipe' });
     await client.connect(transport);
     const names = async () => (await client.listTools()).tools.map(tool => tool.name);
     const before = await names();
@@ -207,4 +208,49 @@ test('an idle facade learns of a connector update without a request, and a stale
   } finally {
     await client?.close(); await runtime?.close(); await host?.close(); await rm(directory, { recursive: true, force: true });
   }
+});
+
+/* Rule 1 of the facade: a candidate that will not START does not replace a working worker.
+ *
+ * The suite above drives a candidate the SUPERVISOR refuses, which never reaches the facade. This
+ * one is the other half — a descriptor the facade itself cannot honour — and it had no case: a
+ * sabotage that dropped the running worker when a candidate failed passed every other test in this
+ * file. An agent mid-turn must not lose its tools because an update was attempted.
+ */
+test('a tool worker that will not start leaves the running one serving', { timeout: 60000 }, async t => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'rengine-facade-refuse-'));
+  let host, client;
+  t.after(async () => {
+    await client?.close();
+    await host?.close();
+    await endStateServices(path.join(directory, 'state'));
+    await rm(directory, { recursive: true, force: true });
+  });
+  host = await startServer({ stateDir: path.join(directory, 'state') });
+  const root = await host.store.addRoot(directory);
+  const runtimeDir = path.join(directory, 'runtime');
+  await mkdir(runtimeDir, { recursive: true });
+  const contextFile = path.join(directory, 'context.json');
+  await writeFile(contextFile, JSON.stringify({ url: host.url, token: host.token, instance: host.instance, rootId: root.id, runtimeDirectory: runtimeDir }), { mode: 0o600 });
+
+  client = new Client({ name: 'facade-refuse', version: '1.0.0' });
+  await client.connect(new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(contextFile), stderr: 'pipe' }));
+  const before = (await client.listTools()).tools.map(tool => tool.name);
+  assert.ok(before.includes('workspace_info'), `the sibling worker serves first: ${before}`);
+
+  /* A descriptor naming a worker that exits the moment it starts, at a new generation. The facade
+     has to try it — that is what a generation means — and has to keep what it has when it fails. */
+  const broken = path.join(directory, 'never-starts');
+  await writeFile(broken, '#!/bin/sh\nexit 3\n', { mode: 0o755 });
+  await writeFile(path.join(runtimeDir, 'runtime.json'),
+    JSON.stringify({ url: host.url, token: host.token, instance: host.instance, pid: process.pid, toolWorker: broken, connectorGeneration: 99 }), { mode: 0o600 });
+
+  /* Asked twice across the watcher's own interval, so both paths are covered: the one that notices
+     between requests, and the one that notices while nothing is being asked. */
+  await delay(1500);
+  const after = (await client.listTools()).tools.map(tool => tool.name);
+  assert.deepEqual(after, before, 'the CLI keeps the tools it had');
+  const still = await client.callTool({ name: 'workspace_info', arguments: {} });
+  assert.equal(still.isError, undefined, 'and the worker it had still answers');
+  assert.equal(JSON.parse(still.content[0].text).root.id, root.id);
 });

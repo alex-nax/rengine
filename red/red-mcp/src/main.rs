@@ -25,6 +25,7 @@ use std::process::ExitCode;
 
 use serde_json::{json, Value};
 
+mod facade;
 mod tools;
 mod workspace;
 
@@ -40,11 +41,45 @@ const SUPPORTED: [&str; 5] = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11
 const LATEST: &str = "2025-11-25";
 
 fn context_from(argv: &[String]) -> Result<(Binding, Option<workspace::Identity>), String> {
-    let named = argv
-        .iter()
-        .position(|argument| argument == "--context")
-        .and_then(|at| argv.get(at + 1))
-        .cloned();
+    context_named(argv, false)
+}
+
+/// Where this launch's context is, in the order that finds it.
+///
+/// **The facade reverses the order, and that is the whole of spec 127 decision 5.** Some CLIs read
+/// their MCP servers from a file at the PROJECT root, which is shared between panes and
+/// last-writer-wins — so the `--context` a second pane wrote into it can name a FIRST pane's launch,
+/// or a launch that has since gone. The pane's own environment names its own launch:
+/// `RENGINE_MCP_CONFIG` is the per-launch file whose server is started on that same context, and
+/// `RENGINE_WORKSPACE_CONTEXT` is the root file a pane inherits. A CLI started outside any pane has
+/// neither and falls back to argv, which is all it ever had.
+fn context_named(argv: &[String], env_first: bool) -> Result<(Binding, Option<workspace::Identity>), String> {
+    let from_argv = || {
+        argv.iter()
+            .position(|argument| argument == "--context")
+            .and_then(|at| argv.get(at + 1))
+            .cloned()
+    };
+    let from_env = || {
+        if let Some(config) = std::env::var("RENGINE_MCP_CONFIG").ok().filter(|value| !value.is_empty()) {
+            if let Ok(text) = std::fs::read_to_string(&config) {
+                if let Ok(value) = serde_json::from_str::<Value>(&text) {
+                    if let Some(servers) = value.get("mcpServers").and_then(Value::as_object) {
+                        for server in servers.values() {
+                            let args = server.get("args").and_then(Value::as_array).cloned().unwrap_or_default();
+                            if let Some(at) = args.iter().position(|argument| argument.as_str() == Some("--context")) {
+                                if let Some(named) = args.get(at + 1).and_then(Value::as_str) {
+                                    return Some(named.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        std::env::var("RENGINE_WORKSPACE_CONTEXT").ok().filter(|value| !value.is_empty())
+    };
+    let named = if env_first { from_env().or_else(from_argv) } else { from_argv().or_else(from_env) };
     let snapshot = std::env::var("RENGINE_MCP_CONTEXT_SNAPSHOT").ok();
     let text = match (snapshot, named.as_deref()) {
         (Some(snapshot), _) if !snapshot.is_empty() => snapshot,
@@ -162,7 +197,8 @@ fn main() -> ExitCode {
                  declaration().get("tools").and_then(Value::as_array).map(Vec::len).unwrap_or(0));
         return ExitCode::SUCCESS;
     }
-    let mut workspace = match context_from(&argv).and_then(|(binding, identity)| {
+    let facade_mode = argv.iter().any(|argument| argument == "--facade");
+    let mut workspace = match context_named(&argv, facade_mode).and_then(|(binding, identity)| {
         let mut workspace = Workspace::open(binding, identity);
         /* The same check the JS worker makes before serving anything, and for the same reason: a
            pane whose workspace moved is told at once rather than on its first tool call. */
@@ -174,6 +210,39 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    /* The pane's endpoint, which holds a CLI's connection while the worker behind it is replaced
+       (spec 146). It is a flag rather than the default because the thing it spawns is THIS binary
+       in its ordinary mode — and, during a layered update, possibly an older build of it, which
+       knows only the ordinary mode. */
+    if facade_mode {
+        let Some(directory) = workspace::runtime_directory_of(&workspace.binding) else {
+            eprintln!("red-mcp: this context names no runtime directory, so there is no worker to serve.");
+            return ExitCode::FAILURE;
+        };
+        /* The worker is handed the context the FACADE resolved, not the one argv named: they differ
+           for exactly the CLI this ordering exists for, and a worker on another pane's context is
+           the bug the ordering prevents. */
+        let Some(context) = workspace.binding.context_file.clone().map(std::path::PathBuf::from) else {
+            eprintln!("red-mcp: --facade needs a context file, because that is what it hands the worker.");
+            return ExitCode::FAILURE;
+        };
+        let snapshot = serde_json::to_string(&workspace.binding.as_context()).unwrap_or_default();
+        let sibling = match std::env::current_exe() {
+            Ok(exe) => exe,
+            Err(error) => {
+                eprintln!("red-mcp: {error}");
+                return ExitCode::FAILURE;
+            }
+        };
+        let serving = facade::Facade::new(&context, snapshot, directory.join("runtime.json"), sibling);
+        return match serving.serve() {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(message) => {
+                eprintln!("red-mcp: {message}");
+                ExitCode::FAILURE
+            }
+        };
+    }
     let surface = declaration();
     if argv.iter().any(|argument| argument == "--probe") {
         return match probe(&mut workspace, &surface) {

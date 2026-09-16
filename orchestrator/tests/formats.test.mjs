@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { facadeCommand, facadeArgs } from './mcp-facade.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, writeFile, rm, symlink, realpath, chmod } from 'node:fs/promises';
@@ -163,7 +164,7 @@ test('the replaceable worker and the MCP tool serve the registry through the ide
   const context = path.join(directory, 'context.json');
   await writeFile(context, JSON.stringify({ url: host.url, token: host.token, instance: host.instance, rootId: root.id, runtimeDirectory: path.join(directory, 'runtime') }), { mode: 0o600 });
   client = new Client({ name: 'formats-proof', version: '1' });
-  await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp.mjs'), '--context', context], stderr: 'pipe' }));
+  await client.connect(new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(context), stderr: 'pipe' }));
   const tools = await client.listTools(); const tool = tools.tools.find(x => x.name === 'preview_file');
   assert.ok(tool, 'preview_file is discoverable'); assert.equal(tool.annotations.openWorldHint, true); assert.equal(tool.annotations.destructiveHint, false);
   const call = async args => { const result = await client.callTool({ name: 'preview_file', arguments: args }); return { isError: result.isError === true, value: result.isError ? null : result.structuredContent ?? JSON.parse(result.content[0].text), text: result.content[0].text }; };

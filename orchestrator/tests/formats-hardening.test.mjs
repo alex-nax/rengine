@@ -12,6 +12,7 @@ import { readDeclaration } from './formats.mjs';
 import { validateSchema } from './store-client.mjs';
 import { producer, pack, declaration, entries, project } from './format-fixtures.mjs';
 import { built } from './cargo.mjs';
+import { facadeCommand, facadeArgs } from './mcp-facade.mjs';
 
 /* This spec drives a Rust binary through a service client, so it builds one first: run alone — or
    used to check that a regression fails for its own reason — it would otherwise judge whatever
@@ -90,7 +91,7 @@ test('preview_file stays within its response budget, paginates wide levels and h
   const context = path.join(directory, 'context.json');
   await writeFile(context, JSON.stringify({ url: server.url, token: server.token, instance: server.instance, rootId: root.id }), { mode: 0o600 });
   client = new Client({ name: 'budget-proof', version: '1' });
-  await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp.mjs'), '--context', context], stderr: 'pipe' }));
+  await client.connect(new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(context), stderr: 'pipe' }));
   const call = async args => { const r = await client.callTool({ name: 'preview_file', arguments: args }); return { isError: r.isError === true, text: r.content[0].text, value: r.isError ? null : r.structuredContent ?? JSON.parse(r.content[0].text) }; };
   const schema = (await client.listTools()).tools.find(x => x.name === 'preview_file').inputSchema;
   assert.ok(schema.properties.offset && schema.properties.limit, 'tool schema exposes offset/limit');

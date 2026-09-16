@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { facadeCommand, facadeArgs } from './mcp-facade.mjs';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
@@ -180,7 +181,7 @@ test('declared games launch in their own window, run side by side and expose gen
   const context = path.join(directory, 'context.json');
   await writeFile(context, JSON.stringify({ url: server.url, token: server.token, instance: server.instance, rootId: root.id }), { mode: 0o600 });
   client = new Client({ name: 'game-proof', version: '1' });
-  await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp.mjs'), '--context', context], stderr: 'pipe' }));
+  await client.connect(new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(context), stderr: 'pipe' }));
   const tools = (await client.listTools()).tools, names = tools.map(x => x.name);
   assert.ok(names.includes('game_preflight') && names.includes('launch_game'), names.join(','));
   assert.ok(!names.some(name => /nolf/i.test(name)), 'no game-specific tool names');
@@ -277,7 +278,7 @@ test('the replaceable worker serves preflight from the declaration above a host 
   const context = path.join(directory, 'context.json');
   await writeFile(context, JSON.stringify({ url: retained.url, token: retained.token, instance: retained.instance, rootId: root.id, runtimeDirectory: path.join(directory, 'runtime') }), { mode: 0o600 });
   client = new Client({ name: 'retained-game-proof', version: '1' });
-  await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp.mjs'), '--context', context], stderr: 'pipe' }));
+  await client.connect(new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(context), stderr: 'pipe' }));
   const preflight = await client.callTool({ name: 'game_preflight', arguments: { gameId: 'fixture-second' } });
   assert.equal(preflight.isError, undefined, preflight.content?.[0]?.text);
   assert.equal(preflight.structuredContent.id, 'fixture-second'); assert.equal(preflight.structuredContent.ready, true);

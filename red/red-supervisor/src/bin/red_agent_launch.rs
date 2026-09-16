@@ -98,13 +98,12 @@ fn run() -> Result<i32, String> {
     inputs.insert("platform".into(), json!(platform()));
     inputs.insert("pid".into(), json!(std::process::id()));
     inputs.insert("nodeExecutable".into(), json!(red_core::env::node_path()));
-    /* Still `agents/mcp.mjs`, and deliberately (spec 146, Deferred). `launch_plan` composes the
-       server as `{ command: <node>, args: [mcpMain, ...] }`, so naming the Rust binary here would
-       write `node /path/to/red-mcp` into every pane's mcp.json — a server that cannot start. The
-       switch is a change to the SHAPE the plan composes, which has its own frozen record
-       (`agents-fixtures.json`), so it is its own row with its own evidence rather than a passenger
-       on this one. */
-    inputs.insert("mcpMain".into(), json!(checkout().join("orchestrator/agents/mcp.mjs").to_string_lossy()));
+    /* The pane's MCP server, as the whole command rather than a script for an interpreter: the
+       facade mode of `red-mcp`, which holds this CLI's stdio connection while the worker behind it
+       is replaced by an update (spec 146). `mcpMain` — the older shape — is what the frozen record
+       is taken through and is left for it. */
+    let facade = red_core::service::serve_binary("RENGINE_RED_MCP", "red-mcp")?;
+    inputs.insert("mcpCommand".into(), json!([facade.to_string_lossy(), "--facade"]));
     inputs.insert("redAgents".into(), json!(red_core::service::serve_binary("RENGINE_RED_AGENTS", "red-agents")?.to_string_lossy()));
 
     let mut mint = || uuid();
@@ -255,18 +254,6 @@ fn protocol_of(recipes: &[(String, red_agents::Value)]) -> Option<red_ide::lock:
     recipes
         .iter()
         .find_map(|(_, raw)| red_agents::view(raw).get("ide").and_then(red_ide::lock::Protocol::declared))
-}
-
-/// The checkout this binary was built in: `red/target/<profile>/red-agent-launch`, four levels up.
-fn checkout() -> PathBuf {
-    if let Some(named) = env("RENGINE_CHECKOUT") {
-        return PathBuf::from(named);
-    }
-    std::env::current_exe()
-        .ok()
-        .and_then(|exe| std::fs::canonicalize(&exe).ok().or(Some(exe)))
-        .and_then(|exe| exe.ancestors().nth(4).map(Path::to_path_buf))
-        .unwrap_or_else(|| PathBuf::from("."))
 }
 
 fn environment_json() -> Value {

@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { facadeCommand, facadeArgs } from './mcp-facade.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -15,7 +16,7 @@ test('root-bound MCP discovers project windows and durable integration transport
     const root = await host.store.addRoot(project), context = path.join(directory, 'context.json');
     await writeFile(context, JSON.stringify({ url: host.url, token: host.token, instance: host.instance, rootId: root.id }));
     client = new Client({ name: 'window-tools', version: '1' });
-    await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp.mjs'), '--context', context] }));
+    await client.connect(new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(context) }));
     const names = (await client.listTools()).tools.map(x => x.name);
     for (const name of ['open_project_window', 'list_project_windows', 'project_window_action', 'report_integration', 'integration_inbox', 'open_script', 'show_session']) assert.ok(names.includes(name), name);
   } finally { await client?.close(); await host?.close(); await rm(directory, { recursive: true, force: true }); }

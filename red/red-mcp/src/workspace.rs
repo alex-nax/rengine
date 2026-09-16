@@ -28,6 +28,20 @@ pub struct Binding {
     pub context_file: Option<String>,
 }
 
+impl Binding {
+    /// The context a worker is handed, as the facade hands it: the same fields it was read from, so
+    /// a worker started from a snapshot sees exactly what a worker started from the file sees.
+    pub fn as_context(&self) -> serde_json::Value {
+        let mut value = serde_json::json!({
+            "url": self.url, "token": self.token, "instance": self.instance, "rootId": self.root_id,
+        });
+        if let Some(directory) = self.runtime_directory.as_ref() {
+            value["runtimeDirectory"] = serde_json::Value::String(directory.clone());
+        }
+        value
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Identity {
     pub agent_id: String,
@@ -201,6 +215,15 @@ impl Workspace {
 }
 
 /// `<checkout>/.cache/runtime/<instance>`, the path `runtimeDirectory(host)` names on the JS side.
+/// The runtime directory a CONTEXT names, for a caller that has no `Workspace` — the facade, which
+/// reads the descriptor to learn which worker to run before it can open anything (spec 146).
+pub fn runtime_directory_of(binding: &Binding) -> Option<PathBuf> {
+    match binding.runtime_directory.as_ref() {
+        Some(named) => Some(PathBuf::from(named)),
+        None => default_runtime_directory(&checkout()?, &binding.instance),
+    }
+}
+
 fn default_runtime_directory(checkout: &Path, instance: &str) -> Option<PathBuf> {
     if instance.is_empty() {
         return None;

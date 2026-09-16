@@ -19,6 +19,7 @@ import { declaration } from './format-fixtures.mjs';
 import { contract2, dashboard, dashboardProject } from './dashboard-fixtures.mjs';
 import { game, gameActions, gameProject, launcherDeclaration } from './game-fixtures.mjs';
 import { built } from './cargo.mjs';
+import { facadeCommand, facadeArgs } from './mcp-facade.mjs';
 
 /* This spec drives a Rust binary through a service client, so it builds one first: run alone — or
    used to check that a regression fails for its own reason — it would otherwise judge whatever
@@ -146,7 +147,7 @@ test('the replaceable worker and the MCP tools expose the dashboard', { timeout:
   const context = path.join(directory, 'context.json');
   await writeFile(context, JSON.stringify({ url: host.url, token: host.token, instance: host.instance, rootId: root.id, runtimeDirectory: path.join(directory, 'runtime') }), { mode: 0o600 });
   client = new Client({ name: 'dashboard-proof', version: '1' });
-  await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp.mjs'), '--context', context], stderr: 'pipe' }));
+  await client.connect(new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(context), stderr: 'pipe' }));
   const tools = (await client.listTools()).tools, byName = name => tools.find(x => x.name === name);
   assert.equal(byName('dashboard_actions')?.annotations.readOnlyHint, true); assert.equal(byName('dashboard_capture')?.annotations.readOnlyHint, false); assert.equal(byName('dashboard_capture')?.annotations.openWorldHint, true);
   assert.match(byName('dashboard_actions').description, /open_script/); assert.ok(byName('open_script').inputSchema.properties.env, 'open_script accepts env');

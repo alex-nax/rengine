@@ -89,6 +89,15 @@ test('the trust hash is computed, not copied: a different command hashes differe
 const RECORD = JSON.parse(await readFile(new URL('./pane-launch-corpus.json', import.meta.url), 'utf8'));
 const BINARY = () => process.env.RENGINE_RED_AGENT_LAUNCH || path.join(CHECKOUT, 'red/target/debug/red-agent-launch');
 
+/* The ONE declared divergence from the record (spec 146): the pane's MCP server was
+   `node agents/mcp.mjs` and is `red-mcp --facade`. It is normalised on BOTH sides rather than
+   regenerated — launch.mjs is gone, so a regenerated record would be judging the replacement
+   against itself — and what proves the new value is right is the assertion below it, not this.
+   Only codex is affected: every other CLI is handed a --mcp-config PATH, and the path did not move. */
+const server = record => JSON.parse(JSON.stringify(record)
+  .replace(/mcp_servers\.[a-z0-9_]+\.command=\\"[^\\]*\\"/g, 'mcp_servers.<name>.command=<server>')
+  .replace(/mcp_servers\.[a-z0-9_]+\.args=\[[^\]]*\]/g, 'mcp_servers.<name>.args=<server-args>'));
+
 test('the Rust pane launcher hands a CLI what launch.mjs handed it, for every CLI', { timeout: 180000 }, async t => {
   await built('-p', 'red-supervisor');
   const directory = await makeTemp(path.join(tmpdir(), 'rengine-pane-launch-'));
@@ -101,8 +110,18 @@ test('the Rust pane launcher hands a CLI what launch.mjs handed it, for every CL
     const actual = await recordPaneLaunch(launcher, kase, directory);
     /* The whole case at once: a per-field comparison reports the first difference and hides the
        rest, and what matters when this fails is everything that moved. */
-    assert.deepEqual(actual, expected, `${kase.name}: the pane launch differs from what launch.mjs did`);
+    assert.deepEqual(server(actual), server(expected), `${kase.name}: the pane launch differs from what launch.mjs did`);
   }
+
+  /* What the normalisation above hides, asserted directly: the server a pane is given is the Rust
+     facade, started as a COMMAND rather than as an argument to an interpreter. Composing it the old
+     way would write `node /path/to/red-mcp` — a server that cannot start, in a file a person reads. */
+  const codex = await recordPaneLaunch(launcher, { name: 'codex-server', agent: 'codex' }, directory);
+  const declared = codex.received.argv.find(argument => argument.includes('mcp_servers.') && argument.includes('.command='));
+  assert.match(declared, /red-mcp/, `the pane's MCP server is the Rust binary: ${declared}`);
+  assert.doesNotMatch(declared, /node/, `and is not handed to an interpreter: ${declared}`);
+  const args = codex.received.argv.find(argument => argument.includes('mcp_servers.') && argument.includes('.args='));
+  assert.match(args, /--facade/, `started in facade mode, which is what survives a worker swap: ${args}`);
 });
 
 /* "Prints and continues" is the behaviour a green run cannot tell from "never happened", so the

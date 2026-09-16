@@ -1,5 +1,6 @@
 import { bashPath } from './sessions-client.mjs';
 import test from 'node:test';
+import { facadeCommand, facadeArgs } from './mcp-facade.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath, stat, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -47,7 +48,7 @@ test('project windows retain one agent, isolated layouts, inspection and durable
       const context = path.join(directory, `${root.id}.json`);
       await writeFile(context, JSON.stringify({ url: host.url, token: host.token, instance: host.instance, rootId: root.id, runtimeDirectory: runtimeDir }));
       const client = new Client({ name: 'window-proof', version: '1' }); clients.push(client);
-      await client.connect(new StdioClientTransport({ command: process.execPath, args: [path.resolve('orchestrator/agents/mcp.mjs'), '--context', context], stderr: 'pipe' }));
+      await client.connect(new StdioClientTransport({ command: facadeCommand(), args: facadeArgs(context), stderr: 'pipe' }));
       const call = async (name, args = {}) => { const result = await client.callTool({ name, arguments: args }); assert.ok(!result.isError, JSON.stringify(result)); return result.structuredContent ?? JSON.parse(result.content[0].text); };
       return { client, call, context };
     };
