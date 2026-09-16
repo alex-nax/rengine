@@ -41,7 +41,7 @@ THEME_C = NATIVE / "theme.c"
 CARDS_JSON = DESIGN / "cards.json"
 ICONS_JSON = NATIVE / "icons.json"
 ICONS_H = NATIVE / "render" / "icons.h"
-PRODUCT_MJS = ROOT / "orchestrator" / "runtime" / "product.mjs"
+PRODUCT_MJS = ROOT / "orchestrator" / "tests" / "product.mjs"
 THEME_RS = ROOT / "red" / "red-core" / "src" / "theme.rs"
 SYNTAX_JSON = NATIVE / "syntax.json"
 SYNTAX_H = NATIVE / "render" / "syntax_theme.h"
@@ -163,7 +163,7 @@ PRODUCT_ROOTS = ("orchestrator", "adapters", "tools", "scripts", "red")
 PRODUCT_SUFFIXES = (".c", ".h", ".m", ".mjs", ".js", ".py", ".rs")
 PRODUCT_SKIP = {"third_party", "node_modules", ".cache", ".git", "target"}
 # The generated files, and the one test that pins the published name on purpose.
-PRODUCT_ALLOWED = ("orchestrator/native/theme.h", "orchestrator/runtime/product.mjs",
+PRODUCT_ALLOWED = ("orchestrator/native/theme.h", "orchestrator/tests/product.mjs",
                    "red/red-core/src/theme.rs",
                    "orchestrator/tests/product-name.test.mjs")
 
@@ -247,7 +247,7 @@ def product_literals(tokens, targets=None):
                 continue
             hint = ("use RE_PRODUCT_NAME from theme.h" if path.suffix in (".c", ".h", ".m")
                     else "use red_core::theme::PRODUCT_NAME from red/red-core/src/theme.rs" if path.suffix == ".rs"
-                    else "import PRODUCT_NAME from orchestrator/runtime/product.mjs")
+                    else "import PRODUCT_NAME from orchestrator/tests/product.mjs")
             for start, chunk in uncommented(path.read_text(encoding="utf-8"), path.suffix):
                 for match in pattern.finditer(chunk):
                     problems.append("%s:%d: hard-coded product name %r; %s (spec 108)"

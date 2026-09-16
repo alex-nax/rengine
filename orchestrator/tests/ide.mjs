@@ -15,7 +15,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { PRODUCT_NAME } from '../runtime/product.mjs';
+import { PRODUCT_NAME } from './product.mjs';
 
 /* What other people see in their `/ide` menu, beside VS Code and Cursor. It is the product's own
    name, declared once and generated (charter D41, spec 108), so a rename is a data edit — and

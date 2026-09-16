@@ -15,7 +15,7 @@
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { PRODUCT_NAME } from '../runtime/product.mjs';
+import { PRODUCT_NAME } from './product.mjs';
 
 export const DEAD = 2147483647;
 export const LIVE = process.pid;

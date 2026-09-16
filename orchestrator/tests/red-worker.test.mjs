@@ -21,7 +21,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { WebSocket, WebSocketServer } from 'ws';
 import { gameProject } from './game-fixtures.mjs';
-import { PRODUCT_NAME } from '../runtime/product.mjs';
+import { PRODUCT_NAME } from './product.mjs';
 import { built } from './cargo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');

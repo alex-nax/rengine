@@ -10,7 +10,7 @@ import { startServer } from './red-host-fixture.mjs';
 import { nativeClient } from './native-client.mjs';
 // The default word is the product's own name, generated from one declaration (spec 108); asserting
 // the constant rather than a copy of it is what keeps this test about identity and not about spelling.
-import { PRODUCT_NAME } from '../runtime/product.mjs';
+import { PRODUCT_NAME } from './product.mjs';
 
 const run = promisify(execFile);
 const PYTHON = process.platform === 'win32' ? 'python' : 'python3';

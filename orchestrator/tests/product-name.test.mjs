@@ -17,7 +17,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { PRODUCT_NAME, PRODUCT_FAMILY } from '../runtime/product.mjs';
+import { PRODUCT_NAME, PRODUCT_FAMILY } from './product.mjs';
 import { startIdeBridge, IDE_NAME } from './ide.mjs';
 import { LanguageServers } from './lsp-client.mjs';
 import { built } from './cargo.mjs';

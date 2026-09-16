@@ -21,7 +21,7 @@ import net from 'node:net';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
-import { PRODUCT_NAME } from '../runtime/product.mjs';
+import { PRODUCT_NAME } from './product.mjs';
 
 /* ESRCH on every unix; pid 1 answers EPERM to a person, which is a different answer and recorded
    as one; 0 is this process's own group, which `kill(0, 0)` reports alive. */
