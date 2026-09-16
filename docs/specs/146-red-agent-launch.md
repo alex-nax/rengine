@@ -62,7 +62,8 @@ So this is a wiring binary over parts that exist, plus a process it owns.
 them. Each is a module whose Rust counterpart already exists and is already judged; they survive
 only as imports of the file this spec replaces.
 
-`agents/mcp.mjs` stays, for the reason below.
+`agents/mcp.mjs` stays, for the reason below — and went in its own row once that reason was dealt
+with. `templates/external/commands.mjs` became `commands.py`: see the note at the end.
 
 ## The pane's MCP server — deferred within this spec, then done
 
@@ -97,3 +98,15 @@ reported when its pipe breaks — which is the ordinary end of a layered update.
   (F173), because a replacement compared against a regenerated record is judged against itself.
 - The refusals and the best-effort paths get a case each, because "prints and continues" is the
   behaviour a green run cannot tell from "never happened".
+
+## The external helper: Python, not JavaScript
+
+The profile helper the external installer copies into a consumer project was argued to be
+JavaScript on purpose, because it reads `package.json` and runs `pnpm`. The owner rejected that,
+correctly: reading `package.json` is reading JSON and running `pnpm` is running a subprocess, and
+this repository's tooling is already Python with the standard library only. It is `commands.py`, the
+declaration names an absolute `python3`, and no JavaScript ships from this repository.
+
+The subtlety the port had to be corrected on: Python block-buffers stdout to a pipe while a
+subprocess writes straight to the same descriptor, so the `Project: …` header printed *after* the
+output it headed. `run()` flushes before it spawns.

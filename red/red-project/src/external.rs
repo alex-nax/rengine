@@ -19,16 +19,18 @@
 //!    rerunning the installer must not take that away. A file that is already byte-identical is
 //!    not an error, so rerunning after a no-op change is allowed.
 //!
-//! The helper stays JavaScript and is meant to: it reads the project's `package.json`, lists its
-//! scripts and runs them through its package manager. That is JavaScript about JavaScript, which is
-//! the one kind this repository keeps.
+//! The helper the profile gets is **Python**, standard library only, like the rest of this
+//! repository's tooling. It was JavaScript, on the reasoning that a helper reading `package.json`
+//! and running `pnpm` is a helper about the Node ecosystem — which mistook the subject for the
+//! requirement. Reading `package.json` is reading JSON and running `pnpm` is running a subprocess;
+//! neither wants the Node runtime. With it Python, no JavaScript ships from this repository at all.
 
 use std::path::{Component, Path, PathBuf};
 
 use serde_json::{json, Value};
 
 /// The helper copied into every profile, shipped with the binary so an install needs no checkout.
-const COMMANDS: &str = include_str!("../../../orchestrator/templates/external/commands.mjs");
+const COMMANDS: &str = include_str!("../../../orchestrator/templates/external/commands.py");
 
 pub struct Install<'a> {
     pub project: &'a str,
@@ -43,7 +45,8 @@ pub struct Install<'a> {
     pub reader: &'a Path,
     /// `red-launch`, written into the launcher script.
     pub launch: &'a Path,
-    /// `node`, which the helper's declared commands run.
+    /// `python3`, which the helper's declared commands run. Absolute, for the reason
+    /// `red_core::env` gives: a declaration's argv is data a person reads and a runner execs.
     pub node: &'a str,
     /// The PATH the launcher exports, so a shortcut on a desktop finds the tools it needs.
     pub path: &'a str,
@@ -149,7 +152,7 @@ pub fn install(options: &Install) -> Result<Installed, String> {
             return Err(format!("--{name} must be outside the project."));
         }
     }
-    let helper = profile.join("commands.mjs");
+    let helper = profile.join("commands.py");
     let declaration_file = profile.join("project.json");
     if launcher == helper || launcher == declaration_file {
         return Err("Launcher must have its own path.".to_string());

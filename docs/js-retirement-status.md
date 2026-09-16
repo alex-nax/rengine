@@ -3,40 +3,42 @@
 Charter D57 makes the orchestrator's target language Rust, and spec 129 retired the Node modules
 under `orchestrator/` one feature row at a time. This is where that ended.
 
-Measured 2026-09-16, at `68d78ab`. Regenerate the number with:
+Measured 2026-09-16. Regenerate the number with:
 
 ```sh
-git ls-files '*.mjs' | grep -vE 'tests/|\.test\.mjs' | xargs wc -l | tail -1
+git ls-files '*.mjs' | grep -v 'tests/' | wc -l    # 0
 ```
 
 ## The number
 
-| | lines |
+| | |
 |---|---|
-| Production JavaScript remaining | **30** in 1 file |
-| Rust in `red/` | ~36,000 |
+| Production JavaScript remaining | **none** |
+| Rust in `red/` | ~36,000 lines |
 
-Down from 5,504 across 43 files when this was first written — **99.5% of it gone**, in two days.
+From 5,504 lines across 43 files, in two days. There is no production `.mjs` in this repository.
 
-## What is left, and why it stays
+## The last file, and the argument that was wrong about it
 
-`orchestrator/templates/external/commands.mjs`, 30 lines. It is **JavaScript on purpose rather than
-by history**, and it is the only file here that can say so.
+The external profile helper — the thing the installer copies into a consumer project so its
+dashboard can show `status`, `scripts` and a few of its package scripts — was the last JavaScript
+here, and it was defended on the grounds that a helper which reads `package.json` and runs `pnpm` is
+a helper *about* the Node ecosystem, so JavaScript was the honest tool.
 
-It is not part of this workspace. The external installer copies it into a *consumer project's*
-profile (spec 085), where the declaration's dashboard actions run it: it reads that project's
-`package.json`, lists the scripts it declares, runs one through the project's package manager, and
-pretty-prints JSON. Every one of those is a fact about the Node ecosystem, in a project that is a
-Node project — the installer refuses one without a `package.json`.
+**That mistook the subject for the requirement**, and the owner said so. Reading `package.json` is
+reading JSON. Running `pnpm` is running a subprocess. Neither wants the Node runtime, and this
+repository's tooling is already Python, standard library only (`tools/*.py`). It is
+`templates/external/commands.py` now, and the declaration names an absolute `python3` for the same
+reason every other interpreter path here is absolute: a declaration's argv is data a person reads
+and a runner execs, not a line a shell resolves.
 
-Replacing it would mean shipping a Rust binary into a web project's profile whose whole job is to
-shell out to `pnpm` and parse `package.json`. That is a worse tool for the job, not a better one,
-and it would make an install depend on a compiled artifact where today it depends on the runtime
-the project already has.
+The one behaviour the port had to be corrected on is worth keeping, because it is invisible in a
+green test: Python block-buffers stdout to a pipe while a subprocess writes straight to the same
+descriptor, so `Project: …` — a line a person reads as a header — landed *after* the git output it
+was heading. `run()` flushes first.
 
-**This is the line the retirement stops at**, and it is a different kind of line from the ones
-before it. Everything else went because it was the JavaScript rEngine happened to be written in
-first. This stays because of what it is about.
+The only `.js` left in the repository is `docs/reviews/ispec.js`, 148 lines of browser script in a
+generated review page. Browsers run JavaScript; that one is not a choice anybody here makes.
 
 ## What went, in order
 
@@ -69,7 +71,8 @@ outside the product:
    `node-pty` to drive the Rust binaries from the outside. That is a harness, not a product, and
    driving a Rust MCP server with the reference client is a *feature* of the evidence.
 2. **An agent pane's CLI**, where that CLI is itself a Node program. rEngine does not choose that.
-3. **An external project's profile helper**, above.
+
+The external project's profile helper used to be the third, and is not any more.
 
 The desktop build requires none: `find_program(node REQUIRED)` and `-DRENGINE_NODE_EXECUTABLE` are
 gone from `cmake.toml`, and a from-scratch `.cache/desktop` mentions node zero times.

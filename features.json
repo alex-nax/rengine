@@ -2972,9 +2972,9 @@
         "A from-scratch `.cache/desktop` build and a headless launch, both run with a `node` on PATH that exits 66 and prints if it is invoked: ZERO invocations in either. That is the criterion's own test rather than a reading of the source (2026-09-16).",
         "`find_program(node REQUIRED)` and `-DRENGINE_NODE_EXECUTABLE` are gone from cmake.toml; a from-scratch CMakeCache.txt mentions RENGINE_NODE zero times. The desktop bakes RENGINE_CHECKOUT and execs `red-launch bootstrap`.",
         "`./editor.sh` is the documented entry point and calls no npm: cargo builds the launcher, the launcher builds the desktop through cmake. `orchestrator/actions/verify.sh` builds through the launcher too, so the verification gate needs no npm either.",
-        "Production JavaScript is 30 lines in 1 file, from 5,504 across 43 (docs/js-retirement-status.md). 369 JS tests and 353 Rust tests pass; ./init.sh, design.py check and agent_names.py check are green."
+        "There is no production JavaScript: `git ls-files '*.mjs' | grep -v tests/` answers nothing. The external profile helper is templates/external/commands.py (owner decision, 2026-09-16: reading package.json is reading JSON and running pnpm is running a subprocess, and this repository's tooling is already stdlib Python). 369 JS tests, 356 Rust tests, gates green."
       ],
-      "notes": "NOT marked passing: the one remaining file, templates/external/commands.mjs, is deliberate rather than outstanding \u2014 it is copied into an external project's profile to read that project's package.json and run its scripts \u2014 but `passes` is the owner's call on whether 'entry points move off Node' is met with a node-project helper still shipped, and on whether package.json 'shrinking to metadata' is satisfied by it remaining the test harness's file. Spec 146 and docs/js-retirement-status.md record both."
+      "notes": "NOT marked passing, and only one judgement is left: whether package.json 'shrinking to metadata' is satisfied by it remaining the TEST HARNESS's file \u2014 `npm test` is still the runner, and the specs drive the Rust binaries with the MCP reference client, `ws` and `node-pty`. The product itself contains no JavaScript and needs no node to build or launch. docs/js-retirement-status.md records the measurement and spec 146 the reasoning."
     },
     {
       "id": 164,

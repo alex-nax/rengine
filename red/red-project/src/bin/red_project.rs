@@ -334,7 +334,10 @@ fn main() -> ExitCode {
                 .find(|flag| value_missing(flag));
             let reader = std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("red-project"));
             let launch = red_core::service::serve_binary("RENGINE_RED_LAUNCH", "red-launch");
-            let node = red_core::env::node_path();
+            /* The helper is Python now (spec 146), resolved absolute for the same reason every
+               other interpreter path here is: a declaration's argv is data a person reads, and the
+               runner execs it rather than handing it to a shell. */
+            let node = red_core::env::on_path("python3");
             let path = std::env::var("PATH").unwrap_or_default();
             let title = named("--title");
             let declared_title = has("--title");

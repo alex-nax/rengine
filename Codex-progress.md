@@ -2,13 +2,21 @@
 
 Owner goal: *"finalize js retirement"*, after a morning spent on the three launchers.
 
-**Production JavaScript is 30 lines in one file, from 5,504 across 43 when this goal started.**
-99.5%, and the last file is the one that can say it is JavaScript on purpose:
-`templates/external/commands.mjs` is copied into an external project's PROFILE, where it reads that
-project's `package.json`, lists its scripts and runs them through its package manager. Replacing it
-would mean shipping a Rust binary into a web project to shell out to pnpm. `docs/js-retirement-status.md`
-is rewritten around that distinction, because it is the only interesting thing left to say about the
-number.
+**There is no production JavaScript**, from 5,504 lines across 43 files when this goal started.
+`git ls-files '*.mjs' | grep -v tests/` answers nothing.
+
+It nearly stopped one file short. I argued `templates/external/commands.mjs` was JavaScript ON
+PURPOSE — it is copied into an external project's profile, where it reads that project's
+`package.json` and runs its scripts through pnpm — and wrote that reasoning into the status doc as
+the place the retirement stops. **The owner rejected it in one line, and was right**: reading
+`package.json` is reading JSON, running pnpm is running a subprocess, and this repository's tooling
+is already stdlib Python. I had mistaken the SUBJECT for the requirement. It is `commands.py`, and
+the declaration names an absolute `python3` for the same reason every other interpreter path here is
+absolute.
+
+One behaviour the port had to be corrected on, invisible in a green test: Python block-buffers
+stdout to a pipe while a subprocess writes straight to the same descriptor, so `Project: …` — a line
+a person reads as a HEADER — printed after the git output it was heading. `run()` flushes first.
 
 **The pane launcher went first, because everything else hung off it.** `scripts/agent.sh` execed
 `agents/launch.mjs`, and that file's imports were six more modules. `red-agent-launch` is the ACTING

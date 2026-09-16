@@ -29,10 +29,18 @@ test('external installer keeps the project untouched and quotes launcher paths l
   const declaration = JSON.parse(await readFile(installed.declarationFile, 'utf8'));
   const actions = declaration.dashboard.groups.flatMap(group => group.actions);
   assert.deepEqual(actions.map(a => a.id), ['status', 'scripts', 'dev', 'test']);
-  assert.deepEqual(actions[1].command, [process.execPath, path.join(options.profile, 'commands.mjs'), 'scripts']);
-  const scripts = await run(actions[1].command[0], actions[1].command.slice(1), { cwd: options.project });
+  /* The helper is Python (spec 146), and its interpreter is ABSOLUTE in the declaration: a
+     declaration's argv is data a person reads and the runner execs, not a line a shell resolves. */
+  const [interpreter, helper, verb] = actions[1].command;
+  assert.equal(helper, path.join(options.profile, 'commands.py'));
+  assert.equal(verb, 'scripts');
+  assert.ok(path.isAbsolute(interpreter), `the interpreter is a path, not a name: ${interpreter}`);
+  assert.match(interpreter, /python3?$/, interpreter);
+  const scripts = await run(interpreter, actions[1].command.slice(1), { cwd: options.project });
   assert.match(scripts.stdout, /fixture/); assert.match(scripts.stdout, /deploy\n  echo never/);
-  await assert.rejects(run(process.execPath, [path.join(options.profile, 'commands.mjs'), 'deploy'], { cwd: options.project }), /Unknown external action/);
+  /* `deploy` is a script this project declares and the dashboard deliberately does NOT offer: the
+     helper runs the closed list it was given, not whatever package.json happens to name. */
+  await assert.rejects(run(interpreter, [path.join(options.profile, 'commands.py'), 'deploy'], { cwd: options.project }), /Unknown external action/);
   await assert.rejects(run('/bin/bash', [installed.launcher, '--project', '/tmp']), /bound to its installed project/);
   await assert.rejects(run('/bin/bash', [installed.launcher, '--unknown']), /Unknown option/);
   /* `--agent` EMPTIES agent_flags, and `"${a[@]}"` on an empty array under `set -u` is an unbound
