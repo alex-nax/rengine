@@ -230,7 +230,7 @@ export async function agentLaunch({ agent, executable, args = [], contextFile, c
   if (!listed.length) {
     try {
       const [{ request }, { checkConnection }] = await Promise.all([
-        import('../launcher/sidecar.mjs'), import('../runtime/protocol.mjs')]);
+        import('./sidecar.mjs'), import('./protocol.mjs')]);
       listed = (await request(checkConnection(root), 'state')).sessions ?? [];
     } catch { listed = []; }
   }

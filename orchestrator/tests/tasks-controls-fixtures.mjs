@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocket, WebSocketServer } from 'ws';
-import { forward, tunnel } from '../runtime/protocol.mjs';
+import { forward, tunnel } from './protocol.mjs';
 
 /* A stand-in for the worker half of spec 103 decision 5, built the way stage 3 of spec 095 built
  * its own: the routes the Tasks pane's controls call are pinned here and nothing more is invented.

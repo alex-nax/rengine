@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from './red-host-fixture.mjs';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 import { endStateServices } from './state-services.mjs';
 import { built } from './cargo.mjs';
 
@@ -331,7 +331,7 @@ test('red-supervisor opens the window it was asked to start with', { timeout: 30
   /* And stopping the supervisor takes its window with it. The desktop is its child only in `ps` —
      no signal reaches it through a group — so a supervisor that simply died would leave a window on
      the screen with nobody to close it and nobody to save its drafts. */
-  const { alive } = await import('../launcher/sidecar.mjs');
+  const { alive } = await import('./sidecar.mjs');
   const window = listed[0].pid;
   assert.ok(alive(window), 'the window is running');
   await supervisor.close(); supervisor = null;

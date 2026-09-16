@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { networkInterfaces, tmpdir } from 'node:os';
 import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
-import { alive, ensureSidecar } from '../launcher/sidecar.mjs';
+import { alive, ensureSidecar } from './sidecar.mjs';
 import { LAUNCH } from './red-launch.mjs';
 import { startServer } from './red-host-fixture.mjs';
 import { endStateServices } from './state-services.mjs';

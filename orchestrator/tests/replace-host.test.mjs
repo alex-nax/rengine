@@ -20,7 +20,7 @@ import { promisify } from 'node:util';
 import { endStateServices } from './state-services.mjs';
 import { tmpdir } from 'node:os';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { alive, ensureSidecar, request } from '../launcher/sidecar.mjs';
+import { alive, ensureSidecar, request } from './sidecar.mjs';
 import { LAUNCH, ROOT, replaceHost } from './red-launch.mjs';
 
 const run = promisify(execFile);

@@ -9,7 +9,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from './red-host-fixture.mjs';
 import { startSupervisor } from './red-supervisor-fixture.mjs';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 import { readDeclaration } from './formats.mjs';
 import { MAX_RAW_WINDOW } from './contract.mjs';
 import { CONTRACTS } from './contract.mjs';

@@ -12,8 +12,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { ToolListChangedNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
 import { startServer } from './red-host-fixture.mjs';
 import { startSupervisor } from './red-supervisor-fixture.mjs';
-import { forward, json, tunnel } from '../runtime/protocol.mjs';
-import { alive, ensureSidecar, request } from '../launcher/sidecar.mjs';
+import { forward, json, tunnel } from './protocol.mjs';
+import { alive, ensureSidecar, request } from './sidecar.mjs';
 import { endStateServices } from './state-services.mjs';
 
 /* A native spec starts a real workspace, and a real workspace publishes an IDE lock for Claude Code

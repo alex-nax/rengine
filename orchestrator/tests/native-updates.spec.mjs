@@ -10,9 +10,10 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from './red-host-fixture.mjs';
-import { request, alive } from '../launcher/sidecar.mjs';
+import { request, alive } from './sidecar.mjs';
 import { startSupervisor, window as attach } from './red-supervisor-fixture.mjs';
 import { nativeBinary } from './native-client.mjs';
+import { LAUNCH } from './red-launch.mjs';
 
 test('MCP prepares native updates, recovers drafts and rolls back failures with one retained CLI', { timeout: 90000 }, async () => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-native-updates-')));
@@ -109,7 +110,7 @@ chmod +x ${JSON.stringify(shim)}
     gui = await reach();
     await gui.until(s => s.connected && s.tabs.some(t => t?.dirty && t.text.includes('Keep my draft')), 'keyboard build failure restores previous desktop');
     const execute = promisify(execFile);
-    const cli = await execute(process.execPath, ['orchestrator/runtime/client.mjs', 'update', '--context', contextFile, '--layers', 'connector'], { timeout: 15000 });
+    const cli = await execute(LAUNCH(), ['client', 'update', '--context', contextFile, '--layers', 'connector'], { timeout: 15000 });
     assert.match(cli.stdout, /"status": "succeeded"/);
     const beforeCrash = await call('update_status'), retainedViewPid = await windowPid();
     process.kill(beforeCrash.workspace.pid, 'SIGTERM');

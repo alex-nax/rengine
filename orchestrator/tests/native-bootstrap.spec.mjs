@@ -7,8 +7,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from './red-host-fixture.mjs';
-import { discoverRuntime, runtimeDirectory, ensureRuntime, alive } from '../runtime/discovery.mjs';
-import { request } from '../launcher/sidecar.mjs';
+import { discoverRuntime, runtimeDirectory, ensureRuntime, alive } from './discovery.mjs';
+import { request } from './sidecar.mjs';
 import { LAUNCH } from './red-launch.mjs';
 
 test('the existing launcher reaches native bootstrap once, then CLI actions replace the managed desktop', { timeout: 60000 }, async () => {
@@ -37,7 +37,7 @@ process.stdin.setRawMode(true); console.log('BOOTSTRAP_RETAINED_CLI'); process.s
     assert.equal(status.desktops.length, 1); assert.equal(status.desktops[0].pid, before.pid);
     const contextFile = path.join(directory, 'context.json');
     await writeFile(contextFile, JSON.stringify({ url: host.url, token: host.token, instance: host.instance, rootId: root.id }), { mode: 0o600 });
-    const updated = await execute(process.execPath, ['orchestrator/runtime/client.mjs', 'update', '--context', contextFile,
+    const updated = await execute(LAUNCH(), ['client', 'update', '--context', contextFile,
       '--desktop', before.id, '--layers', 'workspace,desktop,connector'], { timeout: 30000 });
     assert.match(updated.stdout, /"status": "succeeded"/);
     status = await request(runtime, `update-status?rootId=${root.id}`);

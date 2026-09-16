@@ -1,10 +1,26 @@
 import { mkdir, mkdtemp, readFile, writeFile, realpath, rm, stat, chmod } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { serveBinary } from './runtime/service-client.mjs';
+/* Resolved here rather than imported: this installer is the last production module that reached
+   into `runtime/`, and what it wanted was fifteen lines of path lookup. Everything else in that
+   directory is a spec fixture now (spec 146). */
+function serveBinary(variable, basename) {
+  const declared = process.env[variable];
+  if (declared) {
+    if (existsSync(declared)) return declared;
+    throw new Error(`${variable} names ${declared}, which does not exist.`);
+  }
+  const checkout = fileURLToPath(new URL('../', import.meta.url));
+  for (const profile of ['debug', 'release']) {
+    const candidate = path.join(checkout, 'red/target', profile, basename);
+    if (existsSync(candidate)) return candidate;
+  }
+  throw new Error(`The ${basename} binary is required (run: cargo build --manifest-path red/Cargo.toml --bins, or set ${variable}).`);
+}
 
 const run = promisify(execFile);
 

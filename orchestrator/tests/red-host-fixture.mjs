@@ -19,7 +19,7 @@ import { once } from 'node:events';
 import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { WebSocket } from 'ws';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 
 /* One call to a state-directory service (charter D60/D61, `red_core::service`): connect, attach with
    the protocol number, ask, and let go. A spec reaches for this only where a route does not exist —

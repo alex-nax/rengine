@@ -16,7 +16,7 @@ import { mkdir, open as openFile, readFile, rm } from 'node:fs/promises';
 import readline from 'node:readline';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { alive } from '../launcher/sidecar.mjs';
+import { alive } from './sidecar.mjs';
 
 const CHECKOUT = fileURLToPath(new URL('../../', import.meta.url));
 const pause = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));

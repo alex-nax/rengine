@@ -9,7 +9,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from './red-host-fixture.mjs';
 import { startWorker } from './red-worker-fixture.mjs';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 import { agentLaunch, describeSession } from './agents-client.mjs';
 import { bind, forgetRecipes } from './agents-client.mjs';
 import { built } from './cargo.mjs';

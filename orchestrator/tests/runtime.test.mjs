@@ -13,9 +13,9 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { WebSocket } from 'ws';
 import { startServer } from './red-host-fixture.mjs';
 import { startSupervisor } from './red-supervisor-fixture.mjs';
-import { discoverRuntime, ensureRuntime, alive, runtimeDirectory, redSupervisorBinary } from '../runtime/discovery.mjs';
-import { forward, json, tunnel } from '../runtime/protocol.mjs';
-import { request } from '../launcher/sidecar.mjs';
+import { discoverRuntime, ensureRuntime, alive, runtimeDirectory, redSupervisorBinary } from './discovery.mjs';
+import { forward, json, tunnel } from './protocol.mjs';
+import { request } from './sidecar.mjs';
 import { fakeCli } from './task-fixtures.mjs';
 
 /* A worker publishes an IDE lock for Claude Code to find (spec 102), and these workers are real, so

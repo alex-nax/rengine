@@ -7,7 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from './red-host-fixture.mjs';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 import { readDeclaration } from './formats.mjs';
 import { validateSchema } from './store-client.mjs';
 import { producer, pack, declaration, entries, project } from './format-fixtures.mjs';

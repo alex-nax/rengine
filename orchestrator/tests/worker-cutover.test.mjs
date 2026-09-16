@@ -18,7 +18,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocket } from 'ws';
 import { startServer } from './red-host-fixture.mjs';
 import { startSupervisor } from './red-supervisor-fixture.mjs';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 import { endStateServices } from './state-services.mjs';
 import { built } from './cargo.mjs';
 

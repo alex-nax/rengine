@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from './red-host-fixture.mjs';
 import { startWorker } from './red-worker-fixture.mjs';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 import { WorkspaceStore } from './store-client.mjs';
 import http from 'node:http';
 import { execFile } from 'node:child_process';

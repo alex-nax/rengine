@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocket, WebSocketServer } from 'ws';
-import { forward, tunnel } from '../runtime/protocol.mjs';
+import { forward, tunnel } from './protocol.mjs';
 
 /* A stand-in for the workspace worker's half of the project token (spec 095, stages 2 and 3).
  *

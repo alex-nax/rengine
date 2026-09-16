@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocket } from 'ws';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 import { endStateServices } from './state-services.mjs';
 import { built } from './cargo.mjs';
 

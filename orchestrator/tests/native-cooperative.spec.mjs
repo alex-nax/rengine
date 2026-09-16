@@ -5,7 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { startServer } from './red-host-fixture.mjs';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 import { nativeClient } from './native-client.mjs';
 import { cooperativeGame, gameProject, gamesDeclaration } from './game-fixtures.mjs';
 

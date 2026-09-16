@@ -5,7 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { ensureSidecar, request } from '../launcher/sidecar.mjs';
+import { ensureSidecar, request } from './sidecar.mjs';
 import { LAUNCH, launch } from './red-launch.mjs';
 import { endStateServices } from './state-services.mjs';
 

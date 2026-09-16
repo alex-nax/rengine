@@ -13,7 +13,7 @@
  * over HTTP. `red-token` holds the same three (`Identity::from_headers`, `read_desktop`,
  * `segment_frame`) for the day red-host answers these routes; these die with `worker.mjs` (F158).
  */
-import { ServiceClient } from '../runtime/service-client.mjs';
+import { ServiceClient } from './service-client.mjs';
 
 export const DEFAULT_WINDOW_MS = 60000;
 export const MIN_WINDOW_MS = 250;

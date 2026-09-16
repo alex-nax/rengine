@@ -11,7 +11,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runtimeDirectory } from '../runtime/discovery.mjs';
+import { runtimeDirectory } from './discovery.mjs';
 import { built } from './cargo.mjs';
 
 const BIN = process.env.RENGINE_RED_WORKER

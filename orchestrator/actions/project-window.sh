@@ -19,15 +19,23 @@ done
 [[ -n "$RE_PROJECT" ]] || re_ask RE_PROJECT 'Absolute integration project directory'
 [[ -n "$RE_AGENT_ID" ]] || re_ask RE_AGENT_ID 'Current retained agent session ID'
 [[ -r "$RE_CONTEXT" && -d "$RE_PROJECT" ]] || { printf 'Context file or project directory is unavailable\n' >&2; exit 2; }
-RE_NODE=${RENGINE_NODE:-$(command -v node || true)}
-[[ -n "$RE_NODE" && -x "$RE_NODE" ]] || { printf 'Node is required; use the project prerequisites\n' >&2; exit 2; }
-RE_CLIENT="$RE_ENGINE_ROOT/orchestrator/runtime/client.mjs"
+# The client is a binary (F163, spec 146): this action needs no node, which is also what closes
+# KI-125's second half — `command -v node` found nothing inside the bash this action runs in, so a
+# dashboard action refused with "Node is required" on a machine that has node.
+RE_CLIENT=${RENGINE_RED_LAUNCH:-}
+if [[ -z "$RE_CLIENT" ]]; then
+  for RE_PROFILE in release debug; do
+    [[ -x "$RE_ENGINE_ROOT/red/target/$RE_PROFILE/red-launch" ]] && { RE_CLIENT="$RE_ENGINE_ROOT/red/target/$RE_PROFILE/red-launch"; break; }
+  done
+fi
+[[ -n "$RE_CLIENT" && -x "$RE_CLIENT" ]] || {
+  printf 'red-launch is required and this checkout has none: build it with\n  cargo build --manifest-path red/Cargo.toml --bins\n' >&2; exit 2; }
 trap 'printf "Canceled; retained sessions remain managed by the workspace. Inspect status before retrying.\n" >&2; exit 130' INT
 re_wizard 'Open a project with the current agent' 3
 re_stage 'Verify and adopt the original session host'
-re_run 'Prepare window management' "$RE_NODE" "$RE_CLIENT" bootstrap --context "$RE_CONTEXT"
+re_run 'Prepare window management' "$RE_CLIENT" client bootstrap --context "$RE_CONTEXT"
 re_stage 'Open or reuse the bound project window'
-re_run 'Attach the retained agent' "$RE_NODE" "$RE_CLIENT" open --context "$RE_CONTEXT" --project "$RE_PROJECT" --agent "$RE_AGENT_ID"
+re_run 'Attach the retained agent' "$RE_CLIENT" client open --context "$RE_CONTEXT" --project "$RE_PROJECT" --agent "$RE_AGENT_ID"
 re_stage 'Inspect retained window identities'
-re_run 'List project windows' "$RE_NODE" "$RE_CLIENT" windows --context "$RE_CONTEXT"
+re_run 'List project windows' "$RE_CLIENT" client windows --context "$RE_CONTEXT"
 re_finish

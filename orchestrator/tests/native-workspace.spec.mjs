@@ -6,7 +6,7 @@ import { copyFile, mkdir, mkdtemp, readdir, readFile, symlink, writeFile } from 
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { nativeBridge } from './native-client.mjs';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 
 test('normal launcher opens the declared NOLF game, source tree, editor, shell and installed Codex together', { timeout: 120000 }, async () => {
   assert.equal(process.platform, 'darwin', 'This qualification uses the macOS NOLF adapter.');

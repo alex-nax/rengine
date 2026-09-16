@@ -4,7 +4,7 @@ import { mkdir, open, readFile, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 import { checkConnection } from './protocol.mjs';
 
 const project = fileURLToPath(new URL('../../', import.meta.url));

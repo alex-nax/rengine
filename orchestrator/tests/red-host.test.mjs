@@ -23,7 +23,7 @@ import { WebSocket } from 'ws';
 import { startServer } from './red-host-fixture.mjs';
 import { PtyHost } from './pty-client.mjs';
 import { agentTitle } from './sessions-client.mjs';
-import { runtimeDirectory } from '../runtime/discovery.mjs';
+import { runtimeDirectory } from './discovery.mjs';
 import { fakeCli } from './task-fixtures.mjs';
 import { endStateServices } from './state-services.mjs';
 import { built } from './cargo.mjs';

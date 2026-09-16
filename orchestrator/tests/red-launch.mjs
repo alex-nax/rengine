@@ -9,7 +9,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { serveBinary } from '../runtime/service-client.mjs';
+import { serveBinary } from './service-client.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 

@@ -28,7 +28,7 @@
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import readline from 'node:readline';
-import { findOrStart, serveBinary as resolveBinary } from '../runtime/service-client.mjs';
+import { findOrStart, serveBinary as resolveBinary } from './service-client.mjs';
 
 /* The wire red-pty-serve speaks. A service answering another number is ended, never adopted.
    2 since charter D62: the pane record is the service's and is changed through `describe`, which a

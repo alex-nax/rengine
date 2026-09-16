@@ -36,6 +36,7 @@ fn main() -> ExitCode {
         Some("restart-supervisor") => restart_command(&argv[1..]),
         Some("ancestors") => ancestors_command(&argv[1..]).map(|()| 0),
         Some("bootstrap") => bootstrap_command(&argv[1..]).map(|()| 0),
+        Some("client") => client_command(&argv[1..]),
         _ => workspace(&argv),
     };
     match outcome {
@@ -289,22 +290,30 @@ fn bootstrap_command(argv: &[String]) -> Result<(), String> {
 fn ensure_runtime(host: &Connection, desktop: &Path, root: &Path) -> Result<Value, String> {
     let directory = red_supervisor::runtime_directory(root, &host.instance);
     std::fs::create_dir_all(&directory).map_err(|error| format!("{} cannot be created: {error}", directory.display()))?;
+    ensure_runtime_in(host, Some(desktop), &directory)
+}
+
+/// The same, for a caller that already knows the directory and may have no desktop to name — the
+/// client's `bootstrap`, which adopts a host without launching a window or a CLI.
+fn ensure_runtime_in(host: &Connection, desktop: Option<&Path>, directory: &Path) -> Result<Value, String> {
     let binary = red_core::service::serve_binary("RENGINE_RED_SUPERVISOR", "red-supervisor")?;
-    let args = vec![
+    let mut args = vec![
         "--state".to_string(),
         directory.to_string_lossy().into_owned(),
         "--host".to_string(),
         host.url.clone(),
         "--host-token".to_string(),
         host.token.clone(),
-        "--desktop".to_string(),
-        desktop.to_string_lossy().into_owned(),
     ];
+    if let Some(desktop) = desktop {
+        args.push("--desktop".to_string());
+        args.push(desktop.to_string_lossy().into_owned());
+    }
     let held = |path: &Path| format!("Runtime startup is still owned by another live process ({}).", path.display());
     let exited = |path: &Path| format!("Runtime exited during startup; inspect {}.", path.display());
     let slow = |pid: i64| format!("Runtime PID {pid} is still starting; inspect runtime.log.");
     let options = descriptor::Starting {
-        directory: &directory,
+        directory,
         lock: "startup.lock",
         log: "runtime.log",
         deadline: Duration::from_secs(25),
@@ -312,13 +321,196 @@ fn ensure_runtime(host: &Connection, desktop: &Path, root: &Path) -> Result<Valu
         exited: &exited,
         slow: &slow,
     };
-    let owned = directory.clone();
+    let owned = directory.to_path_buf();
     let connection = host.clone();
     descriptor::ensure(
         &options,
         &|| descriptor::discover_runtime(&connection, &owned),
         &|log| red_core::service::spawn_detached(&binary, &args, log),
     )
+}
+
+/* ---- the client the dashboard actions use ---------------------------------------------------- */
+
+const CLIENT_USAGE: &str = "Usage: red-launch client bootstrap|status|update|open|windows|window|report|inbox|script|show-session --context FILE \
+[--project DIR --agent ID] [--window ID --action inspect|focus|close|reopen --screenshot] [--report FILE] [--script FILE --desktop ID] \
+[--session ID] [--after N --project-side] [--desktop ID --layers workspace,desktop,connector]";
+
+/// `orchestrator/runtime/client.mjs` (F163, spec 146): the command two dashboard actions and the
+/// dogfooding runbook drive a workspace's supervisor with.
+///
+/// Every route it asks for is one `red-supervisor` already serves, so this is argument parsing, one
+/// refusal, and the update poll. It is here rather than in the supervisor because a client is not a
+/// server: this is the process a person's shell action runs, and it exits.
+fn client_command(argv: &[String]) -> Result<i32, String> {
+    const ACTIONS: [&str; 10] =
+        ["bootstrap", "status", "update", "open", "windows", "window", "report", "inbox", "script", "show-session"];
+    let action = argv.first().map(String::as_str).filter(|value| ACTIONS.contains(value)).ok_or(CLIENT_USAGE)?;
+    let mut options: Map<String, Value> = Map::new();
+    let mut index = 1;
+    while index < argv.len() {
+        let flag = argv[index].as_str();
+        match flag {
+            "--screenshot" | "--project-side" => {
+                options.insert(flag[2..].to_string(), Value::Bool(true));
+            }
+            "--context" | "--desktop" | "--layers" | "--project" | "--agent" | "--window" | "--action" | "--report"
+            | "--after" | "--script" | "--session" => {
+                let value = argv.get(index + 1).filter(|value| !value.is_empty()).ok_or(CLIENT_USAGE)?;
+                options.insert(flag[2..].to_string(), Value::String(value.clone()));
+                index += 1;
+            }
+            _ => return Err(CLIENT_USAGE.to_string()),
+        }
+        index += 1;
+    }
+    let text = |name: &str| options.get(name).and_then(Value::as_str).unwrap_or("").to_string();
+    let filename = match options.get("context").and_then(Value::as_str) {
+        Some(named) => named.to_string(),
+        None => std::env::var("RENGINE_WORKSPACE_CONTEXT").map_err(|_| CLIENT_USAGE.to_string())?,
+    };
+    let source = std::fs::read_to_string(&filename).map_err(|error| format!("{filename} cannot be read: {error}"))?;
+    let context: Value = serde_json::from_str(&source).map_err(|error| format!("{filename} is not a workspace context: {error}"))?;
+    let root_id = context.get("rootId").and_then(Value::as_str).unwrap_or_default().to_string();
+    let host = descriptor::check_connection(&context)?;
+
+    /* The original host has to still BE the one this context names, and still serve this root: a
+       client that carried on against a replaced host would act on another workspace's windows. */
+    let state = descriptor::request(&host, "state", None, &[])?;
+    let same = state.get("instance").and_then(Value::as_str) == Some(host.instance.as_str());
+    let serves = state
+        .get("roots")
+        .and_then(Value::as_array)
+        .is_some_and(|roots| roots.iter().any(|root| root.get("id").and_then(Value::as_str) == Some(root_id.as_str())));
+    if !same || !serves {
+        return Err("The original project/session host is no longer available.".to_string());
+    }
+
+    let directory = match context.get("runtimeDirectory").and_then(Value::as_str) {
+        Some(named) => PathBuf::from(named),
+        None => red_supervisor::runtime_directory(&checkout(), &host.instance),
+    };
+    if action == "bootstrap" {
+        std::fs::create_dir_all(&directory).map_err(|error| format!("{} cannot be created: {error}", directory.display()))?;
+        let runtime = ensure_runtime_in(&host, None, &directory)?;
+        println!(
+            "{}",
+            json!({ "supervisorPid": runtime.get("pid"), "instance": runtime.get("instance"),
+                    "detail": "Original host adopted; no desktop or CLI launched." })
+        );
+        return Ok(0);
+    }
+
+    /* `resolveRuntime`: the supervisor when one is serving, the host itself when none is — so a
+       workspace with no supervisor gets the capability refusal below rather than a connection error. */
+    let runtime = match descriptor::discover_runtime(&host, &directory)? {
+        Some(found) => descriptor::check_connection(&found)?,
+        None => host.clone(),
+    };
+    let state = descriptor::request(&runtime, "state", None, &[])?;
+    if state.get("capabilities").and_then(|value| value.get("layeredUpdates")).and_then(Value::as_i64) != Some(1) {
+        return Err("Layered updates are not installed. Use explicit bootstrap with this same context.".to_string());
+    }
+    let scoped = |route: &str| format!("{route}?rootId={}", red_core::http::encode(&root_id));
+    let result = match action {
+        "status" => descriptor::request(&runtime, &scoped("update-status"), None, &[])?,
+        "windows" => descriptor::request(&runtime, &scoped("project-windows"), None, &[])?,
+        "open" => {
+            let agent = match options.get("agent").and_then(Value::as_str) {
+                Some(named) => named.to_string(),
+                None => std::env::var("RENGINE_ORCHESTRATOR_SESSION").unwrap_or_default(),
+            };
+            descriptor::request(&runtime, "project-window-open",
+                Some(&json!({ "rootId": root_id, "path": text("project"), "agentId": agent })), &[])?
+        }
+        "window" => descriptor::request(&runtime, "project-window-action",
+            Some(&json!({ "rootId": root_id, "windowId": text("window"), "action": text("action"),
+                          "screenshot": options.get("screenshot") == Some(&Value::Bool(true)) })), &[])?,
+        "script" => {
+            let file = options.get("script").and_then(Value::as_str)
+                .ok_or("Provide --script FILE containing path and optional args. Choose --desktop ID.")?;
+            let mut ask = read_json_object(file)?;
+            ask.insert("rootId".into(), json!(root_id));
+            ask.insert("desktopId".into(), json!(text("desktop")));
+            descriptor::request(&runtime, "script-open", Some(&Value::Object(ask)), &[])?
+        }
+        "show-session" => descriptor::request(&runtime, "session-view",
+            Some(&json!({ "rootId": root_id, "id": text("session"), "desktopId": text("desktop") })), &[])?,
+        "report" => {
+            let file = options.get("report").and_then(Value::as_str)
+                .ok_or("Provide --report FILE containing windowId, key, kind, summary and optional detail/evidence/fromProject.")?;
+            let mut ask = read_json_object(file)?;
+            ask.insert("rootId".into(), json!(root_id));
+            descriptor::request(&runtime, "integration-report", Some(&Value::Object(ask)), &[])?
+        }
+        "inbox" => {
+            let after = options.get("after").and_then(Value::as_str).unwrap_or("0").to_string();
+            let mut query = format!("integration-inbox?rootId={}&after={}&projectSide={}",
+                red_core::http::encode(&root_id), red_core::http::encode(&after),
+                options.get("project-side") == Some(&Value::Bool(true)));
+            if let Some(window) = options.get("window").and_then(Value::as_str) {
+                query.push_str(&format!("&windowId={}", red_core::http::encode(window)));
+            }
+            descriptor::request(&runtime, &query, None, &[])?
+        }
+        _ => return update_and_watch(&runtime, &root_id, &options, &scoped),
+    };
+    println!("{}", serde_json::to_string_pretty(&result).unwrap_or_default());
+    Ok(0)
+}
+
+fn read_json_object(file: &str) -> Result<Map<String, Value>, String> {
+    let source = std::fs::read_to_string(file).map_err(|error| format!("{file} cannot be read: {error}"))?;
+    let value: Value = serde_json::from_str(&source).map_err(|error| format!("{file} is not JSON: {error}"))?;
+    value.as_object().cloned().ok_or_else(|| format!("{file} must contain a JSON object."))
+}
+
+/// Ask for an update and watch it to an OUTCOME. Completion is not acceptance (spec 144): the ask
+/// answers 202 with a job id, and a caller that treated that as success would report a failed
+/// update as a working one. A failed job is this command's failure too, which is what a shell
+/// action's `set -e` needs.
+fn update_and_watch(
+    runtime: &Connection,
+    root_id: &str,
+    options: &Map<String, Value>,
+    scoped: &dyn Fn(&str) -> String,
+) -> Result<i32, String> {
+    let layers: Vec<&str> = options
+        .get("layers")
+        .and_then(Value::as_str)
+        .unwrap_or("workspace,desktop,connector")
+        .split(',')
+        .collect();
+    let ask = json!({ "rootId": root_id, "desktopId": options.get("desktop").and_then(Value::as_str).unwrap_or(""), "layers": layers });
+    let queued = descriptor::request(runtime, "update-workspace", Some(&ask), &[])?;
+    println!("{queued}");
+    let job_id = queued.get("jobId").and_then(Value::as_str).unwrap_or_default().to_string();
+    let deadline = std::time::Instant::now() + Duration::from_secs(180);
+    loop {
+        let status = descriptor::request(runtime, &scoped("update-status"), None, &[])?;
+        let job = status
+            .get("jobs")
+            .and_then(Value::as_array)
+            .and_then(|jobs| jobs.iter().find(|job| job.get("id").and_then(Value::as_str) == Some(job_id.as_str())))
+            .cloned();
+        if let Some(job) = job {
+            match job.get("status").and_then(Value::as_str) {
+                Some("succeeded") => {
+                    println!("{}", serde_json::to_string_pretty(&job).unwrap_or_default());
+                    return Ok(0);
+                }
+                Some("failed") => {
+                    println!("{}", serde_json::to_string_pretty(&job).unwrap_or_default());
+                    return Ok(1);
+                }
+                _ => {}
+            }
+        }
+        if std::time::Instant::now() > deadline {
+            return Err("Update observation timed out. Inspect status; the operation was not canceled.".to_string());
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
 }
 
 /* ---- the workspace launcher ------------------------------------------------------------------ */

@@ -16,7 +16,7 @@ import { spawn } from 'node:child_process';
 import { connect } from 'node:net';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 import { bridgeOn } from './native-client.mjs';
 
 export function redSupervisorBinary() {

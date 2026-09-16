@@ -6,7 +6,7 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocket } from 'ws';
 import { startServer } from './red-host-fixture.mjs';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 import { cooperativeGame, game, gameProject, gamesDeclaration } from './game-fixtures.mjs';
 
 /* Spec 078, F77. `cooperative` is `embedded` minus the injection: a game whose own engine speaks the

@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, readdir, rm, realpath } from 'node:fs/promis
 import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { startServer } from './red-host-fixture.mjs';
-import { request } from '../launcher/sidecar.mjs';
+import { request } from './sidecar.mjs';
 import { installExternalProject } from '../external-project.mjs';
 import { nativeClient } from './native-client.mjs';
 

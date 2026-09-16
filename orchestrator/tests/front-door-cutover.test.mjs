@@ -18,7 +18,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { ensureSidecar, request, alive } from '../launcher/sidecar.mjs';
+import { ensureSidecar, request, alive } from './sidecar.mjs';
 import { endStateServices } from './state-services.mjs';
 import { built } from './cargo.mjs';
 
