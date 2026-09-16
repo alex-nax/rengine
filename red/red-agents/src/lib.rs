@@ -512,6 +512,12 @@ fn declared_since(raw: &Value, view: &mut serde_json::Value) {
     if let Some(prompt) = raw.get("prompt") {
         table.insert("prompt".to_string(), json!({ "kind": prompt.get("kind").and_then(Value::string) }));
     }
+    /* F222: how this CLI takes a message into a composer that is ALREADY running. Its own key
+       rather than `prompt`'s, because a CLI's command line says nothing about its composer
+       (spec 148). */
+    if let Some(message) = raw.get("message") {
+        table.insert("message".to_string(), json!({ "kind": message.get("kind").and_then(Value::string) }));
+    }
     /* F214: the flag that hands a `per-launch-settings` CLI the settings written for its launch. */
     if let Some(flag) = raw.get("hooks").and_then(|hooks| hooks.get("flag")).and_then(Value::string) {
         if let Some(hooks) = table.get_mut("hooks").and_then(serde_json::Value::as_object_mut) {
@@ -707,6 +713,23 @@ mod tests {
             assert!(refusal.contains("subcommand"), "it says what would go wrong: {refusal}");
             assert!(refusal.ends_with("Nothing was started."), "{refusal}");
         }
+    }
+
+    /* F222, spec 148. The same discipline one composer along, and the reason it is a SECOND key:
+       two CLIs declare `argv` for a command line, which says nothing whatever about what their
+       running composers do with a pasted line. Only the composer spec 146 measured is declared, and
+       every other CLI — including the one a relay is usually called FROM — is refused by name. */
+    #[test]
+    fn how_a_cli_takes_a_message_is_its_own_declaration_and_argv_is_not_it() {
+        let recipes = shipped();
+        assert_eq!(launch::message_delivery(&recipes, "kimi").expect("declared"), "paste");
+        for undeclared in ["claude", "codex", "gemini", "opencode", "nosuchcli"] {
+            let refusal = launch::message_delivery(&recipes, undeclared).expect_err("refused");
+            assert!(refusal.contains(undeclared), "refused by name: {refusal}");
+            assert!(refusal.ends_with("Nothing was typed."), "{refusal}");
+        }
+        assert_eq!(launch::prompt_delivery(&recipes, "claude").expect("declared"), "argv",
+                   "and a command-line declaration does not become a composer declaration");
     }
 
     /* A delivery KIND is rEngine's to implement, so a recipe naming one it does not is refused where

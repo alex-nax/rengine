@@ -35,6 +35,9 @@ pub const TYPES: &[&str] = &[
     "task.added",
     "task.updated",
     "agent.spawned",
+    /* F222, spec 148: an agent said one line to another agent's pane. The heaviest thing on this
+       list by what it does to somebody else's conversation, which is exactly why it is on it. */
+    "session.message",
 ];
 
 pub fn known_type(name: &str) -> bool {

@@ -91,14 +91,16 @@ export async function fakeCli(stateDirectory, agent) {
    what it was handed, and when it is started properly it behaves like the composer that was
    measured: it says something, enables bracketed paste, echoes a paste back, and notices the Enter
    that follows. */
-export async function fakePasteCli(stateDirectory, agent) {
+/* `echoes: false` plays the hazard the handshake exists for: a surface that TAKES a bracketed
+   paste and never shows it. Nothing it is given may ever earn an Enter. */
+export async function fakePasteCli(stateDirectory, agent, { echoes = true } = {}) {
   const home = path.join(stateDirectory, 'agents', agent, 'node_modules/.bin');
   const recordFile = path.join(stateDirectory, `${agent}.record.json`);
   await mkdir(home, { recursive: true });
   const executable = path.join(home, agent);
   await writeFile(executable, `#!/usr/bin/env node
 import { writeFile } from 'node:fs/promises';
-const record = { argv: process.argv.slice(2), unknownCommand: null, pasted: null, submitted: false };
+const record = { argv: process.argv.slice(2), unknownCommand: null, pasted: null, submitted: false, pastes: [], submits: 0 };
 const save = () => writeFile(${JSON.stringify(recordFile)}, JSON.stringify(record));
 const argv = record.argv;
 for (let index = 0; index < argv.length; index += 1) {
@@ -119,16 +121,28 @@ let buffer = '';
    application ever having seen either. */
 if (process.stdin.isTTY) process.stdin.setRawMode(true);
 process.stdin.setEncoding('utf8');
+/* EVERY paste, not only the first: a spawn's brief is one, and a line said to the pane later is
+   another (F222). \`pasted\` and \`submitted\` stay what F221's spec reads — the first of each. */
+const echoes = ${echoes ? 'true' : 'false'};
 process.stdin.on('data', async chunk => {
   buffer += chunk;
-  const start = buffer.indexOf('\\u001b[200~'), end = buffer.indexOf('\\u001b[201~');
-  if (record.pasted === null && start >= 0 && end > start) {
-    record.pasted = buffer.slice(start + 6, end);
+  for (;;) {
+    const start = buffer.indexOf('\\u001b[200~'), end = buffer.indexOf('\\u001b[201~');
+    if (start < 0 || end <= start) break;
+    const text = buffer.slice(start + 6, end);
+    record.pastes.push(text);
+    if (record.pasted === null) record.pasted = text;
     buffer = buffer.slice(end + 6);
     await save();
-    process.stdout.write(\`\\n > \${record.pasted}\`);   // the composer shows what it was given
+    // the composer shows what it was given — unless this fixture is playing one that does not
+    if (echoes) process.stdout.write(\`\\n > \${text}\`);
   }
-  if (record.pasted !== null && buffer.includes('\\r')) { record.submitted = true; await save(); }
+  if (record.pastes.length && buffer.includes('\\r')) {
+    record.submits += 1;
+    record.submitted = true;
+    buffer = buffer.slice(buffer.lastIndexOf('\\r') + 1);
+    await save();
+  }
 });
 setTimeout(() => {}, 120000);
 `);

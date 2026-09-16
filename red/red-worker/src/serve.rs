@@ -33,6 +33,10 @@ pub fn own_route(method: &str, path: &str) -> bool {
             | ("POST", "/api/token-action")
             | ("GET", "/api/agents-menu")
             | ("POST", "/api/agent-spawn")
+            /* Saying one line to a pane that is already running (F222, spec 148). The DOOR types
+               it; everything that decides whether it may be typed — the project, the gate, the
+               owner's grant, the recipe's capability and the feed frame — is here. */
+            | ("POST", "/api/session-message")
             | ("GET", "/api/diagnostics")
             | ("POST", "/api/ide-mention")
             | ("POST", "/api/ide-selection")
@@ -89,6 +93,7 @@ pub fn implemented(method: &str, path: &str) -> bool {
             | ("GET", "/api/agents-menu")
             | ("POST", "/api/task")
             | ("POST", "/api/agent-spawn")
+            | ("POST", "/api/session-message")
             | ("POST", "/api/script-open")
             | ("POST", "/api/update-workspace")
             | ("GET", "/api/diagnostics")
@@ -155,13 +160,18 @@ pub fn gated(method: &str, path: &str) -> Option<(&'static str, Names)> {
 pub fn capabilities(from_host: &serde_json::Value, serves_ledger: bool) -> serde_json::Value {
     let held = from_host.as_object().cloned().unwrap_or_default();
     let host_game = held.get("projectGame").and_then(serde_json::Value::as_i64) == Some(1);
+    /* The door types the line, so a worker may only promise this when the host beneath it actually
+       has the route — `projectGameLaunch`'s rule, for the same reason (F222, spec 148). The names
+       differ on purpose: `sessionMessageRoute` is "this door can type", `sessionMessage` is "and
+       something gates, arms and records it", and only the second is a tool's promise. */
+    let host_message = held.get("sessionMessageRoute").and_then(serde_json::Value::as_i64) == Some(1);
     /* Rebuilt without it rather than removed from it. This map preserves insertion order, and a
        remove on one of those SWAPS the last entry into the hole — so taking `projectGameLaunch` out
        moved `tracker` to where it had been, and a caller comparing the answer byte for byte saw a
        different workspace. `{ projectGameLaunch, ...rest }` keeps the rest in order, and this is
        that. */
     let mut out: serde_json::Map<String, serde_json::Value> =
-        held.into_iter().filter(|(name, _)| name != "projectGameLaunch").collect();
+        held.into_iter().filter(|(name, _)| name != "projectGameLaunch" && name != "sessionMessageRoute").collect();
     for name in ["desktopActions", "layeredUpdates", "scriptActions", "formatRegistry", "dashboard",
                  "projectGame", "recordings", "projectDevices", "tracker", "ide", "agentsMenu"] {
         out.insert(name.to_string(), serde_json::json!(1));
@@ -173,6 +183,11 @@ pub fn capabilities(from_host: &serde_json::Value, serves_ledger: bool) -> serde
     }
     if host_game {
         out.insert("projectGameLaunch".to_string(), serde_json::json!(1));
+    }
+    /* Both halves or neither: the door types and this worker gates, grants and records, so a
+       workspace missing either one promises nothing rather than half of it. */
+    if host_message && serves_ledger {
+        out.insert("sessionMessage".to_string(), serde_json::json!(1));
     }
     serde_json::Value::Object(out)
 }
@@ -192,6 +207,7 @@ pub fn gates_internally(method: &str, path: &str) -> Option<&'static str> {
         ("POST", "/api/update-workspace") => "update_workspace",
         ("POST", "/api/task") => "task_",
         ("POST", "/api/agent-spawn") => "spawn_agent",
+        ("POST", "/api/session-message") => "session_message",
         ("POST", "/api/game") => "launch_game",
         ("POST", "/api/dashboard-run") => "dashboard_run",
         ("POST", "/api/dashboard-capture") => "dashboard_capture",
@@ -304,6 +320,12 @@ mod tests {
         }
         assert!(own_route("POST", "/api/session-view"));
         assert!(own_route("POST", "/api/desktop-action"));
+        /* And the one that types (F222, spec 148). Owned rather than gated-and-forwarded, because
+           the grant and the recipe capability are decided here and neither is a generic gate. */
+        assert!(own_route("POST", "/api/session-message"));
+        assert!(implemented("POST", "/api/session-message"));
+        assert_eq!(gates_internally("POST", "/api/session-message"), Some("session_message"));
+        assert_eq!(gated("POST", "/api/session-message"), None, "it is not gated on the way past; it is answered here");
     }
 
     /* A method is half of a route. `GET /api/recording` reads a recording out of a project and is
@@ -335,6 +357,20 @@ mod tests {
         /* And what the worker adds regardless, plus what the host said about itself. */
         assert_eq!(without["agentsMenu"], serde_json::json!(1));
         assert_eq!(without["handoff"], serde_json::json!(1), "the host's own answer is kept");
+
+        /* And the one that needs BOTH halves: the door types the line and this worker decides
+           whether it may be typed, so a workspace missing either one promises nothing (F222). */
+        let typing = serde_json::json!({ "handoff": 1, "sessionMessageRoute": 1 });
+        assert_eq!(capabilities(&typing, true)["sessionMessage"], serde_json::json!(1));
+        assert_eq!(capabilities(&typing, false).get("sessionMessage"), None, "no ledger, no gate, no promise");
+        assert_eq!(capabilities(&host, true).get("sessionMessage"), None, "no door route, nothing to promise");
+        /* And the door's own key never travels on as the tool's, whichever way the two fall: a
+           pane talking to a bare session host reads no `sessionMessage` and is refused by name
+           rather than typing into a pane nothing would have gated. */
+        for serves_ledger in [true, false] {
+            assert_eq!(capabilities(&typing, serves_ledger).get("sessionMessageRoute"), None,
+                       "the door's route is not a tool's promise");
+        }
 
         /* And in the host's own ORDER. A caller compares this answer byte for byte, and this map
            preserves insertion order — so removing a key rather than rebuilding without it swapped

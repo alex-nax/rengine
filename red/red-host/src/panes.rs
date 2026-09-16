@@ -650,6 +650,9 @@ pub(crate) fn pane_snapshot(session: &serde_json::Value) -> serde_json::Value {
        pane carries it, and it is carried because "typed in and confirmed" and "never landed" must
        not look alike to whoever lists this session. */
     put(&mut out, "seed", held("seed"));
+    /* And whether a message said to a pane that was already running arrived (F222, spec 148). The
+       same reason: "typed in and confirmed" and "never landed" must not look alike. */
+    put(&mut out, "message", held("message"));
     if kind == "game" {
         put(&mut out, "surface", held("surface"));
         put(&mut out, "game", held("game"));
@@ -748,6 +751,38 @@ pub(crate) async fn deliver_input(front: &Arc<Front>, message: &serde_json::Valu
        event stream rather than this caller. */
     let _ = ask_pty(front, "input", serde_json::json!([id, data.unwrap_or_default()])).await;
     Ok(())
+}
+
+/// Saying one line to a pane that is already running (F222, spec 148).
+///
+/// The door's half is composition and the refusals `deliver_input` already applies, in the same
+/// order and from the same record — a pane that will not take a keystroke will not take a message
+/// either, and a caller must not learn that from two different sentences. What it composes is the
+/// LINE: the caller's text with a fresh eight-character token after it. The token is what the Enter
+/// is earned by, and it is inside the visible line on purpose — the agent reading the pane sees the
+/// marker too, which is what the person doing this by hand was checking by eye.
+pub(crate) async fn deliver_message(front: &Arc<Front>, message: &serde_json::Value) -> Result<serde_json::Value, String> {
+    let id = message.get("id").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let Some(pane) = front.panes.lock().expect("panes lock").get(&id).cloned() else {
+        return Err("404|Unknown session.".to_string());
+    };
+    if pane.get("state").and_then(serde_json::Value::as_str) != Some("running") {
+        return Err("409|Session is not running.".to_string());
+    }
+    let record = |name: &str| pane.get("meta").and_then(|record| record.get(name)).filter(|value| !value.is_null()).cloned();
+    if record("gate").is_some() && !record("released").and_then(|value| value.as_bool()).unwrap_or(false) {
+        return Err("409|Handoff is waiting for its native view.".to_string());
+    }
+    let text = message.get("text").and_then(serde_json::Value::as_str).unwrap_or_default();
+    let text = red_core::text::one_printable_line(text).map_err(|why| format!("400|{why}"))?;
+    let confirm: String = red_core::service::uuid_v4().chars().filter(char::is_ascii_alphanumeric).take(8).collect();
+    let paste = format!("{text} [{confirm}]");
+    let asked = serde_json::json!([id, { "paste": paste, "confirm": confirm }]);
+    /* Awaited, unlike `input`: this one can be REFUSED — the pane is talking, somebody is using it,
+       a handshake is already in flight — and a refusal a caller never hears is a relay it would
+       think had happened. */
+    ask_pty(front, "message", asked).await?;
+    Ok(serde_json::json!({ "accepted": true, "confirm": confirm, "typed": paste }))
 }
 
 /// And resizing one. The dimensions are judged BEFORE the session is looked up, because that is the

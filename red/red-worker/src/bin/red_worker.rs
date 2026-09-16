@@ -1434,6 +1434,7 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
         ("POST", "/api/update-workspace") => answered_or_faulted(update_workspace(worker, head, body)),
         ("POST", "/api/task") => answered_or_faulted(task(worker, head, body)),
         ("POST", "/api/agent-spawn") => answered_or_faulted(agent_spawn(worker, head, body)),
+        ("POST", "/api/session-message") => answered_or_faulted(session_message(worker, head, body)),
         ("POST", "/api/script-open") => answered_or_faulted(script_open(worker, head, body)),
         /* The three the editor pane reads and writes. All of them are about ONE FILE, and all of
            them name it the way every other route names one: a root, and a path within it. */
@@ -1577,6 +1578,116 @@ fn agent_spawn(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::V
     answer.insert("sequence".to_string(), sequence_of(&frame));
     Ok(shown(worker, &data, &root_id, &session, serde_json::Value::Object(answer),
         "The agent pane was started and is retained. Use show_session; do not spawn it again."))
+}
+
+/// Saying one line to a pane that is already running (F222, spec 148).
+///
+/// The order is `agent_spawn`'s and for the same reason, one step further: every refusal comes
+/// before anything is typed, so a caller that is refused can be certain the pane was not touched.
+/// The owner's grant is **checked** before the line goes in and **spent** after it — so a refusal
+/// that typed nothing never costs the owner a message, and a line that went into somebody's
+/// composer costs one whether or not the pane ever echoed it back.
+fn session_message(worker: &Worker, head: &Head, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let id = named(&data, "id");
+    /* The project is the PANE's, read from its own record: a caller's claim about which project a
+       pane is in would let an agent gate itself against a project it is not in. */
+    /* Encoded, because a pane id reaches this route as a caller's string rather than as anything
+       the workspace minted: an id carrying a space or a newline would otherwise be a second line in
+       the request this composes. */
+    let pane = ask_host(worker, "GET", &format!("/api/session?id={}", red_core::http::encode(id)), "")
+        .map_err(|_| "404|Unknown session.".to_string())?;
+    let root_id = pane
+        .get("rootId")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| "404|Unknown session.".to_string())?;
+    let by = gate(worker, &root_id, "session_message", head)?;
+    if let Some(refusal) = red_worker::message::pane_refusal(&pane) {
+        return Err(refusal);
+    }
+    let agent = pane.get("agent").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let text = data.get("text").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    let text = red_core::text::one_printable_line(&text).map_err(|why| format!("400|{why}"))?.to_string();
+    red_worker::message::delivery(&red_agents::shipped_recipes(), &agent)?;
+    /* The HOST's state directory, not this worker's. A worker's own `--state` is the runtime
+       directory a supervisor made for it, which is generated state; a grant belongs beside the
+       workspace's own descriptors, where it outlives a worker replacement and where the action
+       that writes it is pointed. The door says which that is. */
+    let state_dir = ask_host(worker, "GET", "/api/state", "")?
+        .get("stateDir")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| "409|This session host does not say where its state directory is, so the owner's message grants cannot be read. Nothing was typed.".to_string())?;
+    let armed = std::path::Path::new(&state_dir);
+    /* CHECKED here and SPENT below, on either side of the one call that types. Every refusal above
+       this line and inside the door leaves the owner's count where it was, which is what makes
+       "refused" and "it cost me one of my three" different answers. */
+    red_core::grants::check(armed, &id, red_core::time::now_ms())
+        .map_err(|refusal| format!("409|{}", refusal.message()))?;
+    /* The door's own refusals — the pane is talking, somebody is using it, a handshake is already in
+       flight — arrive as sentences without their statuses: `red_core::http` keeps the workspace's
+       words and drops the code deliberately, because a caller can act on the first and not on the
+       second. Every failure of THIS route is a refusal about this pane rather than a fault, so the
+       status is restored as one. */
+    let typed = ask_host(worker, "POST", "/api/session-message", &serde_json::json!({ "id": id, "text": text }).to_string())
+        .map_err(|fault| format!("409|{fault}"))?;
+    let spent = red_core::grants::spend(armed, &id, red_core::time::now_ms())
+        .map_err(|refusal| format!("409|{}", refusal.message()))?;
+    let confirm = typed.get("confirm").and_then(serde_json::Value::as_str).unwrap_or_default().to_string();
+    /* The handshake is the PTY service's and answers on the pane's record, so this is where the
+       route waits for it: `/api/state` carries every pane's record without its scrollback, which a
+       per-pane snapshot would hand back a megabyte of on every poll. */
+    let (delivered, reason) = match wait_for_message(worker, &id) {
+        Some(true) => (true, serde_json::Value::Null),
+        Some(false) => (false, serde_json::json!(red_worker::message::UNDELIVERED)),
+        None => (false, serde_json::json!(red_worker::message::UNRESOLVED)),
+    };
+    let grant = spent.as_json();
+    let frame = note(worker, &root_id, "session.message", &by,
+        red_worker::message::frame_fields(&id, &agent, &confirm, red_core::text::utf16_len(&text), delivered, &grant));
+    Ok(serde_json::json!({
+        "delivered": delivered,
+        "reason": reason,
+        "sessionId": id,
+        "agent": agent,
+        "confirm": confirm,
+        "typed": typed.get("typed").cloned().unwrap_or(serde_json::Value::Null),
+        "grant": grant,
+        "sequence": sequence_of(&frame),
+    }))
+}
+
+/// How long the route waits for a handshake it did not run. The watcher's own ceiling is shorter;
+/// this is the same bound with room for a slow poll, so "still in flight" is a rare answer rather
+/// than the usual one.
+const MESSAGE_WAIT_MS: u64 = 18_000;
+
+fn wait_for_message(worker: &Worker, id: &str) -> Option<bool> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_millis(MESSAGE_WAIT_MS);
+    loop {
+        if let Ok(state) = ask_host(worker, "GET", "/api/state", "") {
+            let empty = Vec::new();
+            let pane = state
+                .get("sessions")
+                .and_then(serde_json::Value::as_array)
+                .unwrap_or(&empty)
+                .iter()
+                .find(|session| session.get("id").and_then(serde_json::Value::as_str) == Some(id));
+            if let Some(verdict) = pane.and_then(red_worker::message::outcome_of) {
+                return Some(verdict);
+            }
+            /* A pane that ended mid-handshake is not still in flight, and saying so is better than
+               waiting eighteen seconds to say nothing. */
+            if pane.is_some_and(|pane| pane.get("state").and_then(serde_json::Value::as_str) != Some("running")) {
+                return Some(false);
+            }
+        }
+        if std::time::Instant::now() >= deadline {
+            return None;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(200));
+    }
 }
 
 /// Opening a project script as an interactive tab.
@@ -2178,7 +2289,16 @@ fn actor(who: Option<serde_json::Value>, head: &Head) -> serde_json::Value {
 /// on, which is not an error: the route's own work is done and the frame is what announced it.
 fn note(worker: &Worker, root_id: &str, kind: &str, by: &serde_json::Value, fields: serde_json::Value) -> Option<serde_json::Value> {
     let ledger = worker.ledger.as_ref()?;
-    let frame = ledger.call("frame", serde_json::json!([root_id, kind, by, fields])).ok()?;
+    /* A REFUSED frame is said out loud. `None` here means "there was no ledger to mint on", which is
+       not an error — but the ledger also refuses a type it does not know, and swallowing that made a
+       new frame type silently do nothing while its route reported success (found building F222). */
+    let frame = match ledger.call("frame", serde_json::json!([root_id, kind, by, fields])) {
+        Ok(frame) => frame,
+        Err(fault) => {
+            eprintln!("red-worker: the feed refused a {kind} frame: {fault}");
+            return None;
+        }
+    };
     let _ = ledger.call("persist", serde_json::json!([root_id]));
     Some(frame)
 }

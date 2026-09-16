@@ -199,6 +199,15 @@ kind = "none"
 [recipes.kimi.prompt]
 kind = "paste"
 
+# And how it takes a message into a composer that is ALREADY running (F222, spec 148). A separate
+# key from `prompt` on purpose: that one is about a command line, and a CLI's command line says
+# nothing about its composer. Declared here because spec 146 measured this composer's echo — a
+# single line comes back verbatim, which is the only thing that can earn an Enter. No other recipe
+# declares one: measuring a running composer means typing into a live conversation, and a kind
+# nobody measured is a keystroke nobody can predict.
+[recipes.kimi.message]
+kind = "paste"
+
 [recipes.kimi.conversation]
 ids = '^(?:session_)?(?:[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})$'
 parser = "kimi-flags"

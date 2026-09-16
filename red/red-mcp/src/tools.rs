@@ -116,6 +116,7 @@ const GAME_CAPABILITY: &str = "This retained service predates per-project game d
 const LAUNCH_CAPABILITY: &str = "This retained session host predates per-project game declarations and would launch its removed built-in game; game_preflight answers from the declaration. Replacing the session host requires quiescence.";
 const RECORDING_CAPABILITY: &str = "This retained service predates game recording. Update the workspace layer first.";
 const CONVERSATION_CAPABILITY: &str = "This retained session host predates agent conversations, so it cannot name or resume one. Replacing the session host requires quiescence.";
+const MESSAGE_CAPABILITY: &str = "session_message types a line into a pane through the workspace, and this workspace cannot: either the session host predates the route that types it, or this worker serves no token ledger to gate it with. Update the workspace layer first: update_workspace with layers [\"workspace\"]. Nothing was typed.";
 
 fn write_capability(state: &Value, tool: &str) -> Result<(), String> {
     if capability(state, "taskWrites") {
@@ -145,7 +146,7 @@ pub fn names() -> Vec<&'static str> {
         "show_session", "session_output", "preview_file", "devices", "list_tasks", "task_add", "task_update",
         "task_decompose", "list_agents_menu", "spawn_agent", "game_preflight", "launch_game", "recordings_list",
         "recording_read", "token_status", "token_contest", "token_reject", "token_release", "feed_url", "feed_read",
-        "stop_session", "restart_agent",
+        "stop_session", "restart_agent", "session_message",
     ]
 }
 
@@ -455,6 +456,16 @@ pub fn call(workspace: &mut Workspace, name: &str, arguments: &Value) -> Result<
             session_of(&state, &id)?;
             token_capability(workspace, &state, "stop_session")?;
             workspace.post("stop", json!({ "id": id }))
+        }
+
+        "session_message" => {
+            needs(&state, "sessionMessage", MESSAGE_CAPABILITY)?;
+            let id = args.string("id");
+            /* Same root only, before anything else: a pane on another project is not this pane's to
+               name, and this is the refusal that says so (spec 148). */
+            session_of(&state, &id)?;
+            token_capability(workspace, &state, "session_message")?;
+            workspace.post("session-message", json!({ "id": id, "text": args.string("text") }))
         }
 
         "restart_agent" => {

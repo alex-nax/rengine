@@ -1084,6 +1084,38 @@
       "execution": {
         "taskSupport": "forbidden"
       }
+    },
+    {
+      "name": "session_message",
+      "description": "Say ONE printable line to an agent pane of this project that is already running, and have it submitted only once the pane echoes the line back. The line is typed into the pane's composer as a bracketed paste with an eight-character token appended, and the Enter that submits it is sent only when that token comes back out of the pane; an unechoed line is left sitting in the composer unsubmitted and the answer says so. It is one attempt and one line: control characters, newlines and anything over 400 characters are refused rather than cleaned, so this tool can never press Enter on its own, interrupt a turn or answer a dialog. Use stop_session to stop a pane; anything longer than a nudge belongs in the repository, which is where a project's content channel is. A pane whose CLI has not declared how it takes a message is refused by name with nothing typed, as is a pane that is talking, a pane somebody has typed into recently, and a pane in another project. TWO permissions are needed, not one. Gated by the project token — submitting a turn in another agent's conversation is an act on the project — so this agent must hold it or the call is refused naming the holder and token_contest. And the token is not sufficient: it transfers to a contester on silence, so a relay also needs a separate grant the person at the desktop gives interactively for one named pane, bounded by a count and a deadline. Without one the call is refused even while holding the token. Every delivery is one frame on the project feed.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The agent pane to say it to, as list_sessions reports it."
+          },
+          "text": {
+            "type": "string",
+            "description": "One printable line, at most 400 characters. No newlines and no control characters \u2014 they are refused, not stripped.",
+            "minLength": 1,
+            "maxLength": 400
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
     }
   ]
 }

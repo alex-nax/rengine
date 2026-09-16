@@ -17,6 +17,9 @@ pub mod identity;
 pub mod launches;
 pub mod lifecycle;
 pub mod menu;
+/// One line said to a pane that is already running (F222, spec 148): every judgement the route
+/// makes, in the order that keeps "refused" and "nothing was typed" the same answer.
+pub mod message;
 pub mod pipe;
 pub mod scripts;
 pub mod serve;

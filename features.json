@@ -4308,6 +4308,40 @@
         "orchestrator/tests/task-writes.test.mjs",
         "red/red-pty/src/lib.rs"
       ]
+    },
+    {
+      "id": 222,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "medium",
+      "description": "Saying one line to a pane that is already running is a declared capability with an owner's grant on it, rather than two curl calls and a person watching the pane. `session_message` types ONE printable line into a retained agent pane of the same project and presses Enter only once the pane echoes the line's own token back \u2014 spec 146's handshake, attached to a pane that is already up rather than to a spawn. How a CLI takes a message to a running composer is `message.kind` in its recipe, distinct from `prompt.kind`, and a CLI that declares none is refused by name with nothing typed. The project token is necessary and NOT sufficient: the token transfers to a contester on silence, so a relay also needs a separate owner grant naming one pane and bounded by a count and a deadline, written only by an interactively confirmed dashboard action. Spec 139 decision 6 and F205 are reconciled rather than amended \u2014 they scope the local model agent's delegation gesture, the tool is excluded from that loop's set by default, and its route trace still shows no input-route call.",
+      "acceptance_criteria": [
+        "A declared CLI's quiet agent pane is typed into and submitted: the line carries the confirm token, the pane echoes it, the Enter follows, the pane record says delivered, and one session.message frame carries the pane, the outcome and no message text.",
+        "A pane whose recipe declares no message capability is refused by name with nothing typed, in the words prompt_delivery refuses with; a kind rEngine does not implement is refused as such.",
+        "A pane in another project is refused by name and a non-holder is refused naming the holder and token_contest, both before anything is typed.",
+        "Without an owner grant for that pane the call is refused even when the caller holds the token, and the refusal says how a grant is made; a grant for a different pane does not serve, and a spent grant and an expired grant are each refused by their own name.",
+        "Text carrying a control byte, a newline, or more than 400 characters is refused rather than cleaned, and nothing is typed.",
+        "A pane that has spoken within the settle window, and a pane that was typed into within the input window, are each refused by name and nothing is typed.",
+        "An unechoed paste is never submitted: one attempt, no Enter, the record says undelivered, the frame says so, and the grant is spent exactly once for the attempt.",
+        "The grant action writes nothing without an interactive confirmation, names one pane, requires both bounds, and a revoke leaves no grant for that pane.",
+        "Each regression was observed failing for its own reason, with a rebuild between the sabotage and the run (KI-120)."
+      ],
+      "passes": false,
+      "dependencies": [
+        217,
+        221
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The `message` recipe capability and its refusal, the PTY service's `message` verb attaching spec 146's handshake to a running pane, the door's session-message route, the worker's gate/grant/feed frame around it, the `session_message` MCP tool, the owner-confirmed grant action over `red-launch message-grant`, and the tests that saw each behaviour fail first.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/148-session-message.md: the ten decisions, and the evidence for reading spec 139 decision 6 as a scoping rule rather than a general principle",
+        "docs/evidence/session-message-f222-2026-09-16.md: what was verified against the source versus taken on trust, the six staged sabotages with a rebuild between each and its run, and what can only be settled at a live pane",
+        "orchestrator/tests/session-message.test.mjs: eight cases \u2014 the whole handshake with its feed frame, an unechoed line never submitted, the token refusing to arm a relay on its own, a grant for another pane not serving, control bytes refused rather than cleaned, an undeclared CLI refused by name, a pane that is talking and a pane somebody is using both refused, the grant's bounds and revoke, and a pane on another project refused",
+        "red/red-core/src/grants.rs, red/red-core/src/text.rs, red/red-pty/src/lib.rs, red/red-worker/src/message.rs, red/red-worker/src/serve.rs: the unit tests for the grant's bounds and its check-before-type order, the one-printable-line rule, the handshake attached to a running pane, the capability refusals and the route tables",
+        "sabotage observations 2026-09-16 (cargo build --bins between each sabotage and its run, KI-120): submitting without an echo; a grant check that always passes; a control-byte guard that stops looking; an undeclared CLI defaulted to paste; the in-use rule removed; the grant spent before the line is typed rather than after \u2014 each red on its own assertion",
+        "Not run against a live CLI: every pane in the spec is the suite's own fake TUI. kimi's composer echo was measured by spec 146 against 0.42.0 at a FRESH composer and a composer mid-conversation was not; claude declares no message capability because nobody has measured its composer. The row stays failing until the owner has seen one real delivery."
+      ]
     }
   ]
 }

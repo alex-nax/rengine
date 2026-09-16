@@ -114,6 +114,22 @@ fn answer(host: &Mutex<Host>, mint: &Mutex<Mint>, request: &Value) -> Value {
                 host.spawn(id, file, &argv, &env, cwd, cols, rows, meta, seed)
             }
             "input" => host.input(arg(0).as_str().unwrap_or(""), arg(1).as_str().unwrap_or("")).map(|_| Value::Null),
+            /* One line said to a pane that is already running (F222, spec 148). Both halves of the
+               seed are required for the same reason a spawn's are: a line with nothing to match it
+               back against could only be submitted blind, and this service never presses Enter on a
+               guess. The refusals live in `message`, and none of them types anything. */
+            "message" => {
+                let asked = arg(1);
+                let text = |key: &str| asked.get(key).and_then(Value::as_str).filter(|value| !value.is_empty());
+                match (text("paste"), text("confirm")) {
+                    (Some(paste), Some(confirm)) => host.message(
+                        arg(0).as_str().unwrap_or(""),
+                        red_pty::Seed { paste: paste.to_string(), confirm: confirm.to_string() },
+                        red_pty::now_ms(),
+                    ),
+                    _ => Err(Fail::new("A message needs the line to type and the token that confirms it.", 400)),
+                }
+            }
             "resize" => {
                 host.resize(
                     arg(0).as_str().unwrap_or(""),

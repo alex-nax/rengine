@@ -222,7 +222,11 @@ mod tests {
     fn the_declaration_is_the_surface_the_worker_answered() {
         let surface = declaration();
         let tools = surface.get("tools").and_then(Value::as_array).expect("tools");
-        assert_eq!(tools.len(), 38, "the captured surface is the whole one");
+        /* 38 captured from the worker that is gone, and one declared since. The count is here so a
+           tool that appears without a decision behind it is a failing test rather than a surprise:
+           the captured 38 are evidence and may not be regenerated, and anything above them is a
+           feature row that added one on purpose (F222's `session_message` is the first). */
+        assert_eq!(tools.len(), 39, "the captured surface plus what has been declared since");
         for tool in tools {
             assert!(tool.get("name").and_then(Value::as_str).is_some_and(|name| !name.is_empty()), "every tool is named");
             assert!(tool.get("description").and_then(Value::as_str).is_some_and(|text| !text.is_empty()),

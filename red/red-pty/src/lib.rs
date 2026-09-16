@@ -88,6 +88,12 @@ pub struct PtySession {
     pub cols: u16,
     pub rows: u16,
     pub sequence: u64,
+    /* When this pane last said anything, and when it was last typed into. A spawn needs neither —
+       its pane has said nothing yet by definition — but a MESSAGE to a pane that is already running
+       needs both: the first is what "settled" means for a pane nobody is about to hear from again,
+       and the second is what "somebody is using this one" means (F222, spec 148). */
+    last_output_at: Option<u64>,
+    last_input_at: Option<u64>,
     output: Vec<u16>,
     tail: Vec<u8>,
     writer: Box<dyn Write + Send>,
@@ -192,6 +198,22 @@ const SEED_DEADLINE_MS: u64 = 90_000;
 /// What the watcher keeps of the output since its last paste, in normalised characters.
 const SEEN_LIMIT: usize = 64 * 1024;
 
+/* ---- and the same handshake said to a pane that is ALREADY running (F222, spec 148) -----------
+   A relay is the strictly more conservative case, for a reason a spawn does not have: the pane it
+   types into holds somebody's conversation. It gets ONE attempt, because the retries exist to reach
+   a settled composer THROUGH a trust dialog and a relay refuses unless the pane is already settled;
+   and a ceiling in seconds rather than a minute and a half, because KI-068's second half was an
+   Enter that arrived an hour after the line it submitted. */
+/// One attempt. There is no dialog to wait out: an unsettled pane is refused before this starts.
+const MESSAGE_ATTEMPTS: u8 = 1;
+/// The whole relay's bound. A paste at the first tick and 4 s for its echo fit inside it twice.
+const MESSAGE_DEADLINE_MS: u64 = 15_000;
+/// A pane that has been typed into more recently than this is somebody's, and is not relayed into:
+/// a person's half-written line is exactly the composer a relay must not append to and submit.
+pub const MESSAGE_INPUT_QUIET_MS: u64 = 60_000;
+/// And the quiet a relay needs before it starts, which is the spawn handshake's own settle.
+pub const MESSAGE_SETTLE_MS: u64 = SETTLE_MS;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SeedStep {
     /// Nothing to do yet.
@@ -217,6 +239,11 @@ pub struct SeedWatch {
     attempts: u8,
     seen: String,
     settled: bool,
+    /* The two numbers that differ between a spawn's seed and a relay. They are fields rather than
+       constants so there is ONE decision with two policies, instead of a second copy of the
+       decision with different numbers in it. */
+    allowed: u8,
+    deadline_ms: u64,
 }
 
 /// Everything a composer's box drawing, wrapping and colour can do to a line, undone: what is left
@@ -227,7 +254,31 @@ fn normalised(text: &str) -> String {
 
 impl SeedWatch {
     pub fn new(seed: Seed, now: u64) -> Self {
-        SeedWatch { seed, started: now, last_output: None, since: None, pasted_at: None, attempts: 0, seen: String::new(), settled: false }
+        SeedWatch {
+            seed, started: now, last_output: None, since: None, pasted_at: None, attempts: 0,
+            seen: String::new(), settled: false, allowed: ATTEMPTS, deadline_ms: SEED_DEADLINE_MS,
+        }
+    }
+
+    /// The same decision, said to a pane that is already up: the caller supplies when the pane last
+    /// spoke, which a spawn has no answer for and a relay does (spec 146 decision 9 — the decision
+    /// is pure and the environment-dependent parts are the caller's).
+    ///
+    /// It matters. A pane that has been quiet for an hour has nothing left to say, and a watcher
+    /// that waited for a first byte before typing would wait for one that is never coming and
+    /// give up having done nothing.
+    pub fn listening(seed: Seed, now: u64, last_output: u64) -> Self {
+        SeedWatch {
+            seed, started: now, last_output: Some(last_output), since: Some(last_output), pasted_at: None,
+            attempts: 0, seen: String::new(), settled: false, allowed: MESSAGE_ATTEMPTS, deadline_ms: MESSAGE_DEADLINE_MS,
+        }
+    }
+
+    /// Whether this handshake has answered for the last time. A pane whose seed has settled may be
+    /// relayed to; one whose handshake is still in flight may not, because two watchers writing to
+    /// one master is two lines in one composer and one Enter neither of them earned.
+    pub fn settled(&self) -> bool {
+        self.settled
     }
 
     /// The pane said something. Before a paste this only marks the clock; after one it is the echo
@@ -274,7 +325,7 @@ impl SeedWatch {
                 }
                 /* No echo. Whatever is up there is not a composer — a paste it ignored cost it a
                    redraw and nothing else — so wait for the next settle and try again. */
-                if self.attempts >= ATTEMPTS {
+                if self.attempts >= self.allowed {
                     self.settled = true;
                     return SeedStep::GiveUp;
                 }
@@ -287,7 +338,7 @@ impl SeedWatch {
     }
 
     fn expire(&mut self, now: u64) -> SeedStep {
-        if now.saturating_sub(self.started) >= SEED_DEADLINE_MS {
+        if now.saturating_sub(self.started) >= self.deadline_ms {
             self.settled = true;
             return SeedStep::GiveUp;
         }
@@ -302,6 +353,57 @@ impl SeedWatch {
         bytes.extend_from_slice(b"\x1b[201~");
         bytes
     }
+}
+
+/// The handshake, run beside the output pump: a slow poll, because the decision depends on the pane
+/// going QUIET and silence is not an event.
+///
+/// It writes twice at most — the paste, then the Enter the echo earns — and records which happened
+/// under `record` on the pane's own record, so a line that never arrived cannot read like one that
+/// did. One function for both callers (F221's spawn seed, F222's message) because it is one
+/// handshake; only the record key and the word for a failure differ.
+fn watch_handshake<F: FnMut(Value) + Send + 'static>(
+    session: Arc<Mutex<PtySession>>,
+    emit: Arc<Mutex<F>>,
+    record: &'static str,
+    unconfirmed: &'static str,
+) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(150));
+        let outcome = {
+            let mut held = session.lock().expect("session lock");
+            if held.state != "running" {
+                break;
+            }
+            let now = now_ms();
+            let Some(watch) = held.seed.as_mut() else { break };
+            match watch.step(now) {
+                SeedStep::Wait => continue,
+                SeedStep::Paste => {
+                    let bytes = watch.paste_bytes();
+                    let _ = held.writer.write_all(&bytes);
+                    let _ = held.writer.flush();
+                    continue;
+                }
+                SeedStep::Submit => {
+                    let _ = held.writer.write_all(b"\r");
+                    let _ = held.writer.flush();
+                    "delivered"
+                }
+                SeedStep::GiveUp => unconfirmed,
+            }
+        };
+        let snapshot = {
+            let mut held = session.lock().expect("session lock");
+            if !held.meta.is_object() {
+                held.meta = json!({});
+            }
+            held.meta.as_object_mut().expect("a record").insert(record.to_string(), json!(outcome));
+            held.event_snapshot()
+        };
+        (emit.lock().expect("emit lock"))(json!({ "type": "session", "session": snapshot }));
+        break;
+    });
 }
 
 pub struct PtyHost<F: FnMut(Value) + Send> {
@@ -348,6 +450,8 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
             cols,
             rows,
             sequence: 0,
+            last_output_at: None,
+            last_input_at: None,
             output: Vec::new(),
             tail: Vec::new(),
             writer,
@@ -373,6 +477,7 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
                             /* The seed handshake's eyes: before a paste this is the settle clock,
                                after one it is the echo that decides whether Enter is ever sent. */
                             let at = now_ms();
+                            session.last_output_at = Some(at);
                             if let Some(watch) = session.seed.as_mut() {
                                 watch.saw_output(&decoded, at);
                             }
@@ -412,44 +517,7 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
            at most — the paste, then the Enter the echo earns — and records which happened on the
            pane's own record, so a brief that never arrived cannot read like one that did. */
         if session.lock().expect("session lock").seed.is_some() {
-            let seeded = session.clone();
-            let seed_emit = self.emit.clone();
-            std::thread::spawn(move || loop {
-                std::thread::sleep(std::time::Duration::from_millis(150));
-                let outcome = {
-                    let mut held = seeded.lock().expect("session lock");
-                    if held.state != "running" {
-                        break;
-                    }
-                    let now = now_ms();
-                    let Some(watch) = held.seed.as_mut() else { break };
-                    match watch.step(now) {
-                        SeedStep::Wait => continue,
-                        SeedStep::Paste => {
-                            let bytes = watch.paste_bytes();
-                            let _ = held.writer.write_all(&bytes);
-                            let _ = held.writer.flush();
-                            continue;
-                        }
-                        SeedStep::Submit => {
-                            let _ = held.writer.write_all(b"\r");
-                            let _ = held.writer.flush();
-                            "delivered"
-                        }
-                        SeedStep::GiveUp => "unconfirmed",
-                    }
-                };
-                let snapshot = {
-                    let mut held = seeded.lock().expect("session lock");
-                    if !held.meta.is_object() {
-                        held.meta = json!({});
-                    }
-                    held.meta.as_object_mut().expect("a record").insert("seed".to_string(), json!(outcome));
-                    held.event_snapshot()
-                };
-                (seed_emit.lock().expect("emit lock"))(json!({ "type": "session", "session": snapshot }));
-                break;
-            });
+            watch_handshake(session.clone(), self.emit.clone(), "seed", "unconfirmed");
         }
         let announced = session.lock().expect("session lock").event_snapshot();
         let snapshot = session.lock().expect("session lock").core_snapshot();
@@ -474,7 +542,46 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
         if session.state != "running" {
             return Err(Fail::new("Session is not running.", 409));
         }
+        /* When somebody last typed here, whoever they were. A relay reads it to refuse a pane a
+           person is using, and this is the one place every keystroke passes through (F222). */
+        session.last_input_at = Some(now_ms());
         session.writer.write_all(data.as_bytes()).map_err(|error| Fail::raw(error.to_string()))
+    }
+
+    /// Say one line to a pane that is already running (F222, spec 148).
+    ///
+    /// The same handshake a spawn's seed gets, attached to a pane nobody is spawning. What is here
+    /// rather than in the watcher are the four refusals that only make sense for a pane already in
+    /// use, and they ATTACH NOTHING when they fire: a caller that is refused can be certain the
+    /// pane was not typed into.
+    ///
+    /// It returns as soon as the watcher is attached, deliberately. This service takes one lock
+    /// around its whole dispatch, so a verb that waited five seconds for an echo would freeze every
+    /// other pane in the workspace while it did; the outcome arrives on the pane's own record and
+    /// its session event, exactly as a seed's does.
+    pub fn message(&mut self, id: &str, seed: Seed, now: u64) -> Result<Value> {
+        let session = self.get(id)?;
+        {
+            let mut held = session.lock().expect("session lock");
+            if held.state != "running" {
+                return Err(Fail::new("Session is not running.", 409));
+            }
+            if held.seed.as_ref().is_some_and(|watch| !watch.settled()) {
+                return Err(Fail::new("This pane is already being typed into, and that handshake has not finished.", 409));
+            }
+            let Some(spoke) = held.last_output_at else {
+                return Err(Fail::new("This pane has not said anything yet, so there is no composer to type into.", 409));
+            };
+            if now.saturating_sub(spoke) < MESSAGE_SETTLE_MS {
+                return Err(Fail::new("This pane is talking. A message goes to a settled composer, never into a turn in progress.", 409));
+            }
+            if held.last_input_at.is_some_and(|typed| now.saturating_sub(typed) < MESSAGE_INPUT_QUIET_MS) {
+                return Err(Fail::new("This pane was typed into moments ago, so somebody is using it, and a message appends to whatever the composer already holds.", 409));
+            }
+            held.seed = Some(SeedWatch::listening(seed, now, spoke));
+        }
+        watch_handshake(session.clone(), self.emit.clone(), "message", "undelivered");
+        Ok(json!({ "accepted": true }))
     }
 
     pub fn resize(&mut self, id: &str, cols: u16, rows: u16) -> Result<()> {
@@ -709,6 +816,43 @@ mod tests {
         assert_eq!(watch.step(90_000), SeedStep::GiveUp);
     }
 
+    /* F222, spec 148. The one behavioural difference a relay needs: a pane that has been quiet for
+       an hour has nothing left to say, and the spawn watcher — which types only after it has heard
+       SOMETHING — would wait for a byte that is never coming. The caller supplies when the pane
+       last spoke, so the line goes in at the first tick. */
+    #[test]
+    fn a_message_to_a_pane_that_fell_silent_long_ago_is_typed_at_the_first_look() {
+        let seed = Seed { paste: "continue at F1765 [ab12cd34]".into(), confirm: "ab12cd34".into() };
+        let mut watch = SeedWatch::listening(seed, 3_600_000, 1_000);
+        assert_eq!(watch.step(3_600_000), SeedStep::Paste, "no first byte is waited for");
+        assert_eq!(watch.step(3_600_100), SeedStep::Wait);
+        watch.saw_output("  > continue at F1765 [ab12cd34]", 3_600_200);
+        assert_eq!(watch.step(3_600_300), SeedStep::Submit);
+    }
+
+    /* And the other half: ONE attempt. A spawn retries three times to reach a composer through a
+       trust dialog; a relay is refused unless the pane is already settled, so a second paste would
+       only ever be a second copy of the line in somebody's composer. */
+    #[test]
+    fn an_unechoed_message_is_tried_once_and_never_submitted() {
+        let seed = Seed { paste: "a line [ab12cd34]".into(), confirm: "ab12cd34".into() };
+        let mut watch = SeedWatch::listening(seed, 10_000, 1_000);
+        let mut pastes = 0;
+        let mut verdict = SeedStep::Wait;
+        for tick in 0..400 {
+            let now = 10_000 + tick * 100;
+            match watch.step(now) {
+                SeedStep::Paste => pastes += 1,
+                SeedStep::Submit => panic!("an unechoed paste must never be submitted"),
+                SeedStep::GiveUp => { verdict = SeedStep::GiveUp; break }
+                SeedStep::Wait => {}
+            }
+        }
+        assert_eq!(pastes, 1, "one attempt, so a relay can never leave two copies in a composer");
+        assert_eq!(verdict, SeedStep::GiveUp);
+        assert!(watch.settled(), "and a settled handshake lets the next relay attach");
+    }
+
     /* The paste is bracketed and carries no carriage return, which is what keeps a multi-line
        composer entry from submitting itself and a modal from being answered by the text. */
     #[test]
@@ -774,7 +918,7 @@ fn wait_for_exit(session: &Arc<Mutex<PtySession>>, limit: u64) {
 
 /// Milliseconds since the epoch, the way `Date.now()` counts them: this record travels to a JS host
 /// that shows it to a person, so it is that clock or it is nothing.
-fn now_ms() -> u64 {
+pub fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|since| since.as_millis() as u64)

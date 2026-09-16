@@ -167,7 +167,11 @@ host it would leave alone. Its confirm prompt has no non-interactive bypass by d
 a script tab and let the owner answer. For kimi panes, `bootstrap-agent-hooks` (F138, spec 127) is
 the optional guided install of kimi's SessionStart hook — the one owner-confirmed edit to the
 person's global CLI configuration, giving kimi the same live session reporting claude gets per
-launch.
+launch. And `grant-session-message` (F222, spec 148) is how a person arms ONE agent pane so another
+agent may say one line to it: the project token is deliberately not enough on its own, because it
+transfers to a contester on silence, so relaying needs a grant naming one pane and bounded by a
+count and a deadline. Its confirm has no non-interactive bypass either; `--list` shows what is
+armed and `--revoke` takes it back.
 
 Use the bundled `llm-sidecar` skill for annotated edits and non-obvious file-local rationale.
 Its CLI is `.claude/skills/llm-sidecar/scripts/sidecar_tool.py`; pass `--root . --index

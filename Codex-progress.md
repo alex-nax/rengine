@@ -1,3 +1,96 @@
+## Session 163 (macos) — 2026-09-16 — one line said to a pane that is already running (F222, spec 148)
+
+The owner relayed a message to a running agent pane by hand tonight: two `curl` calls to
+`POST /api/input`, the first a bracketed paste carrying a marker, the second a bare `\r`, with a
+person watching the pane in between to confirm the marker had echoed. It worked. It was also
+unscoped (any pane id in any project on that host), unarmed, unaudited, and a 64-hex bearer token in
+shell history. *"Fix the flow so when I next want to do this we do not use any workarounds."*
+
+**The recorded decision was answered before anything was built.** Spec 139 decision 6 and F205 say
+*"It never types into a pane"*, and read as a general principle they forbid this feature outright.
+Four facts say they are a scoping rule: the sentence's subject is the local model agent's delegation
+gesture in both places and its criterion is about *the loop*; the workspace already types into panes
+as of F221, which is this branch's own parent, so a general reading would put the tree in breach of
+its own decision; the place the rule IS general is spec 069's supervisor pipe and the cross-root
+integration inbox, both untouched; and F205 stays literally satisfiable because `session_message` is
+excluded from that loop's tool set by default. F205's row is not amended. The evidence table is in
+`docs/evidence/session-message-f222-2026-09-16.md`.
+
+**What shipped.** `session_message(id, text)` types ONE printable line into a retained agent pane of
+the same project and presses Enter only once the pane echoes the line's own eight-character token
+back — spec 146's handshake, attached to a pane that is already up. Six controls, and the fourth is
+the one that took the thinking:
+
+- **A capability, not a name.** `[recipes.<cli>.message] kind`, its own key rather than `prompt.kind`
+  — two CLIs declare `argv` there, which is true of their command lines and says nothing whatever
+  about their running composers. One recipe declares a message capability, because one composer has
+  been measured. `agent_names.py check` gains no exception.
+- **One printable line, refused rather than cleaned.** 1–400 characters, no control bytes. So the
+  tool cannot press Enter on its own, interrupt a turn or answer a dialog whatever it is asked to
+  send. Stripping would have delivered a line the caller did not write and called it success.
+- **One attempt, fifteen seconds.** A spawn's seed retries three times inside ninety because it may
+  have to reach a composer *through* a trust dialog; a relay refuses unless the pane is already
+  settled, which is the state those retries wait for. This is the exact shape of KI-068's second
+  half — an Enter that arrived an hour later — made structurally impossible.
+- **The token is necessary and NOT sufficient.** It transfers to a contester on silence (spec 095
+  D2), so an agent can hold it without the owner ever acting. A relay also needs a separate grant:
+  one named pane, a count AND a deadline, written only by `red-launch message-grant` behind a
+  dashboard action whose confirm has no non-interactive bypass. It lives in the workspace state
+  directory and deliberately NOT beside the ledger, whose whole semantics is transfer.
+- **Two quiet rules.** A pane that spoke within 800 ms is talking; a pane typed into within 60 s is
+  somebody's, and a relay appends to whatever their composer already holds.
+- **One feed frame per delivery**, carrying the pane, the outcome and the character count — never
+  the words.
+
+**The spec says plainly what this is not.** None of it is authentication: anything running as this
+user can post `/api/input` itself, exactly as the owner did by hand. The grant is scope, a bound, an
+audit point and a revoke — the difference between a sanctioned path and a visible violation. And one
+hazard is left open rather than hidden: an abandoned half-written line older than the input window is
+appended to, because a composer cannot be read through a PTY and the one way to clear it is a control
+byte, which is refused.
+
+**The adversarial question that changed the design: what happens when there is no worker?**
+`red-mcp` falls back to the session host, and the host is the thing that types. Had the door
+advertised the tool's own capability, a pane in a worker-less workspace would have relayed with no
+gate, no grant and no feed frame. So the door declares `sessionMessageRoute`, which no tool checks,
+and the worker alone turns it into `sessionMessage` — and only when it also serves a ledger.
+`launch_game`/`projectGameLaunch` share the shape and are NOT changed here; the spec says why one of
+them may be read that way and the other may not.
+
+**Two things the research proposal was wrong about**, found by checking rather than building on:
+driving `SeedWatch` from HTTP polls is not plumbing — `red-mcp` cannot write to a pane at all, only
+the process holding the master fd can, so polling would split the watching from the writing and put a
+second copy of the decision where it could drift; and `SeedWatch::new` will not type into a pane that
+has said nothing, which is right for a spawn and useless for a pane quiet for an hour, so
+`SeedWatch::listening` takes the last-output time from the caller — spec 146 decision 9's own rule,
+applied.
+
+**A seventh sabotage found itself.** The feed's frame types are an allowlist and `note()` swallowed
+the ledger's refusal with `.ok()?`, so the first green route answered `delivered: true` while its
+audit frame went nowhere. The type is declared now and `note()` says out loud when the feed refuses
+one; otherwise the next feature to add a frame type ships the same silence.
+
+The suite caught one real regression, which is the frozen-evidence problem one layer along: the MCP
+conversation record carries the capability list the module that is gone answered with, and a
+capability declared since cannot be in it. `mcp-conversation.mjs` drops those from both sides now,
+from one declared list naming the row that added each — `red_agents::declared_since`'s shape, for the
+same reason, rather than regenerating a record whose whole value is that it was not.
+
+Gates: `cargo test --workspace` 375/375 (baseline 360). `npm test` — one real pre-existing failure,
+KI-127's frozen `/Users/alex/rengine/...` paths in `red-agents-launch.test.mjs`, which cannot pass
+from a checkout at `third_party/rengine`. Two others are load-sensitive flakes that moved in both
+directions across three full runs (`games.test.mjs:144`, red at the merge base and green after;
+`external-declaration.test.mjs:114`, green at the merge base and once timed out), and both pass run
+without a concurrent build. `./init.sh` green; `agent_names.py check` green with no new exception.
+Ten staged sabotages, each red for its own reason with a rebuild in between (KI-120), plus an
+eleventh that found itself.
+
+Not done, and it can only be done at a live pane: nothing here was exercised against a real CLI. Every
+pane in the spec is its own fake TUI. kimi's composer echo was measured by spec 146 against 0.42.0 at
+a *fresh* composer, and a composer mid-conversation was not. `claude` declares no message capability
+because nobody has measured its composer — one short session at a throwaway pane settles it. The row
+is `passes: false` until then.
+
 ## Session 162 (macos) — 2026-09-16 — a brief reaches the CLI that could not be handed one (F221, spec 146)
 
 Reported from the NOLF workspace as a pane that died in two seconds:
