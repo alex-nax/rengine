@@ -1,5 +1,8 @@
 import { bashPath } from './sessions-client.mjs';
 import test, { before } from 'node:test';
+import { readdir, readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -13,6 +16,35 @@ import { built } from './cargo.mjs';
 before(() => built('--bins'));
 
 const execute = promisify(execFile), helper = path.resolve('orchestrator/actions/lib/wizard.sh');
+
+/* Every module path a shell action names has to EXIST. `replace-host.sh` went on naming
+ * `orchestrator/launch.mjs` for a day after that file was deleted, and the way it failed is why
+ * this is a test rather than a reading: the action double-forks a detached child, so node's
+ * "Cannot find module" went to a log nobody opens, the mark file was written by the python that
+ * execs it, and the action printed "The launcher is detached as PID ..." and exited 0. A dashboard
+ * action that reports success and replaces nothing is worse than one that fails.
+ *
+ * It is a scan rather than a run because these actions replace hosts and restart supervisors; what
+ * can be checked without doing any of that is that what they point at is there. */
+test('no shell action names a module that has been deleted', async () => {
+  const root = fileURLToPath(new URL('../..', import.meta.url));
+  const directories = ['orchestrator/actions', 'scripts'];
+  const dangling = [];
+  for (const directory of directories) {
+    for (const entry of await readdir(path.join(root, directory))) {
+      if (!entry.endsWith('.sh')) continue;
+      const file = path.join(directory, entry);
+      const source = await readFile(path.join(root, file), 'utf8');
+      for (const [index, line] of source.split('\n').entries()) {
+        if (line.trimStart().startsWith('#')) continue;
+        for (const named of line.match(/orchestrator\/[A-Za-z0-9/_-]+\.mjs/g) ?? []) {
+          if (!existsSync(path.join(root, named))) dangling.push(`${file}:${index + 1} names ${named}`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(dangling, [], `a shell action points at a module that is not there:\n${dangling.join('\n')}`);
+});
 
 test('shell actions preserve literal argv and progress, and propagate failures', async () => {
   const literal = 'a path $(do-not-execute) `nor-this`';

@@ -7,7 +7,7 @@
 # feature added since reads as broken rather than as off (KI-116).
 #
 # It must detach, because the launcher is almost always run from a pane inside the workspace it is
-# replacing, and `replace.mjs` refuses that by name: a pane inside dies with the host. The detached
+# replacing, and red-launch refuses that by name: a pane inside dies with the host. The detached
 # child is orphaned to init, so the host is not one of its ancestors and the refusal does not apply.
 set -euo pipefail
 RE_ACTION_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -21,8 +21,17 @@ elif [[ $# != 0 ]]; then printf 'replace-host.sh [--state DIR]\n' >&2; exit 2; f
 [[ -n "$RE_STATE" ]] || re_ask RE_STATE 'Workspace state directory'
 [[ -d "$RE_STATE" ]] || { printf 'State directory is unavailable: %s\n' "$RE_STATE" >&2; exit 2; }
 RE_STATE=$(CDPATH= cd -- "$RE_STATE" && pwd)
-RE_NODE=${RENGINE_NODE:-$(command -v node || true)}
-[[ -n "$RE_NODE" && -x "$RE_NODE" ]] || { printf 'Node is required\n' >&2; exit 2; }
+# The launcher is a binary (spec 145); this action needs no node of its own. It is resolved HERE,
+# before the wizard's first stage, so a checkout that has not been built refuses before it has told
+# a person what a replacement would cost and asked them to confirm it.
+RE_LAUNCH=${RENGINE_RED_LAUNCH:-}
+if [[ -z "$RE_LAUNCH" ]]; then
+  for RE_PROFILE in release debug; do
+    [[ -x "$RE_ENGINE_ROOT/red/target/$RE_PROFILE/red-launch" ]] && { RE_LAUNCH="$RE_ENGINE_ROOT/red/target/$RE_PROFILE/red-launch"; break; }
+  done
+fi
+[[ -n "$RE_LAUNCH" && -x "$RE_LAUNCH" ]] || {
+  printf 'red-launch is required and this checkout has none: build it with\n  cargo build --manifest-path red/Cargo.toml --bins\nNothing was signalled.\n' >&2; exit 2; }
 RE_PYTHON=${RENGINE_PYTHON:-$(command -v python3 || true)}
 [[ -n "$RE_PYTHON" && -x "$RE_PYTHON" ]] || { printf 'python3 is required for the detach\n' >&2; exit 2; }
 
@@ -77,7 +86,7 @@ printf 'replace-host: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" >> "$RE_LOG"
 # dies. The child writes the mark once it is in its own session and this script waits for that
 # before exiting: a script tab closes its pty within milliseconds of exit, sooner than a child can
 # call setsid, and a launcher lost exactly there leaves the workspace with no host at all.
-RE_CHILD="sleep 2; cd '$RE_ENGINE_ROOT' && '$RE_NODE' orchestrator/launch.mjs --replace-host --state '$RE_STATE'"
+RE_CHILD="sleep 2; cd '$RE_ENGINE_ROOT' && '$RE_LAUNCH' --replace-host --state '$RE_STATE'"
 ( "$RE_PYTHON" -c 'import os, sys; os.setsid(); open(sys.argv[1], "w").write(str(os.getpid())); os.execvp(sys.argv[2], sys.argv[2:])' \
     "$RE_MARK" bash -c "$RE_CHILD" >> "$RE_LOG" 2>&1 < /dev/null & ) &
 for _ in $(seq 1 100); do [[ -s "$RE_MARK" ]] && break; sleep 0.05; done
