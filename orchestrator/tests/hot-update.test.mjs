@@ -10,7 +10,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { ToolListChangedNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
 import { startServer } from '../server/main.mjs';
-import { startRuntime } from '../runtime/supervisor.mjs';
+import { startSupervisor } from './red-supervisor-fixture.mjs';
 import { forward, json, tunnel } from '../runtime/protocol.mjs';
 import { alive, ensureSidecar, request } from '../launcher/sidecar.mjs';
 import { parseProcessTable } from '../launcher/replace.mjs';
@@ -94,7 +94,7 @@ test('the tracker routes are served by the worker above a retained host that nev
     assert.equal((await get(retained, `tracker?rootId=${root.id}`)).status, 404, 'the retained host has no tracker route; that is the defect');
     assert.equal((await request(retained, 'state')).stateDir, undefined, 'and it does not say where its state lives');
 
-    runtime = await startRuntime({ host: retained, directory: path.join(directory, 'runtime') });
+    runtime = await startSupervisor({ host: retained, directory: path.join(directory, 'runtime') });
     const state = await request(runtime, 'state');
     assert.equal(state.capabilities.tracker, 1, 'the worker advertises the capability it serves itself');
 
@@ -154,7 +154,7 @@ test('an idle facade learns of a connector update without a request, and a stale
     };
     await worker(path.resolve('orchestrator/tests/stale-tool-worker.mjs'));
     const runtimeDir = path.join(directory, 'runtime');
-    runtime = await startRuntime({ host: { url: host.url, token: host.token, instance: host.instance, pid: process.pid }, directory: runtimeDir, toolWorkerFile });
+    runtime = await startSupervisor({ host: { url: host.url, token: host.token, instance: host.instance, pid: process.pid }, directory: runtimeDir, toolWorkerFile });
     const contextFile = path.join(directory, 'context.json');
     await writeFile(contextFile, JSON.stringify({ url: host.url, token: host.token, instance: host.instance, rootId: root.id, runtimeDirectory: runtimeDir }), { mode: 0o600 });
 

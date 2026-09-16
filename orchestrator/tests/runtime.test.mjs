@@ -11,7 +11,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
-import { startRuntime } from '../runtime/supervisor.mjs';
+import { startSupervisor } from './red-supervisor-fixture.mjs';
 import { discoverRuntime, ensureRuntime, alive, runtimeDirectory, redSupervisorBinary } from '../runtime/discovery.mjs';
 import { forward, json, tunnel } from '../runtime/protocol.mjs';
 import { request } from '../launcher/sidecar.mjs';
@@ -71,9 +71,10 @@ process.stdin.setRawMode(true); console.log('CLI_READY'); process.stdin.on('data
     const connector = process.env.RENGINE_RED_MCP || path.resolve('red/target/debug/red-mcp');
     await writeFile(toolWorkerFile, `#!/bin/sh\nexec ${JSON.stringify(connector)} "$@"\n`, { mode: 0o755 });
     const runtimeDir = path.join(directory, 'runtime');
-    runtime = await startRuntime({ host: legacy, directory: runtimeDir, workerFile, toolWorkerFile });
+    runtime = await startSupervisor({ host: legacy, directory: runtimeDir, workerFile, toolWorkerFile });
     assert.equal((await request(runtime, 'state')).capabilities.desktopActions, 1);
-    assert.equal((await discoverRuntime(legacy, runtimeDir)).pid, process.pid);
+    /* The supervisor is its own process now (F159), so the descriptor names IT rather than this test. */
+    assert.equal((await discoverRuntime(legacy, runtimeDir)).pid, runtime.pid);
     await assert.rejects(discoverRuntime({ ...legacy, token: 'a'.repeat(64) }, runtimeDir), /another session host/);
     const unauthorized = await fetch(`${runtime.url}/api/update-status?rootId=${root.id}`); assert.equal(unauthorized.status, 401);
     const foreignOrigin = await fetch(`${runtime.url}/api/state`, { headers: { authorization: `Bearer ${runtime.token}`, origin: 'https://unrelated.invalid' } }); assert.equal(foreignOrigin.status, 401);

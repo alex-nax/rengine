@@ -17,7 +17,7 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
-import { startRuntime, redWorkerBinary } from '../runtime/supervisor.mjs';
+import { startSupervisor } from './red-supervisor-fixture.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { endStateServices } from './state-services.mjs';
 import { built } from './cargo.mjs';
@@ -52,9 +52,8 @@ test('the supervisor runs red-worker, and replaces it the way a layered update d
   });
   const root = await host.store.addRoot(project);
 
-  /* No `workerFile`: the supervisor resolves the binary itself, which is the cutover. */
-  assert.ok(redWorkerBinary().endsWith('red-worker'));
-  runtime = await startRuntime({ host, directory: runtimeDir });
+  /* No `--worker`: the supervisor resolves the binary itself, which is the cutover. */
+  runtime = await startSupervisor({ host, directory: runtimeDir });
 
   /* A workspace, through the binary. The capabilities are the ones having a WORKER adds — the
      host alone promises none of them — and the ledger's three say a ledger is actually served. */
@@ -89,8 +88,14 @@ test('the supervisor runs red-worker, and replaces it the way a layered update d
   const supervisor = async () => fetch(`${runtime.url}/api/update-status?rootId=${root.id}`,
     { headers: { authorization: `Bearer ${runtime.token}` } }).then(read => read.json());
   /* The WORKER's pid, which the supervisor knows and `/api/state` does not: a state read is the
-     host's answer with the worker's additions, and the pid in it is the host's. */
+     host's answer with the worker's additions, and the pid in it is the host's. It is also a third
+     process here: the host, the supervisor and the worker are each their own (F158, F159). */
   const before = (await supervisor()).workspace.pid;
+  assert.notEqual(before, runtime.pid, 'the worker is not the supervisor');
+  assert.notEqual(before, process.pid, 'and neither is this test');
+  const { execFileSync } = await import('node:child_process');
+  assert.match(execFileSync('ps', ['-o', 'comm=', '-p', String(before)]).toString().trim(), /red-worker$/,
+    'the worker serving this workspace is the binary');
   const updated = await fetch(`${runtime.url}/api/update-workspace`, { method: 'POST',
     headers: { authorization: `Bearer ${runtime.token}`, 'content-type': 'application/json' },
     body: JSON.stringify({ rootId: root.id, layers: ['workspace'] }) });

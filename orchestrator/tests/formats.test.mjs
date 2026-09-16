@@ -7,7 +7,7 @@ import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from '../server/main.mjs';
-import { startRuntime } from '../runtime/supervisor.mjs';
+import { startSupervisor } from './red-supervisor-fixture.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { readDeclaration } from '../server/formats.mjs';
 import { MAX_RAW_WINDOW } from './contract.mjs';
@@ -153,7 +153,7 @@ test('the replaceable worker and the MCP tool serve the registry through the ide
   t.after(async () => { await client?.close(); await runtime?.close(); await host.close(); await rm(directory, { recursive: true, force: true }); });
   const rootPath = await project(directory, 'game'); await writeFile(path.join(rootPath, 'plain.txt'), 'plain\n');
   const root = await host.store.addRoot(rootPath);
-  runtime = await startRuntime({ host, directory: path.join(directory, 'runtime') });
+  runtime = await startSupervisor({ host, directory: path.join(directory, 'runtime') });
   const state = await request(runtime, 'state'); assert.equal(state.capabilities.formatRegistry, 1);
   assert.equal((await request(runtime, `formats?${new URLSearchParams({ rootId: root.id })}`)).formats[0].id, 'fixture-pack');
   assert.equal((await request(runtime, 'format-preview', { rootId: root.id, path: 'sample.pack' })).tree.dirs[0].name, 'Worlds');

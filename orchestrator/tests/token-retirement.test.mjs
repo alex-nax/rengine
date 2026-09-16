@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { WebSocket } from 'ws';
 import { startServer } from '../server/main.mjs';
-import { startRuntime } from '../runtime/supervisor.mjs';
+import { startSupervisor } from './red-supervisor-fixture.mjs';
 import { tokenProject, identity, identityHeaders, api, ok, until, fakeDesktop, feedSocket } from './token-fixtures.mjs';
 
 /* KI-061, closed: after a workspace-only replacement the desktop's /events socket keeps draining
@@ -28,7 +28,7 @@ async function workspace(t) {
   const host = await startServer({ stateDir: path.join(directory, 'host') });
   const root = await host.store.addRoot(project);
   const runtimeDir = path.join(directory, 'runtime');
-  const runtime = await startRuntime({ host, directory: runtimeDir });
+  const runtime = await startSupervisor({ host, directory: runtimeDir });
   t.after(async () => { await runtime.close(); await host.close(); await rm(directory, { recursive: true, force: true }); });
   await ok(runtime, 'preferences', { tokenWindowMs: WINDOW });
   return { directory, project, host, root, runtimeDir, runtime };

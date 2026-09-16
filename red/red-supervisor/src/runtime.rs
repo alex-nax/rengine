@@ -282,16 +282,24 @@ impl Supervisor {
     /// A worker that crashes on every start would otherwise be restarted forever, and a workspace
     /// restarting in a loop looks from outside like a working one.
     pub fn recover(self: &Arc<Self>) {
-        if self.closing.load(Ordering::SeqCst)
-            || self.recovering.load(Ordering::SeqCst)
-            || self.recovery_used.swap(true, Ordering::SeqCst)
-            || self.worker().alive()
-        {
-            return;
-        }
-        self.recovering.store(true, Ordering::SeqCst);
         let previous = self.worker();
-        *self.recovery.lock().expect("recovery") = json!({ "state": "restarting", "previousPid": previous.pid });
+        /* The whole decision under one lock, so two callers cannot both take the one budget — and
+           so that ASKING does not spend it. Consuming the flag in the condition burned the budget on
+           every call, and `perform` calls this at the end of every job: one update was enough to
+           leave a workspace with no recovery left, and nothing said so. */
+        {
+            let mut recovery = self.recovery.lock().expect("recovery");
+            if self.closing.load(Ordering::SeqCst)
+                || self.recovering.load(Ordering::SeqCst)
+                || self.recovery_used.load(Ordering::SeqCst)
+                || previous.alive()
+            {
+                return;
+            }
+            self.recovery_used.store(true, Ordering::SeqCst);
+            self.recovering.store(true, Ordering::SeqCst);
+            *recovery = json!({ "state": "restarting", "previousPid": previous.pid });
+        }
         let held = self.clone();
         std::thread::spawn(move || {
             match worker::Child::start(&held.host, &held.worker_binary, &held.state.to_string_lossy(), held.ide_port) {

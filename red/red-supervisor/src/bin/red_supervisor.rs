@@ -190,10 +190,39 @@ async fn start(chosen: Options) -> Result<(), String> {
         });
     }
 
-    /* Nothing left to do on this task: the serving is its own, and the process lives until it is
-       signalled or its worker cannot be replaced. */
-    std::future::pending::<()>().await;
+    /* Told to stop. A supervisor that simply died would leave its desktop windows on the screen with
+       nobody to close them and nobody to save their drafts — they are its children only in `ps`, not
+       in any group a signal reaches. So the windows are asked to stop first, and the worker is told
+       to close, before this process goes.
+
+       The session host is NEVER signalled. It holds every PTY, agent and draft, and outliving this
+       process is the whole of what it is for. */
+    stopping().await;
+    tokio::task::spawn_blocking(move || supervisor.close()).await.ok();
     Ok(())
+}
+
+/// The first of the two signals a person or a launcher stops this with.
+#[cfg(unix)]
+async fn stopping() {
+    use tokio::signal::unix::{signal, SignalKind};
+    let mut term = match signal(SignalKind::terminate()) {
+        Ok(stream) => stream,
+        Err(_) => return std::future::pending().await,
+    };
+    let mut interrupt = match signal(SignalKind::interrupt()) {
+        Ok(stream) => stream,
+        Err(_) => return std::future::pending().await,
+    };
+    tokio::select! {
+        _ = term.recv() => {}
+        _ = interrupt.recv() => {}
+    }
+}
+
+#[cfg(not(unix))]
+async fn stopping() {
+    let _ = tokio::signal::ctrl_c().await;
 }
 
 async fn serving(supervisor: Arc<Supervisor>, listener: TcpListener) {

@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from '../server/main.mjs';
-import { startRuntime } from '../runtime/supervisor.mjs';
+import { startSupervisor } from './red-supervisor-fixture.mjs';
 import { forward, json, tunnel } from '../runtime/protocol.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { readDeclaration } from '../server/formats.mjs';
@@ -249,7 +249,7 @@ test('the replaceable worker serves preflight from the declaration above a host 
   const stale = await request(retained, 'state');
   assert.equal(stale.capabilities.projectGame, undefined, 'the retained host predates the declaration');
   assert.equal((await request(retained, `game-config?${new URLSearchParams({ rootId: root.id, gameId: 'fixture-second' })}`)).issues[0], BUILT_IN);
-  runtime = await startRuntime({ host: retained, directory: path.join(directory, 'runtime') });
+  runtime = await startSupervisor({ host: retained, directory: path.join(directory, 'runtime') });
 
   /* A routine workspace update must light the capability up: the worker serves the route itself. */
   const state = await request(runtime, 'state');

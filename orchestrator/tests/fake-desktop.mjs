@@ -28,6 +28,15 @@ const say = value => process.stdout.write(`${JSON.stringify(value)}\n`);
    this stream — which is the rule the control channel and the relay both keep. */
 process.stderr.write('fake-desktop: starting\n');
 
+/* A real desktop is a GUI process: its event loop does not end because a pipe did. This one has to
+   behave the same way, and it matters more than it looks — without it, stdin closing when the
+   supervisor exits would end this process by itself, and a test asserting that the supervisor takes
+   its windows with it would pass whether or not the supervisor did anything at all. That is the
+   control masking the thing under test, which `docs/evidence/blind-regressions-2026-09-06.md`
+   records six of. The bound is a leak stop, not a lifetime: nothing here should live two minutes. */
+const alive = setInterval(() => {}, 30000);
+setTimeout(() => { clearInterval(alive); process.exit(0); }, 120000).unref();
+
 const socket = new WebSocket(`${url.replace('http', 'ws')}/events?token=${token}`);
 socket.on('error', error => { process.stderr.write(`fake-desktop: ${error.message}\n`); });
 socket.on('open', () => {

@@ -8,7 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { startServer } from '../server/main.mjs';
-import { startRuntime } from '../runtime/supervisor.mjs';
+import { startSupervisor } from './red-supervisor-fixture.mjs';
 import { request } from '../launcher/sidecar.mjs';
 import { readDeclaration, listFormats } from '../server/formats.mjs';
 import { CONTRACTS } from './contract.mjs';
@@ -134,7 +134,7 @@ test('the replaceable worker and the MCP tools expose the dashboard', { timeout:
   let runtime, client;
   t.after(async () => { await client?.close(); await runtime?.close(); await host.close(); await rm(directory, { recursive: true, force: true }); });
   const rootPath = await dashboardProject(directory, 'game'); const root = await host.store.addRoot(rootPath);
-  runtime = await startRuntime({ host, directory: path.join(directory, 'runtime') });
+  runtime = await startSupervisor({ host, directory: path.join(directory, 'runtime') });
   assert.equal((await request(runtime, 'state')).capabilities.dashboard, 1);
   assert.equal((await request(runtime, `dashboard?${new URLSearchParams({ rootId: root.id })}`)).groups.length, 2);
   const run = await request(runtime, 'dashboard-run', { rootId: root.id, actionId: 'hello' }); await waitOutput(host, run.id, 'ENV=RELEASE');
@@ -223,7 +223,7 @@ test('the replaceable worker runs a dashboard game action through the retained h
   let runtime;
   t.after(async () => { await runtime?.close(); await host.close(); await rm(directory, { recursive: true, force: true }); });
   const rootPath = await gameProject(directory, 'launcher', launcherDeclaration()), root = await host.store.addRoot(rootPath);
-  runtime = await startRuntime({ host, directory: path.join(directory, 'runtime') });
+  runtime = await startSupervisor({ host, directory: path.join(directory, 'runtime') });
   const state = await request(runtime, 'state');
   assert.equal(state.capabilities.projectGame, 1); assert.equal(state.capabilities.projectGameLaunch, 1, 'this host launches from the declaration too');
   const listed = await request(runtime, `dashboard?${new URLSearchParams({ rootId: root.id })}`);

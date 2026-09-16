@@ -327,6 +327,15 @@ test('red-supervisor opens the window it was asked to start with', { timeout: 30
   const listed = (await request(supervisor, `desktops?rootId=${root.id}`)).desktops;
   assert.equal(listed.length, 1, 'the window it was asked to start with had registered');
   assert.equal(listed[0].managed, true);
+
+  /* And stopping the supervisor takes its window with it. The desktop is its child only in `ps` —
+     no signal reaches it through a group — so a supervisor that simply died would leave a window on
+     the screen with nobody to close it and nobody to save its drafts. */
+  const { alive } = await import('../launcher/sidecar.mjs');
+  const window = listed[0].pid;
+  assert.ok(alive(window), 'the window is running');
+  await supervisor.close(); supervisor = null;
+  await until(() => !alive(window), 'the window went with the supervisor that opened it');
 });
 
 /* The guard that keeps two updates off one supervisor. A window that detaches on its own while an
