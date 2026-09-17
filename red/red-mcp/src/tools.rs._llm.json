@@ -20,8 +20,8 @@
       "id": "interactive-script-tools",
       "kind": "rationale",
       "anchor": {
-        "start": 258,
-        "end": 258,
+        "start": 259,
+        "end": 259,
         "symbol": "call",
         "snippet": "\"open_script\" => {"
       },
@@ -35,8 +35,8 @@
       "id": "preview-file-tool",
       "kind": "rationale",
       "anchor": {
-        "start": 474,
-        "end": 474,
+        "start": 485,
+        "end": 485,
         "symbol": "preview",
         "snippet": "fn preview(workspace: &Workspace, state: &Value, args: &Args<'_>, root: &str) -> Result<Value, String> {"
       },
@@ -50,8 +50,8 @@
       "id": "dashboard-tools",
       "kind": "rationale",
       "anchor": {
-        "start": 264,
-        "end": 264,
+        "start": 265,
+        "end": 265,
         "symbol": "call",
         "snippet": "\"dashboard_actions\" => {"
       },
@@ -65,8 +65,8 @@
       "id": "declared-game-tools",
       "kind": "rationale",
       "anchor": {
-        "start": 358,
-        "end": 358,
+        "start": 359,
+        "end": 359,
         "symbol": "call",
         "snippet": "\"game_preflight\" => {"
       },
@@ -80,8 +80,8 @@
       "id": "devices-tool",
       "kind": "constraint",
       "anchor": {
-        "start": 301,
-        "end": 301,
+        "start": 302,
+        "end": 302,
         "symbol": "call",
         "snippet": "\"devices\" => {"
       },
@@ -95,8 +95,8 @@
       "id": "linked-project-operations",
       "kind": "rationale",
       "anchor": {
-        "start": 227,
-        "end": 227,
+        "start": 228,
+        "end": 228,
         "symbol": "call",
         "snippet": "\"open_project_window\" => {"
       },
@@ -106,5 +106,11 @@
         "docs/evidence/mcp-cutover-f187-2026-09-13.md"
       ]
     }
-  ]
+  ],
+  "source": {
+    "path": "red/red-mcp/src/tools.rs",
+    "sha256": "d3f434e18000f5fab90376554f679986e780731e18d5e1a98e0ae8a4e74ad6a3",
+    "format": "rust",
+    "format_fingerprint": "3802714b4569aa9e93696227dc96f5433c9f027b6349406e4e8901968d9e7fea"
+  }
 }

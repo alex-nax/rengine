@@ -89,6 +89,12 @@ actions/
     win/agent.ps1                           (next arc — 275 lines)
 ```
 
+*Nine of each since 2026-09-17*: `grant-session-message` arrived on the `session-message` line
+(F222, spec 148), which was written before this layout existed and declared its action the old way.
+The merge is what converted it — the declaration to contract 9, the script to `actions/posix/`, and
+a `.ps1` counterpart written and parse-checked with the other eight. F223's criteria still say
+"eight", which is now one short; the count is the owner's to correct, and the row records it.
+
 `pane/` splits too, *owner-decided*. I argued it should not, because `red_agent_launch` wraps the CLI
 in `RENGINE_BASH` on win32 today so one bash file serves both. Under the no-bash rule that wrapping
 is itself what has to go, so the split is correct and the Rust win32 branch is the next arc's work.

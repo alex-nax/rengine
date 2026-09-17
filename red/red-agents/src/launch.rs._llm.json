@@ -66,7 +66,7 @@
   ],
   "source": {
     "path": "red/red-agents/src/launch.rs",
-    "sha256": "d798df92f319bf2acab030870736a6c65ed0a8f3c26ceabb28c74d14e5ab4eca",
+    "sha256": "1419c7a79580c66e803774b468ba22af78e0cfa82430686874aa92a728a3a8e4",
     "format": "rust",
     "format_fingerprint": "3802714b4569aa9e93696227dc96f5433c9f027b6349406e4e8901968d9e7fea"
   }

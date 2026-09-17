@@ -5,8 +5,8 @@
       "id": "stop-process-tree",
       "kind": "rationale",
       "anchor": {
-        "start": 579,
-        "end": 606,
+        "start": 686,
+        "end": 713,
         "symbol": "signal_tree",
         "snippet": "fn signal_tree(pid: u32, signal: &str) -> Result<()> {"
       },
@@ -20,8 +20,8 @@
       "id": "seed-handshake-never-presses-blind",
       "kind": "rationale",
       "anchor": {
-        "start": 248,
-        "end": 287,
+        "start": 299,
+        "end": 338,
         "symbol": "SeedWatch::step",
         "snippet": "pub fn step(&mut self, now: u64) -> SeedStep {"
       },
@@ -34,7 +34,7 @@
   ],
   "source": {
     "path": "red/red-pty/src/lib.rs",
-    "sha256": "34a0c1b042afd3dc35e44215732e9d83b95381a0b1c38e2843a68d9c08227186",
+    "sha256": "19008782043219e49c0c524fd02870506982df9e91a1cf00d1a2301b256790c2",
     "format": "rust",
     "format_fingerprint": "3802714b4569aa9e93696227dc96f5433c9f027b6349406e4e8901968d9e7fea"
   }

@@ -106,6 +106,26 @@ const NORMALISERS = [
   [/127\.0\.0\.1:\d+/g, '127.0.0.1:<port>'],
 ];
 
+/* Capabilities declared AFTER the conversation was captured, dropped from both sides before the
+   comparison — with the row that declared each, so widening this list is a visible decision.
+ *
+ * The record is frozen evidence of what the module that is gone ANSWERED, and by its own terms it
+ * may not be regenerated; a capability that did not exist when it was taken therefore cannot be in
+ * it, and comparing the two with it present would be asking the record about a question nobody had
+ * asked it. The same shape `red_agents::declared_since` uses for the frozen recipe projection. */
+const DECLARED_SINCE = {
+  sessionMessage: 'F222, spec 148: the workspace may say one line to a pane that is already running',
+};
+
+/** The same object without any key `DECLARED_SINCE` names, at any depth. */
+function withoutDeclaredSince(value) {
+  if (Array.isArray(value)) return value.map(withoutDeclaredSince);
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !(key in DECLARED_SINCE))
+    .map(([key, held]) => [key, withoutDeclaredSince(held)]));
+}
+
 export function normalise(value, directory) {
   const text = JSON.stringify(value);
   let out = text.split(directory).join('<workspace>');
@@ -126,7 +146,16 @@ export function normalise(value, directory) {
   /* …and again inside `content[0].text`, where the answer is JSON that has been stringified into a
      string, so its own quotes are escaped. */
   out = out.replace(/\\"(pid|toolWorkerPid|durationMs|secondsLeft)\\":\d+/g, '\\"$1\\":111');
-  return JSON.parse(out);
+  const answer = withoutDeclaredSince(JSON.parse(out));
+  /* And inside `content[0].text`, where the answer is JSON stringified into a string. Structurally
+     rather than by pattern: a key deleted with a regex takes a comma with it or leaves one behind,
+     and the text is compared as a STRING, so it has to come back out valid and in document order. */
+  const carried = answer?.content?.[0]?.text;
+  if (typeof carried === 'string') {
+    try { answer.content[0].text = JSON.stringify(withoutDeclaredSince(JSON.parse(carried))); }
+    catch { /* not JSON: an ordinary message, which carries no capabilities */ }
+  }
+  return answer;
 }
 
 export async function workspace(t, label) {

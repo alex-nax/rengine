@@ -141,6 +141,22 @@ pub fn prompt_delivery(recipes: &[(String, Value)], cli: &str) -> Result<String,
         ))
 }
 
+/// How this CLI takes a message to a composer that is ALREADY running — the kind, again, so a
+/// caller asks what a CLI can take rather than who it is (F222, spec 148).
+///
+/// Deliberately not [`prompt_delivery`]. That one says how a CLI takes its *first* message *on a
+/// command line*, and two of the declared CLIs answer `argv` there — which is true of their command
+/// lines and says nothing whatever about their running composers. Reusing it would type into CLIs
+/// whose echo behaviour nobody has measured, which is the guess this whole family of keys exists to
+/// stop.
+pub fn message_delivery(recipes: &[(String, Value)], cli: &str) -> Result<String, String> {
+    projected(recipes, cli)
+        .and_then(|recipe| recipe.get("message").and_then(|message| message.get("kind")).and_then(Json::as_str).map(str::to_string))
+        .ok_or_else(|| format!(
+            "rEngine does not know how {cli} takes a message into a composer that is already running, so it will not type one: a line typed into a surface nobody measured is a keystroke nobody can predict. Declare how {cli} takes a message, or relay to a CLI that has. Nothing was typed."
+        ))
+}
+
 /// Which MCP overlay this recipe declares — the capability, so callers ask what a CLI needs rather
 /// than who it is.
 pub fn mcp_kind(recipes: &[(String, Value)], cli: &str) -> Option<String> {

@@ -24,6 +24,15 @@ pub fn iso(millis: i64) -> String {
     format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}.{sub:03}Z", time / 3600, (time % 3600) / 60, time % 60)
 }
 
+/// Now, in the milliseconds every stamp here is counted in — `Date.now()`, which is the clock the
+/// records this module writes and reads are all on.
+pub fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| since.as_millis() as i64)
+        .unwrap_or(0)
+}
+
 /// The inverse, for the shape [`iso`] writes and nothing else.
 ///
 /// `Date.parse` accepts a great deal more; every stamp this reads was written by [`iso`], and a

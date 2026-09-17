@@ -119,6 +119,10 @@ pub(crate) fn session_route(method: &str, path: &str) -> Option<&'static str> {
     Some(match (method, path) {
         ("GET", "/api/session") => "snapshot",
         ("POST", "/api/input") => "input",
+        /* One line said to a pane that is already running (F222, spec 148). Beside `input` because
+           it applies the same record's refusals, and separate from it because it is a different
+           act: input is a keystroke a person or a view is making, and this is a handshake. */
+        ("POST", "/api/session-message") => "message",
         ("POST", "/api/resize") => "resize",
         ("POST", "/api/stop") => "stop",
         _ => return None,
@@ -216,6 +220,14 @@ pub(crate) async fn answer_about_pane(front: &Arc<Front>, method: &str, head: &H
     if !payload.is_object() {
         return refusal(400, "Expected an object.");
     }
+    /* The one route here that answers something rather than `{ok: true}`: a relay's caller needs
+       the token it will look for and the line that was typed, and both are composed here. */
+    if method == "message" {
+        return match super::panes::deliver_message(front, &payload).await {
+            Ok(answer) => http_json(200, "OK", &answer),
+            Err(fault) => faulted(&fault),
+        };
+    }
     let outcome = match method {
         "input" => deliver_input(front, &payload).await,
         _ => deliver_resize(front, &payload).await,
@@ -274,6 +286,14 @@ pub(crate) fn answer_state(front: &Arc<Front>) -> String {
             "taskConversations": 1, "handoff": 1, "desktopActions": 1, "formatRegistry": 1,
             "dashboard": 1, "projectGame": 1, "projectGameLaunch": 1, "recordings": 1,
             "projectDevices": 1, "externalDeclarations": 1, "agentConversations": 1, "tracker": 1,
+            /* This door HAS the route that types one line into a running pane (F222, spec 148) —
+               and it deliberately does not promise the TOOL. `session_message` is gated, armed by
+               an owner grant and recorded on the feed, and all three of those are the worker's
+               half; a workspace with no worker in front would have a door that types and nothing
+               that decides whether it may. So the door declares the route under its own name, the
+               worker turns it into `sessionMessage` only when it also serves a ledger, and a pane
+               that reaches the door directly is refused by name rather than served ungated. */
+            "sessionMessageRoute": 1,
         },
         "roots": field("roots").unwrap_or_else(|| serde_json::json!([])),
         "layout": field("layout").unwrap_or(serde_json::Value::Null),

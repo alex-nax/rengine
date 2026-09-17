@@ -34,6 +34,42 @@ pub fn truncate_utf16(value: &str, limit: usize) -> String {
     out
 }
 
+/* ---- one printable line -------------------------------------------------------------------- */
+
+/// The longest message a relay may carry (F222, spec 148). A nudge, not a document: anything that
+/// needs more than this belongs in the repository, which is where a project's content channel is.
+pub const ONE_LINE_LIMIT: usize = 400;
+
+/// A message that may be typed into somebody's composer, or a refusal naming what is wrong with it.
+///
+/// **Refused rather than cleaned.** Stripping a control byte would type a line the caller did not
+/// write and report success for it; a caller told what is wrong can fix it. The consequence is the
+/// point: a tool held to this can never send a bare Enter, a Ctrl-C or an arrow key, so answering a
+/// dialog and interrupting a turn stay out of its reach whatever it is asked to send.
+pub fn one_printable_line(value: &str) -> Result<&str, String> {
+    if value.is_empty() {
+        return Err("A message is one line of text; this one is empty. Nothing was typed.".to_string());
+    }
+    if utf16_len(value) > ONE_LINE_LIMIT {
+        return Err(format!(
+            "A message is at most {ONE_LINE_LIMIT} characters and this one is {}. A nudge belongs here; anything longer belongs in the repository. Nothing was typed.",
+            utf16_len(value)
+        ));
+    }
+    if let Some(found) = value.chars().find(|c| c.is_control() || *c == '\u{7f}' || ('\u{80}'..='\u{9f}').contains(c)) {
+        let named = match found {
+            '\n' => "a newline".to_string(),
+            '\r' => "a carriage return".to_string(),
+            '\t' => "a tab".to_string(),
+            other => format!("the control character U+{:04X}", other as u32),
+        };
+        return Err(format!(
+            "A message is one printable line, and this one carries {named}. It is refused rather than cleaned, because a stripped line is not the line that was written. Nothing was typed."
+        ));
+    }
+    Ok(value)
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -51,6 +87,24 @@ mod tests {
         assert_eq!(super::truncate_utf16("ab😀cd", 4), "ab😀");
         assert_eq!(super::truncate_utf16("abcd", 2), "ab");
         assert_eq!(super::truncate_utf16("abcd", 99), "abcd");
+    }
+
+    /* F222, spec 148. The blast radius of a relay, decided here: one printable line and nothing
+       else, so the tool that carries it can never press Enter, interrupt a turn or answer a
+       dialog whatever a caller asks it to send. */
+    #[test]
+    fn a_message_is_one_printable_line_and_a_control_byte_is_refused_rather_than_stripped() {
+        assert_eq!(super::one_printable_line("Re-read the notes, then continue.").expect("plain"), "Re-read the notes, then continue.");
+        for (bad, says) in [("two\nlines", "a newline"), ("submit\r", "a carriage return"), ("a\tb", "a tab"), ("kill\u{15}line", "U+0015")] {
+            let refusal = super::one_printable_line(bad).expect_err(bad);
+            assert!(refusal.contains(says), "{refusal}");
+            assert!(refusal.contains("rather than cleaned"), "{refusal}");
+            assert!(refusal.ends_with("Nothing was typed."), "{refusal}");
+        }
+        assert!(super::one_printable_line("").is_err(), "an empty message is not a message");
+        assert!(super::one_printable_line(&"x".repeat(super::ONE_LINE_LIMIT)).is_ok());
+        assert!(super::one_printable_line(&"x".repeat(super::ONE_LINE_LIMIT + 1)).is_err());
+        assert!(super::one_printable_line("ok \u{7f}").is_err(), "DEL is a control byte too");
     }
 }
 

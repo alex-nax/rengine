@@ -11,6 +11,9 @@
 pub mod descriptor;
 pub mod desktops;
 pub mod env;
+/// The owner's grant to relay a message into one named pane (F222, spec 148). Here rather than
+/// beside the ledger, because a grant is the owner's and transfers to nobody.
+pub mod grants;
 pub mod head;
 pub mod http;
 pub mod service;

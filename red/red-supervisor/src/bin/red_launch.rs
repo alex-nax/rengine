@@ -10,6 +10,7 @@
 //! red-launch build
 //! red-launch replace-host --state DIR [--process-table FILE]
 //! red-launch restart-supervisor --state DIR [--plan | --stop-only]
+//! red-launch message-grant --state DIR (--list | --session ID (--revoke | --messages N --minutes M))
 //! red-launch ancestors [--pid N]
 //! ```
 //!
@@ -37,6 +38,7 @@ fn main() -> ExitCode {
         Some("ancestors") => ancestors_command(&argv[1..]).map(|()| 0),
         Some("bootstrap") => bootstrap_command(&argv[1..]).map(|()| 0),
         Some("client") => client_command(&argv[1..]),
+        Some("message-grant") => grant_command(&argv[1..]),
         _ => workspace(&argv),
     };
     match outcome {
@@ -213,6 +215,49 @@ fn restart_command(argv: &[String]) -> Result<i32, String> {
     let launch = !argv.iter().any(|value| value == "--stop-only");
     let done = stop::restart(&state_dir, &processes, &runtime, launch, &checkout())?;
     println!("{}", stop::describe_restart(&done));
+    Ok(0)
+}
+
+/// Arming one pane for a relay, or taking the arming back (F222, spec 148).
+///
+/// The confirmation is NOT here. It is in `orchestrator/actions/grant-session-message.sh`, where
+/// `restart-supervisor`'s is, for the same two reasons: a prompt with no non-interactive bypass has
+/// to be a tty question rather than a flag a caller can pass, and a command a test can drive is a
+/// command whose behaviour can be observed. This writes what it is told to write; the action is
+/// what makes an owner tell it.
+///
+/// Both bounds are required and neither has a default. A grant with no count or no deadline is the
+/// shape this feature exists to avoid: an open-ended permission to type into somebody's pane.
+fn grant_command(argv: &[String]) -> Result<i32, String> {
+    let usage = "Usage: red-launch message-grant --state DIR (--list | --session ID (--revoke | --messages N --minutes M))";
+    let Some(state) = named(argv, "--state").cloned().or_else(|| std::env::var("RENGINE_STATE_DIR").ok()) else {
+        eprintln!("{usage}");
+        return Ok(2);
+    };
+    let state_dir = absolute(&state);
+    let now = red_core::time::now_ms();
+    if argv.iter().any(|value| value == "--list") {
+        let grants = red_core::grants::list(&state_dir, now)?;
+        println!("{}", json!({ "grants": grants.iter().map(red_core::grants::Grant::as_json).collect::<Vec<Value>>() }));
+        return Ok(0);
+    }
+    let Some(session) = named(argv, "--session").cloned() else {
+        eprintln!("{usage}");
+        return Ok(2);
+    };
+    if argv.iter().any(|value| value == "--revoke") {
+        let taken = red_core::grants::revoke(&state_dir, &session)?;
+        println!("{}", json!({ "revoked": taken, "sessionId": session }));
+        return Ok(0);
+    }
+    let number = |flag: &str| -> Result<i64, String> {
+        named(argv, flag)
+            .ok_or_else(|| format!("{flag} is required: a grant is bounded by a count AND a deadline, and neither has a default."))?
+            .parse::<i64>()
+            .map_err(|_| format!("{flag} takes a number."))
+    };
+    let written = red_core::grants::grant(&state_dir, &session, number("--messages")?, number("--minutes")?, now)?;
+    println!("{}", written.as_json());
     Ok(0)
 }
 

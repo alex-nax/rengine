@@ -241,6 +241,18 @@
               "kimi"
             ],
             "action": "bootstrap-agent-hooks"
+          },
+          {
+            "id": "grant-session-message",
+            "title": "Let an agent message a pane",
+            "description": "Interactive: arms ONE agent pane so another agent of this project may say one printable line to it, for a counted number of messages and a bounded time. The project token is deliberately not enough on its own \u2014 it transfers on silence \u2014 so this is the permission a person gives. --list shows what is armed; --revoke takes it back.",
+            "kind": "script",
+            "args": [],
+            "requires": [
+              "actions/posix/grant-session-message.sh"
+            ],
+            "tools": [],
+            "action": "grant-session-message"
           }
         ]
       }
