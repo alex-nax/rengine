@@ -126,7 +126,23 @@ arc is scoped from evidence rather than from a `cfg` count.
   (dashboard `run_payload`, the agent menu, `pipe`), `red-host` (`panes.rs`, including a terminal
   pane's default shell), `red-core`.
 - `agent.ps1`, 275 lines' worth.
-- The 8 ports actually **run**, with a feature row that closes on that evidence and not before.
+- The 8 ports actually **run**, with a feature row that closes on that evidence and not before
+  (**F223**, renumbered from F221 — see below).
+
+### A parallel line, and an id collision (2026-09-17)
+
+A second session develops rEngine from **nolf-improved's submodule**, on `feat/session-message`,
+branched from `fca8630` — the same commit this arc continued from. It filed **F221** (how a CLI is
+handed the brief a spawn carries) and **F222** (saying one line to a pane that is already running),
+and this arc filed its own F221 the same day.
+
+Two rows with one id pass `features.py validate` on each branch in isolation, and collide only at
+merge — quietly, because neither side is wrong on its own. This arc's row moved to **F223**: it is
+the younger, and nothing referenced it.
+
+Worth knowing rather than worth fixing: `features.py` cannot see a branch it is not on, so the
+next id is only free with respect to the tree in front of it. Two lines of work on one inventory
+will do this again.
 
 ### The Windows host
 
