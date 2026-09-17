@@ -4392,13 +4392,20 @@
         "No server, example or tool binary from the engine is built by rEngine's targets.",
         "A recorded upstream merge is performed once before this row closes, so the policy is exercised rather than only written."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
       "deliverable": "The llama_r.cpp repository, its submodule pin at third_party/, the upstream-merge and cherry-pick policy, and the build that consumes it.",
       "external_references": [],
       "evidence": [
-        "Not started. The measurement behind choosing upstream over ik_llama.cpp as the base is recorded in spec 150: ik_llama.cpp's own README names CPU and CUDA as the only fully functional and performant backends and asks that Metal issues not be filed, and its last upstream sync was August 2024."
+        "docs/evidence/agent-engine-fork-f224-2026-09-17.md - the fork, the merge, the cherry-pick measurement, the build and the refusal.",
+        "The fork is github.com/alex-nax/llama_r.cpp, created as a GitHub fork so its history is upstream's; branch `red` at 29cf3dcb2, based on release tag v0.4.0 with upstream v0.4.1 merged (155 commits, 2026-09-17). master stays upstream's and is never committed to.",
+        "Criterion 1 is met in SUBSTANCE and its stated reason is WRONG, flagged rather than edited because criteria are accepted text. `git merge-base red ik/main` returns nothing: ik_llama.cpp and llama.cpp have disjoint histories - both begin with commits named \"Initial release\" and \"Create README.md\" at different object ids, so that repository is a re-committed copy rather than a git fork. The cherry-pick works anyway because it never needed shared ancestry: picking 4b0afb3e7 gave `Auto-merging ggml/src/ggml.c` and two ordinary content conflicts. The clause \"of the same history\" should be reworded; the owner's call.",
+        "Criterion 2: engine behind RENGINE_BUILD_MODEL_ENGINE, default OFF (nothing links it yet and the desktop's inner loop is seconds). Zero engine targets in the default build; with it ON, Metal detected and llama + llama-common built in 23s to static libraries only. An uninitialised submodule exits 1 with the init command in the message, observed by moving its CMakeLists.txt aside.",
+        "\"Fetches nothing at configure time\" stated precisely: the only two download lines are cmkr bootstrapping its own pinned v0.2.46, which is this repository's documented behaviour. The engine's two network-reaching options are forced off rather than inherited - LLAMA_LLGUIDANCE (an ExternalProject that git-clones and cargo-builds) and LLAMA_USE_PREBUILT_UI, which defaults ON upstream.",
+        "Criterion 4: every engine target is a library (ggml, ggml-base, ggml-blas, ggml-cpu, ggml-metal, llama, llama-common, llama-common-base). The two targets matching \"server\" are curl's and predate this row.",
+        "Also corrected while measuring: ik_llama.cpp IS actively maintained in 2026 (Gemma 4, Qwen4, LFM2.5 support). \"Last synced with upstream in August 2024\" describes the direction from upstream, not a dormant project; both are true and they are not the same claim.",
+        "Not measured: Linux, Windows (red/ does not compile there, F223), or any device. macOS 15 on Apple Silicon only."
       ]
     },
     {

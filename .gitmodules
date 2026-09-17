@@ -1,3 +1,7 @@
 [submodule "third_party/iklib"]
 	path = third_party/iklib
 	url = git@github.com:alex-nax/iklib.git
+[submodule "third_party/llama_r.cpp"]
+	path = third_party/llama_r.cpp
+	url = git@github.com:alex-nax/llama_r.cpp.git
+	branch = red

@@ -24,6 +24,9 @@ if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS cmake.toml)
 endif()
 
+# Options
+option(RENGINE_BUILD_MODEL_ENGINE "" OFF)
+
 project(rengine
 	LANGUAGES
 		C
@@ -103,6 +106,42 @@ endif()
 add_subdirectory("packs/gpu")
 set(CMAKE_FOLDER ${CMKR_CMAKE_FOLDER})
 
+if(RENGINE_BUILD_MODEL_ENGINE) # model-engine
+	# A submodule that was never initialised is refused BY NAME with the command that fixes it, rather
+	# than configuring into a confusing failure inside somebody else's CMakeLists.
+	if(NOT EXISTS "${PROJECT_SOURCE_DIR}/third_party/llama_r.cpp/CMakeLists.txt")
+	  message(FATAL_ERROR
+	    "third_party/llama_r.cpp is not initialised. Run:
+	"
+	    "  git submodule update --init --recursive third_party/llama_r.cpp")
+	endif()
+	# Stated rather than inherited. Most of these already default to LLAMA_STANDALONE, which is OFF in a
+	# sub-build - but a default that happens to be right today is not a decision, and this is the list
+	# somebody will read when they wonder why no server binary appears.
+	set(BUILD_SHARED_LIBS     OFF CACHE BOOL "" FORCE)
+	set(LLAMA_BUILD_COMMON    ON  CACHE BOOL "" FORCE)  # chat templates and tool-call parsing (spec 139)
+	set(LLAMA_BUILD_TESTS     OFF CACHE BOOL "" FORCE)
+	set(LLAMA_BUILD_TOOLS     OFF CACHE BOOL "" FORCE)
+	set(LLAMA_BUILD_EXAMPLES  OFF CACHE BOOL "" FORCE)
+	set(LLAMA_BUILD_SERVER    OFF CACHE BOOL "" FORCE)
+	set(LLAMA_BUILD_APP       OFF CACHE BOOL "" FORCE)
+	set(LLAMA_BUILD_UI        OFF CACHE BOOL "" FORCE)
+	# Two that would reach the network at configure or build time, which this build does not do:
+	# LLGUIDANCE clones and cargo-builds a dependency, and the UI option pulls a prebuilt bundle.
+	set(LLAMA_LLGUIDANCE      OFF CACHE BOOL "" FORCE)
+	set(LLAMA_USE_PREBUILT_UI OFF CACHE BOOL "" FORCE)
+
+	# Subdirectory: third_party/llama_r.cpp
+	set(CMKR_CMAKE_FOLDER ${CMAKE_FOLDER})
+	if(CMAKE_FOLDER)
+		set(CMAKE_FOLDER "${CMAKE_FOLDER}/third_party/llama_r.cpp")
+	else()
+		set(CMAKE_FOLDER "third_party/llama_r.cpp")
+	endif()
+	add_subdirectory("third_party/llama_r.cpp")
+	set(CMAKE_FOLDER ${CMKR_CMAKE_FOLDER})
+
+endif()
 # Target: rengine_microui
 set(rengine_microui_SOURCES
 	cmake.toml

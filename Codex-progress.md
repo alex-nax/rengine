@@ -1,3 +1,59 @@
+## Session 171 (opus-5) — 2026-09-17 — The engine fork exists, and the reason I gave for it was wrong
+
+F224 passing. `llama_r.cpp` is real: <https://github.com/alex-nax/llama_r.cpp>, branch `red` at
+`29cf3dcb2`, pinned as a submodule at `third_party/llama_r.cpp`.
+
+**The fork is based on a release tag, not on `master`.** `red` starts at `v0.4.0` with upstream
+`v0.4.1` merged on top — 155 commits, no conflicts. Upstream merges continuously, and a fork that
+tracks a moving branch cannot say what it is. `master` stays upstream's and is never committed to.
+`FORK.md` carries the rule that every commit of ours which is not an upstream merge names itself a
+**fix**, a **port** or a **cherry-pick** with its source and reason.
+
+**A record that was approximately true, caught before it was pushed.** I wrote `FORK.md`'s upstream
+table saying "merged up to v0.4.1" in the commit *before* doing the merge. Its own rule says the table
+moves with the merge. Reset, made the base commit say what was true at the base commit — "nothing
+yet; v0.4.0 is the base" — and the table moved inside the merge commit instead.
+
+**And the thing worth this entry: the premise of my own recommendation was false.** I argued for the
+true-fork layout on the grounds that "a cherry-pick between two forks of the same history is one
+command". `git merge-base red ik/main` returns **nothing**. `ik_llama.cpp` and `llama.cpp` have
+**disjoint histories** — both begin with commits named *"Initial release"* and *"Create README.md"* at
+different object ids, so that repository is a re-committed copy rather than a git fork.
+
+The conclusion survives, for a reason I had not given: `git cherry-pick` never needed shared ancestry.
+It diffs a commit against its own parent and three-way merges onto `HEAD`. Picking `4b0afb3e7`
+(*"Simdify sigmoid evaluations"*, `ggml/src/ggml.c`) gave `Auto-merging` and two ordinary content
+conflicts. **An ordinary operation with an ordinary conflict, not a free one.** The change was not
+kept — `FORK.md` requires a reason per cherry-pick and no measurement justifies that one.
+
+Criterion 1 is therefore met in **substance** and its stated reason is wrong. Flagged rather than
+edited: criteria are accepted text, and the clause "of the same history" is the owner's to reword.
+
+A second correction from the same measurement: **ik_llama.cpp is actively maintained in 2026** —
+Gemma 4, Qwen4 and LFM2.5 land there. "Last synced with upstream in August 2024" describes the
+direction *from* upstream and is not a claim that the project is dormant. Both are true; they are not
+the same claim, and D72 should be read as the former.
+
+**The engine is behind `RENGINE_BUILD_MODEL_ENGINE`, default OFF.** Nothing links it yet, and putting
+minutes of engine compilation on a desktop inner loop that is currently seconds would be paid by
+everyone for the benefit of no one. Zero engine targets in the default build; with it on, Metal
+detected and `llama` + `llama-common` built in **23 s** to static libraries only. An uninitialised
+submodule exits 1 naming the init command, observed by moving its `CMakeLists.txt` aside.
+
+**Two options were forced off rather than inherited, and that is load-bearing.** `LLAMA_LLGUIDANCE`
+is an `ExternalProject_Add` that git-clones and cargo-builds a dependency, and
+`LLAMA_USE_PREBUILT_UI` — *"use prebuilt UI from HF Bucket when available"* — **defaults ON**
+upstream. Either would have reached the network from a build that says it does not. The only download
+lines in a configure are cmkr fetching its own pinned v0.2.46, which is this repository's documented
+behaviour.
+
+Gates: `./init.sh`, `design.py check`, `agent_names.py check`, `features.py validate` (179) — green.
+Desktop rebuilt from the regenerated `CMakeLists.txt`. **380/380 Rust, 379/379 JS.** Two earlier runs
+showed one cancelled and then one failure; three consecutive clean runs after, with nothing else
+building — the concurrency flakiness this suite already has, not this change. `CMakeLists.txt` is
+cmkr's output of the `cmake.toml` edit, which is the only file touched by hand.
+
+Evidence: `docs/evidence/agent-engine-fork-f224-2026-09-17.md`. Next: F201, `re_model`'s C ABI.
 ## Session 170 (opus-5) — 2026-09-17 — The agent pack, designed: our fork, one file, and a phone that serves a headset
 
 Design only; nothing implemented. Spec 150, charter **D72** and **D73**, four rows, and one accepted

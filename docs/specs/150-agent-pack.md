@@ -73,6 +73,29 @@ The finding that shaped a decision: **the fastest path on Android wants a differ
 best path on a desktop.** The Hexagon NPU publishes `Q4_0`/`Q8_0`; the best-quality artifact is a
 K-quant. One file across devices means picking a side, and that side sets the floor.
 
+### Measured after the interview: the two forks do not share a history
+
+Decision 1 was argued partly on cherry-picking being "an ordinary git operation between two forks of
+the same history". **Half of that is wrong, and the correction is worth more than the claim was.**
+
+`git merge-base` finds *nothing* between `llama_r.cpp` and `ik_llama.cpp`. Both histories begin with
+commits named *"Initial release"* and *"Create README.md"* at different object ids, so ik_llama.cpp is
+a **re-committed copy** of llama.cpp rather than a git fork of it.
+
+The conclusion survives for a different reason: `git cherry-pick` never needed shared ancestry. It
+diffs a commit against its own parent and three-way merges onto `HEAD`. Picking a real commit
+(`4b0afb3e7`, touching `ggml/src/ggml.c`) produced `Auto-merging` and two ordinary content conflicts
+— an ordinary operation with an ordinary conflict, not a free one. What it does *not* survive is any
+claim that the alternative layouts were worse *because of ancestry*; they are worse because of path
+rewriting, which is a smaller argument than the one made.
+
+One more correction from the same measurement: **ik_llama.cpp is actively maintained in 2026** —
+Gemma 4, Qwen4 and LFM2.5 support land there. "Last synced with upstream in August 2024" describes
+the direction *from* upstream; it is not a claim that the project is dormant, and decision 1 should be
+read as the former.
+
+Evidence: `docs/evidence/agent-engine-fork-f224-2026-09-17.md`.
+
 ## Decisions
 
 | # | Decision | Attribution |

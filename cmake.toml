@@ -74,8 +74,15 @@ if(BUILD_TESTING)
 endif()
 """
 
+[options]
+# The inference engine is OFF by default and that is deliberate. Nothing links it yet, and building
+# it on every desktop build would put minutes on an inner loop that is currently seconds. F201 is
+# what turns it on for real; until then this option is how the engine is proved to build at all.
+RENGINE_BUILD_MODEL_ENGINE = false
+
 [conditions]
 testing = "BUILD_TESTING"
+model-engine = "RENGINE_BUILD_MODEL_ENGINE"
 not-msvc = "NOT MSVC"
 msvc = "MSVC"
 apple = "APPLE"
@@ -86,6 +93,36 @@ apple-testing = "APPLE AND BUILD_TESTING"
 # The GPU device layer is consumed as the pack it ships as, from its own directory, so the suite
 # builds the same bytes a project outside this repository does (F123).
 [subdir."packs/gpu"]
+
+# The inference engine: this project's fork of llama.cpp, pinned as a submodule rather than fetched
+# as an archive, because git pins it by commit and verifies it (charter D72, spec 150). Behind an
+# option, see [options] above.
+[subdir."third_party/llama_r.cpp"]
+condition = "model-engine"
+cmake-before = """
+# A submodule that was never initialised is refused BY NAME with the command that fixes it, rather
+# than configuring into a confusing failure inside somebody else's CMakeLists.
+if(NOT EXISTS "${PROJECT_SOURCE_DIR}/third_party/llama_r.cpp/CMakeLists.txt")
+  message(FATAL_ERROR
+    "third_party/llama_r.cpp is not initialised. Run:\n"
+    "  git submodule update --init --recursive third_party/llama_r.cpp")
+endif()
+# Stated rather than inherited. Most of these already default to LLAMA_STANDALONE, which is OFF in a
+# sub-build - but a default that happens to be right today is not a decision, and this is the list
+# somebody will read when they wonder why no server binary appears.
+set(BUILD_SHARED_LIBS     OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_COMMON    ON  CACHE BOOL "" FORCE)  # chat templates and tool-call parsing (spec 139)
+set(LLAMA_BUILD_TESTS     OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_TOOLS     OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_EXAMPLES  OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_SERVER    OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_APP       OFF CACHE BOOL "" FORCE)
+set(LLAMA_BUILD_UI        OFF CACHE BOOL "" FORCE)
+# Two that would reach the network at configure or build time, which this build does not do:
+# LLGUIDANCE clones and cargo-builds a dependency, and the UI option pulls a prebuilt bundle.
+set(LLAMA_LLGUIDANCE      OFF CACHE BOOL "" FORCE)
+set(LLAMA_USE_PREBUILT_UI OFF CACHE BOOL "" FORCE)
+"""
 
 [target.rengine_microui]
 type = "static"
