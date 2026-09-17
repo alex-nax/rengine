@@ -4297,7 +4297,8 @@
         "Each of the eight actions runs to completion on the Windows host and produces the same outcome as its posix sibling, recorded stage by stage in an evidence document.",
         "No bash is invoked anywhere on the Windows path: red_project::command::bash_path() has a Windows arm, and a terminal pane's default shell on win32 is not /bin/bash.",
         "actions/pane/win/agent.ps1 launches a CLI pane without RENGINE_BASH, and red-agent-launch's win32 branch no longer wraps the CLI in a shell.",
-        "The refusals keep their shape: restart-supervisor's confirm still has no non-interactive bypass, and replace-host still refuses to exit before its detached child reports."
+        "The refusals keep their shape: restart-supervisor's confirm still has no non-interactive bypass, and replace-host still refuses to exit before its detached child reports.",
+        "The runner passes -ExecutionPolicy Bypass (or the host's policy is set deliberately): the qualification host is Undefined at every scope, so a .ps1 does not load at all and every action fails for a reason unrelated to the action."
       ],
       "passes": false,
       "dependencies": [
@@ -4308,7 +4309,8 @@
       "external_references": [],
       "evidence": [
         "Not started. What IS established (2026-09-16): all nine files under actions/win/ parse under Windows PowerShell 5.1.26100 on pr0fe@192.168.31.217. Parsing proves the target can read them and nothing more \u2014 no file has been executed, and red/ does not compile on Windows yet (62 cfg(unix) blocks against 1 cfg(windows), with red-host and red-agents having no Windows arm).",
-        "Renumbered from F221 to F223 on 2026-09-17, owner-decided: a parallel line developed from nolf-improved's submodule (branch feat/session-message) filed its own F221 and F222 off the same commit. Two rows with one id pass `features.py validate` on each branch in isolation and collide only at merge, silently. This row is the younger and nothing references it, so it moved."
+        "Renumbered from F221 to F223 on 2026-09-17, owner-decided: a parallel line developed from nolf-improved's submodule (branch feat/session-message) filed its own F221 and F222 off the same commit. Two rows with one id pass `features.py validate` on each branch in isolation and collide only at merge, silently. This row is the younger and nothing references it, so it moved.",
+        "2026-09-17, on pr0fe@192.168.31.217 (PowerShell 5.1.26100): all 8 of vtmb-vr's actions/win/*.ps1 and its editor.ps1 parse through Parser::ParseFile, and two were EXECUTED and behaved \u2014 printed and exited 2. Also established, and load-bearing for this row: `Get-ExecutionPolicy -List` is Undefined at every scope on that host, so a script refuses with \"running scripts is disabled on this system\" unless invoked with -ExecutionPolicy Bypass."
       ]
     }
   ]

@@ -183,6 +183,28 @@ untracked 84958f8/, e2c3fd9/, current.txt
 **PowerShell 5.1, not 7**, is a constraint on every port: no `??`, no ternary, no
 `ForEach-Object -Parallel`.
 
+**And `Get-ExecutionPolicy -List` is Undefined at every scope**, which means Restricted: a `.ps1`
+does not load at all until it is invoked with `-ExecutionPolicy Bypass`. Found by running one
+(2026-09-17). Whatever runs these as dashboard actions must pass it, or every Windows action fails
+for a reason that has nothing to do with the action — which is the kind of failure that gets blamed
+on the port.
+
+### A cross-machine action changes shape, it does not get ported
+
+*Owner, 2026-09-17.* vtmb-vr has two actions that do not run on Windows — they REACH Windows from
+the dev machine over ssh. The first thing they do is generate a `.bat`, `scp` it over and `cmd /c`
+it, with a header explaining the two workarounds that forced it: a process started from sshd has no
+desktop, and the build must be one command rather than three round trips.
+
+Those generated files ARE the Windows action, and committing them is the port. What follows is the
+part worth carrying to the next such pair: **once a rEngine instance runs on the far machine, the
+near machine stops shipping shell over ssh and asks that workspace to run the native action** — in a
+session that has a desktop, with the script already present. Both workarounds dissolve, and the ssh
+script shrinks to a bootstrap.
+
+So the rule is not "every posix action needs a PowerShell twin". It is: an action that was *about
+crossing a gap* becomes two things — a native action on the far side, and a much smaller crossing.
+
 The measurement that says the next arc is large: **62 `cfg(unix)` blocks in `red/` against 1
 `cfg(windows)`**, with `red-host` (5) and `red-agents` (3) having unix-only code and no Windows arm
 at all.

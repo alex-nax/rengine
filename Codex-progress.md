@@ -33,6 +33,43 @@ merge, quietly. This arc's row moved to **F223**: it is the younger and nothing 
 `features.py` cannot see a branch it is not on, so "the next free id" is only free with respect to
 the tree in front of it — recorded in spec 147, because two lines on one inventory will do it again.
 
+## Session 165 (opus-5) — 2026-09-17 — vtmb finished, and a Windows shape that is not a port
+
+**I had not finished vtmb, and the owner was right to say so.** `editor.sh` started exec'ing
+`red-launch` two commits earlier and I never ran vtmb's own launcher test: 6 failures and 2 errors,
+sitting there. Its intent was sound and its subject had moved — the argv stub stubbed `node`, and
+the thing exec'd is a binary now. Repointed, 16/16, and it dropped from 64s to 4s.
+
+Worse, and mine: I had made `--bind` run `cargo build --bins`, which quietly broke F1151's recorded
+property that **bind installs nothing native** — the test says so in as many words and I had not run
+it. Bind resolves red-agents and refuses by name now. A bind that compiles Rust is not the cheap
+operation that row describes.
+
+**The Windows work changed shape mid-write, and the owner's line is why**: *"we can connect to the
+rengine instance on windows machine and run native scripts"*.
+
+I had written `fast-start-win.ps1` and `remote-rengine.ps1` as honest REFUSALS — those scripts do
+not run on Windows, they reach Windows from the dev machine, and I argued a port was a category
+error. That was wrong in an interesting way. `fast-start-win.sh` does its work by **generating a
+`.bat` on the fly, scp-ing it over and `cmd /c`-ing it**. Those generated files ARE the Windows
+action; committing them is the port. And once an instance runs on the far box, the near machine asks
+that workspace to run the native action instead of shipping shell — so both workarounds that
+script's header documents (sshd has no desktop; the build must be one command) dissolve, because
+neither is a problem for a script that was already there.
+
+The rule that generalises, now in spec 147: **an action that is about crossing a gap does not get
+ported — it becomes two things**, a native action on the far side and a much smaller crossing.
+
+**A finding that would have cost somebody an afternoon.** `Get-ExecutionPolicy -List` on the
+qualification host is Undefined at every scope, so a `.ps1` does not load AT ALL — a script refused
+with "running scripts is disabled on this system" until invoked with `-ExecutionPolicy Bypass`.
+Every Windows action would have failed for a reason unrelated to the action. It is an F223 criterion
+now, and `editor.bat` already passes it.
+
+Verified on `pr0fe@192.168.31.217` (PowerShell 5.1.26100): all 8 of vtmb's PowerShell files parse
+through `Parser::ParseFile`, and two were EXECUTED and behaved. Nothing has run in its current form;
+every file says so.
+
 ## Session 163 (opus-5) — 2026-09-16 — The layout, and a housekeeping batch behind it
 
 Owner goal: the restructure decided in session 162's interview, then *"1. delete 2. run an iteration
