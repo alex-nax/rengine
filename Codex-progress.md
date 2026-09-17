@@ -1,3 +1,60 @@
+## Session 172 (opus-5) — 2026-09-17 — The ABI exists and the row does not close, for one reason
+
+`packs/agent/` is real: `rengine_agent`, alias `rengine::agent`, beside `packs/gpu` and following it.
+The C ABI over the engine — open a model declared by path **and digest**, run one turn with an
+optional grammar, stream, cancel, report identity and counters. **F201 stays `passes: false`**, and
+the reason is a single missing prerequisite rather than anything unfinished.
+
+**What is proven.** `npm run test:agent` builds the pack as its **own top-level project**, which is
+how "standalone by construction" stops being an assertion, and runs two tests:
+`rengine_agent_digest` **Passed** (nine assertions), `rengine_agent_turn` ***Skipped**. The digest
+rules hold: a declaration with no digest is refused, a mismatch is refused **before the file is
+loaded** with both digests in the message, a malformed digest is refused as malformed rather than as
+a mismatch. The pack's SHA-256 is its own — the engine's lives under the tool binaries this build
+does not compile — and it was checked against all four FIPS 180-4 vectors including the 1,000,000-`a`
+case, then against `shasum -a 256` on a real 7.8 MB file. The engine genuinely loads through the ABI:
+128,256 vocab, 768 ms, +73.7 MiB.
+
+**What is not, and it is all one thing.** Criteria 2, 3 and 5 — determinism at temperature 0,
+cancellation within one token, and throughput — need a **generative model declared on this machine**,
+and rEngine does not download weights. The only GGUFs here are `~/llama.cpp/models/ggml-vocab-*.gguf`,
+which are tokenizers with no weights. The assertions are written and run the moment
+`RENGINE_AGENT_FIXTURE` names one. Criterion 5 is partial in a way worth saying out loud: 768 ms and
++73.7 MiB are real numbers about a **vocab-only** load and therefore say nothing about a real one.
+
+**Two sabotages, each recompiled first.** Removing the digest comparison turned exactly two
+assertions red and left the other seven green. Removing the rule that a declaration must carry a
+digest **SIGSEGVs** — a NULL `sha256` reaches `strcmp` — so the guard is load-bearing rather than
+decorative.
+
+**And the restore was caught not compiling.** `cp` followed immediately by `cmake --build` landed in
+the same filesystem timestamp tick; make skipped the rebuild and three runs judged the *sabotaged*
+binary. I spent time explaining a crash that was not in the code in front of me. **KI-120 in
+reverse**: the rebuild-between-the-sabotage-and-the-run rule applies to the restore, and nothing in
+the written form of it says so.
+
+**A defect the standalone build exposed, which the root build could not.** The engine's configuration
+— static, `common` on, every binary off, the two network-reaching options off — lived in rEngine's
+root `cmake.toml` only. So the pack built correctly *here* and would have handed any other consumer a
+differently-configured engine: standalone it was linking a **shared** `libllama.dylib`, against spec
+139 decision 1's `BUILD_SHARED_LIBS=OFF`. That configuration now belongs to the pack, the root passes
+only the path and the by-name refusal, and standalone links `libllama.a`. A pack whose behaviour
+depends on who builds it is not a pack, and only building it the way a stranger would showed it.
+
+Also fixed in passing: `RENGINE_AGENT_ENGINE_DIR` given a relative path resolved against whichever
+directory happened to be current. It resolves against the pack now, which is how a person writing it
+reads it.
+
+Gates: `./init.sh`, `design.py check`, `agent_names.py check`, `features.py validate` (179) — green.
+**380/380 Rust, 379/379 JS.** Default build still has zero engine targets; every engine target is a
+library; the uninitialised-submodule refusal re-verified after the restructure. Sidecar written and
+stamped for `model.cpp` — four decisions a reader would otherwise have to reverse-engineer.
+
+Evidence: `docs/evidence/agent-pack-abi-f201-2026-09-17.md`.
+
+**For the owner:** F201, F207 and everything downstream need one thing — a small generative GGUF
+declared on this machine (tens of megabytes is enough; the checks are determinism and cancellation,
+not quality).
 ## Session 171 (opus-5) — 2026-09-17 — The engine fork exists, and the reason I gave for it was wrong
 
 F224 passing. `llama_r.cpp` is real: <https://github.com/alex-nax/llama_r.cpp>, branch `red` at

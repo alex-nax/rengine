@@ -1,0 +1,16 @@
+{
+  "name": "rengine-agent",
+  "version": "0.1.0",
+  "description": "A local model behind a C ABI: open a model declared by path and digest, run one turn with an optional grammar, stream tokens, cancel within one token, and report identity and counters. The engine underneath is llama_r.cpp, this project's fork of llama.cpp, which the pack does NOT vendor - a consumer pins both and points the pack at it. C because the door is C: the FFI direction in this family is Rust-imports-C, so a Rust service, a C desktop and a game reach one implementation. Charter D67/D68/D72; specs 139 and 150.",
+  "target": "rengine_agent",
+  "alias": "rengine::agent",
+  "include": "include",
+  "publicHeaders": [
+    "rengine/model.h"
+  ],
+  "note": "The revision below is the commit a consumer pins, and it is rEngine's own: a project that already carries third_party/rengine receives this pack with a pin it already holds, so nothing here fetches anything (spec 111, KI-008). The engine is a SECOND pin the consumer holds separately - github.com/alex-nax/llama_r.cpp, branch red - because a pack that vendored a 400 MB engine would be a pack nobody could review. Weights are neither shipped nor fetched: a model is declared per machine by path and digest, and an undeclared or unverified file is refused (charter D68).",
+  "pin": {
+    "version": "0.1.0",
+    "revision": "unreleased"
+  }
+}

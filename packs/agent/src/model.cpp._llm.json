@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "engine-is-silenced-by-default",
+      "kind": "rationale",
+      "anchor": {
+        "start": 40,
+        "end": 40,
+        "symbol": "quiet",
+        "snippet": "void quiet(ggml_log_level, const char *, void *) {}"
+      },
+      "note": "Why the engine's own logging is turned off rather than passed through.\n\nThe engine writes progress, tensor counts and backend chatter to stderr by default. That is right for a command-line tool and wrong for a library: this one is linked into a desktop that draws a UI, a Rust service whose stderr is a log channel with its own format, and eventually a phone. A library that prints into somebody else's process cannot be embedded without that somebody first working out how to shut it up.\n\nIt is silenced HERE, once, rather than left to each host, because the alternative is three hosts each discovering the same problem. If a host ever needs the engine's output, the right shape is an ABI call that installs a callback - not a default that shouts.",
+      "refs": [
+        "docs/specs/139-local-model-agent.md",
+        "docs/specs/150-agent-pack.md"
+      ]
+    },
+    {
+      "id": "greedy-is-the-reproducible-path",
+      "kind": "constraint",
+      "anchor": {
+        "start": 274,
+        "end": 274,
+        "snippet": "    if (turn->temperature > 0.0f) {"
+      },
+      "note": "Temperature 0 takes the greedy sampler, and that is what makes a turn reproducible - not a fixed seed.\n\nA seeded distribution sampler is reproducible only while the seed, the sampler chain and the engine's own RNG order all stay put; any of the three can move under a pin bump and the determinism check would start failing for a reason that has nothing to do with the model. Greedy has no randomness to pin: the highest-probability token, every time.\n\nThis is why the ABI documents temperature 0 as reproducible rather than offering a seed for determinism. F201's acceptance criterion - identical tokens across two runs - rests on it.",
+      "refs": [
+        "docs/specs/139-local-model-agent.md",
+        "docs/specs/150-agent-pack.md"
+      ]
+    },
+    {
+      "id": "cancel-is-checked-before-the-sample",
+      "kind": "rationale",
+      "anchor": {
+        "start": 299,
+        "end": 299,
+        "snippet": "        if (model->cancel.load(std::memory_order_relaxed)) {"
+      },
+      "note": "The cancel flag is read BEFORE the token is sampled, and that ordering is the ABI's promise.\n\n\"Cancel returns within one token\" means the caller pays for at most the token already in flight. Checking after the sample would cost two: the one being computed when cancel arrived, plus the one the loop had already started. On a phone, where a token can be a hundred milliseconds and the reason for cancelling is often that the person has moved on, the difference is felt.\n\nrelaxed ordering is deliberate and sufficient: this is a one-way flag with no other state riding on it, so there is nothing for an acquire to order against. The callback returning non-zero is the in-band equivalent and sets the same outcome, so a caller has both a synchronous and a cross-thread way to stop a turn.",
+      "refs": [
+        "docs/specs/139-local-model-agent.md",
+        "docs/specs/150-agent-pack.md"
+      ]
+    },
+    {
+      "id": "context-cleared-between-turns",
+      "kind": "rationale",
+      "anchor": {
+        "start": 331,
+        "end": 331,
+        "snippet": "    llama_memory_clear(llama_get_memory(model->ctx), true);"
+      },
+      "note": "Why each turn starts from an empty context.\n\nWithout this, a second run of the same prompt CONTINUES the first rather than repeating it, and the determinism check would compare a first answer against a continuation - two different questions, reported as a mismatch nobody could explain. It was written with the check in mind and is stated here because the check cannot see it.\n\nIt also fixes what a turn means at this ABI: one turn is one complete exchange, and a caller that wants a conversation supplies the history in the prompt. Holding the conversation inside the library would put the session in the wrong place - sessions belong to the host that owns them, which is the same rule the rest of this family follows.",
+      "refs": [
+        "docs/specs/139-local-model-agent.md",
+        "docs/specs/150-agent-pack.md"
+      ]
+    }
+  ],
+  "source": {
+    "path": "packs/agent/src/model.cpp",
+    "sha256": "c81e80e060078d957d91f6048bc8d61ab0301d1d5279d1b940413f18d4c327a3",
+    "format": "cpp",
+    "format_fingerprint": "2d233b6da8ecf11656dc0c873eec1bcc38ba089c331fdf6956b5a0f1d5a145fc"
+  }
+}
