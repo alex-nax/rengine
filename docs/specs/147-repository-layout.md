@@ -111,8 +111,31 @@ be run literally by an older reader and be *silently* wrong on Windows. A declar
 schema asks for. The owner's answer is better than the option I was defending.
 
 `script` is **replaced**, not kept alongside (*owner decision*): one concept, one way to declare an
-action. Consumer projects migrate their own actions into `actions/<platform>/` on their next pin.
-That is a coordinated change in `nolf-improved` and `vtmb-vr`, and it lands in this arc.
+action. Consumer projects migrate on their next pin.
+
+### What a consumer migration actually costs, and the answer (vtmb-vr, 2026-09-17)
+
+The interview priced this as "declaration edits". It is not, and the reason is worth carrying to the
+next consumer: contract 9 resolves `actions/<platform>/<name>.<ext>`, so a project whose scripts live
+elsewhere must either move them or bridge to them.
+
+**Moving them is the wrong trade.** In vtmb-vr, `fast-start-quest.sh` is named by 27 files and
+`deploy-quest.sh` by 20 — including `claude-progress.md` and `known-issues.md`, which are records
+rather than code. Satisfying a layout by rewriting history is backwards.
+
+**A consumer bridges instead.** `actions/posix/<name>.sh` is three lines that `exec` the project's
+own script, so its argv, stdio and exit code are the action's with nothing in between. rEngine's own
+actions live natively under `actions/`; a project with an established tree gets an adapter, and the
+contract stops being something imposed on its layout.
+
+`actions/win/` in a consumer is empty and says so. A Windows dashboard reports those actions
+unavailable, which is TRUE — the scripts are bash, and porting them is the project's call. A Windows
+form is a real port, never a forwarder.
+
+**One thing confirmed by accident and worth keeping:** vtmb's declaration was refused *before* its
+pin moved, with `has unknown key action` naming the key. A contract-8 reader meets an unknown key in
+a closed schema and refuses by name, rather than running the posix file on Windows. That is the
+whole argument for a name over a path, observed rather than reasoned.
 
 ## What this arc does and does not do
 

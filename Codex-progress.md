@@ -1,3 +1,38 @@
+## Session 164 (opus-5) — 2026-09-17 — Contract 9, the ports, and vtmb migrated
+
+Contract 9 replaces a script PATH with an action NAME, resolved as
+`actions/<platform>/<name>.<ext>`. The owner's answer, and better than the option I argued for: I
+had objected to a reader resolving a platform segment, citing the schema's own warning about
+reinterpretation — but that objection does not apply to a NAME. A path is what an older reader runs
+LITERALLY; a name is an unknown key in a closed schema and is refused by name.
+
+**That got confirmed by accident.** vtmb's declaration was refused before its pin moved, with `has
+unknown key action`. The argument for a name over a path, observed rather than reasoned.
+
+The resolution lives in ONE place — where the reader accepts a valid dashboard block — so nothing
+downstream learns the contract. The name survives beside the path, because a bug report from a
+Windows user and one from a macOS user must not describe two different declarations.
+
+**Eight PowerShell ports written, and parsed on the real host**: all nine files under `actions/win/`
+parse under Windows PowerShell 5.1.26100 on `pr0fe@192.168.31.217`. That proves the target can READ
+them and nothing else — nothing executed, and `red/` does not compile on Windows yet. The README
+says exactly that, and F223 closes on execution rather than existence.
+
+**vtmb-vr is migrated, and its scripts did not move.** The interview priced the consumer migration
+as "declaration edits"; it is not. `fast-start-quest.sh` is named by 27 files there and
+`deploy-quest.sh` by 20, including `claude-progress.md` and `known-issues.md` — records rather than
+code. So `actions/posix/*.sh` are three-line forwarders that `exec` the project's own script. The
+contract stops being something imposed on a project's layout, and no history got rewritten to fix a
+path.
+
+**nolf-improved was NOT touched, deliberately.** It has an active session: uncommitted engine work,
+and its rEngine submodule on `feat/session-message` — a parallel line branched from the same commit
+this arc continued from. That line filed its own F221 and F222 the same day this one filed an F221.
+Two rows with one id pass `features.py validate` on each branch in isolation and collide only at
+merge, quietly. This arc's row moved to **F223**: it is the younger and nothing referenced it.
+`features.py` cannot see a branch it is not on, so "the next free id" is only free with respect to
+the tree in front of it — recorded in spec 147, because two lines on one inventory will do it again.
+
 ## Session 163 (opus-5) — 2026-09-16 — The layout, and a housekeeping batch behind it
 
 Owner goal: the restructure decided in session 162's interview, then *"1. delete 2. run an iteration
