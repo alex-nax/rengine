@@ -188,6 +188,7 @@ typedef struct {
   mu_Color text_strong;
   mu_Color text_muted;
   mu_Color text_faint;
+  mu_Color text_disabled;
   mu_Color text_indicator;
   mu_Color text_on_accent;
   mu_Color accent;
@@ -248,7 +249,7 @@ void re_theme_apply(mu_Style *style);                      /* pushes the live th
 /* The accent hue is the one token a person can move at runtime (spec 080). Each preset lists the
  * colours that follow it with the oklch lightness, chroma and alpha to rebuild them at a new hue. */
 typedef struct { uint16_t index; float lightness, chroma; uint8_t alpha; } ReAccentSlot;
-#define RE_THEME_COLOR_COUNT 65
+#define RE_THEME_COLOR_COUNT 66
 extern const ReAccentSlot *const re_theme_accent_slots[RE_PRESET_COUNT];
 extern const int re_theme_accent_counts[RE_PRESET_COUNT];
 extern const float re_theme_accent_hues[RE_PRESET_COUNT];   /* each preset's own hue, in degrees */
@@ -280,6 +281,7 @@ extern const char *const re_theme_field_tokens[RE_THEME_COLOR_COUNT];  /* the to
 #define RE_COLOR_TEXT_STRONG re_theme.text_strong
 #define RE_COLOR_TEXT_MUTED re_theme.text_muted
 #define RE_COLOR_TEXT_FAINT re_theme.text_faint
+#define RE_COLOR_TEXT_DISABLED re_theme.text_disabled
 #define RE_COLOR_TEXT_INDICATOR re_theme.text_indicator
 #define RE_COLOR_TEXT_ON_ACCENT re_theme.text_on_accent
 #define RE_COLOR_ACCENT re_theme.accent

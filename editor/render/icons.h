@@ -28,7 +28,8 @@ enum {
   RE_ICON_RUN = 21,
   RE_ICON_FILE = 22,
   RE_ICON_FOLDER_OPEN = 23,
-  RE_ICON_COUNT = 24
+  RE_ICON_REFRESH = 24,
+  RE_ICON_COUNT = 25
 };
 static const uint32_t re_icon_codepoints[RE_ICON_COUNT] = {
   0xe650, /* placeholder */
@@ -55,5 +56,6 @@ static const uint32_t re_icon_codepoints[RE_ICON_COUNT] = {
   0xe3d0, /* play — ▶ */
   0xe230, /* file */
   0xe256, /* folder-open */
+  0xe094, /* arrows-clockwise */
 };
 #endif

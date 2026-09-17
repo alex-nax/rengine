@@ -143,6 +143,21 @@ void re_app_expand(ReApp *a, int tab, const char *path) {
   else release(a, slot);
 }
 
+/* Re-read what is on screen from disk: the current directory AND every folder open inside it.
+   Reloading only the directory would leave an expanded child showing a listing from before the
+   refresh, which is worse than not refreshing - the tree would be half fresh with nothing saying
+   which half. Expansions keep their slots, so the tree does not collapse under the person. */
+void re_app_tree_refresh(ReApp *a, int tab) {
+  ReTab *t = &a->tabs[tab];
+  re_app_load(a, tab);
+  for (int i = 0; i < RE_TREE_EXPANSIONS; i++) {
+    ReExpansion *e = &a->expansions[i];
+    if (!taken(e) || e->tab != tab || e->generation != t->generation) continue;
+    char *route = re_net_query("tree", t->root, e->path);
+    if (route) { request_slot(a, OP_EXPAND, tab, route, i); free(route); }
+  }
+}
+
 void re_app_layout_changed(ReApp *a) {
   a->desktop_registered = false;
   a->layout_dirty = true; a->layout_changed = SDL_GetTicks64();

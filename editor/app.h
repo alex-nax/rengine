@@ -172,6 +172,10 @@ void re_app_mode(ReApp *app, int tab, int mode);
 const cJSON *re_app_format_record(ReApp *app, ReTab *tab);
 bool re_app_external_session(ReApp *app, const char *session);
 void re_app_control(ReApp *app, mu_Context *ui, const char *role, const char *key, int tab);
+/* Same, for a control a person can see but cannot use: a spec reads `disabled` rather than
+   inferring it from a click that did nothing. */
+void re_app_control_disabled(ReApp *app, mu_Context *ui, const char *role, const char *key, int tab, bool disabled);
+void re_app_tree_refresh(ReApp *app, int tab);   /* the current directory and every folder open in it */
 int re_app_dashboard(ReApp *app, const char *root);
 void re_app_dashboard_run(ReApp *app, int tab, const char *action, bool capture);
 void re_app_reveal(ReApp *app, const char *root, const char *artifact);

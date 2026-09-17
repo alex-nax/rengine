@@ -208,7 +208,9 @@ static int label_size(int opt) {
 }
 static uint8_t label_face(int opt) { return opt & RE_UI_STRONG ? RE_FACE_UI_SEMIBOLD : RE_FACE_UI_MEDIUM; }
 static mu_Color label_color(int opt, float on) {
-  if (opt & RE_UI_DISABLED) return RE_COLOR_TEXT_FAINT;
+  /* Not TEXT_FAINT: the explorer draws its carets at that value, so a disabled control sat at the
+     same grey as the enabled rows beside it and read as enabled. Disabled has its own token. */
+  if (opt & RE_UI_DISABLED) return RE_COLOR_TEXT_DISABLED;
   if (opt & RE_UI_PRIMARY) return RE_COLOR_TEXT_ON_ACCENT;
   return mix(opt & RE_UI_MUTED ? RE_COLOR_TEXT_MUTED : RE_COLOR_TEXT, RE_COLOR_TEXT_STRONG, on);
 }

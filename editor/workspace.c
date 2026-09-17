@@ -10,11 +10,16 @@
 #include "svg.h"
 #include <time.h>
 
-static void inspect_rect(ReApp *a, const char *role, const char *key, int tab, mu_Rect r) {
+static void inspect_rect_state(ReApp *a, const char *role, const char *key, int tab, mu_Rect r, bool disabled) {
   if (!a->controls || cJSON_GetArraySize(a->controls) >= 512) return;
   cJSON *j = cJSON_CreateObject(); cJSON_AddStringToObject(j, "role", role); cJSON_AddStringToObject(j, "key", key);
   cJSON_AddNumberToObject(j, "tab", tab); cJSON_AddItemToObject(j, "rect", cJSON_CreateIntArray((int[]){r.x, r.y, r.w, r.h}, 4));
+  /* Only when true, so every control that has nothing to say keeps the shape it already had. */
+  if (disabled) cJSON_AddBoolToObject(j, "disabled", 1);
   cJSON_AddItemToArray(a->controls, j);
+}
+static void inspect_rect(ReApp *a, const char *role, const char *key, int tab, mu_Rect r) {
+  inspect_rect_state(a, role, key, tab, r, false);
 }
 /* A control is recorded at the part of it a person could actually reach: its rectangle clipped to
  * the container being built. A row scrolled out of view records nothing. */
@@ -28,6 +33,14 @@ static void control_clipped(ReApp *a, mu_Context *ui, const char *role, const ch
 }
 void re_app_control(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab) {
   control_clipped(a, ui, role, key, tab, ui->last_rect);
+}
+void re_app_control_disabled(ReApp *a, mu_Context *ui, const char *role, const char *key, int tab, bool disabled) {
+  if (!a->controls) return;
+  mu_Rect r = ui->last_rect, clip = mu_get_clip_rect(ui);
+  int x = re_max(r.x, clip.x), y = re_max(r.y, clip.y);
+  int right = re_min(r.x + r.w, clip.x + clip.w), bottom = re_min(r.y + r.h, clip.y + clip.h);
+  if (right <= x || bottom <= y) return;
+  inspect_rect_state(a, role, key, tab, mu_rect(x, y, right - x, bottom - y), disabled);
 }
 const char *re_workspace_root_name(ReApp *a, const char *id) {
   const cJSON *root = NULL;
@@ -243,17 +256,21 @@ static void tree_rows(ReApp *a, mu_Context *ui, int index, const cJSON *entries,
   }
 }
 
-static void tree_ui(ReApp *a, mu_Context *ui, int index) {
+/* The path bar, drawn OUTSIDE the scrolling container so the folder you are in stays on screen
+ * however far the tree is scrolled. It is its own window for the same reason the pane header is:
+ * microui scrolls a container as a whole, so the only way a row does not move is to not be in it. */
+static void re_tree_path_bar(ReApp *a, mu_Context *ui, int index) {
   ReTab *t = &a->tabs[index];
   ReDraw *draw = re_draw_active();
-  /* Path bar: up, then the root and the path within it, as the card shows. */
-  mu_layout_row(ui, 2, (int[]){RE_METRIC_DESIGN_ICON_BUTTON, -1}, RE_METRIC_DESIGN_ROW);
-  if (re_ui_button_ex(ui, "Up", RE_ICON_ARROW_UP, RE_UI_GHOST | RE_UI_ICON_ONLY | (*t->path ? 0 : RE_UI_DISABLED))) {
+  /* Up, then the root and the path within it as the card shows, then refresh at the right end. */
+  bool at_root = !*t->path;
+  mu_layout_row(ui, 3, (int[]){RE_METRIC_DESIGN_ICON_BUTTON, -RE_METRIC_DESIGN_ICON_BUTTON, -1}, RE_METRIC_DESIGN_ROW);
+  if (re_ui_button_ex(ui, "Up", RE_ICON_ARROW_UP, RE_UI_GHOST | RE_UI_ICON_ONLY | (at_root ? RE_UI_DISABLED : 0))) {
     char *slash = strrchr(t->path, '/'); if (slash) *slash = 0; else t->path[0] = 0;
     re_app_expansions_clear(a, index); t->selected[0] = 0;
     re_app_load(a, index); re_app_layout_changed(a);
   }
-  re_app_control(a, ui, "tree-up", "", index);
+  re_app_control_disabled(a, ui, "tree-up", "", index, at_root);
   mu_Rect path_rect = mu_layout_next(ui);
   int size = RE_METRIC_DESIGN_SIZE, text_y = path_rect.y + (path_rect.h - size) / 2 - 1;
   const char *root = re_workspace_root_name(a, t->root);
@@ -268,6 +285,14 @@ static void tree_ui(ReApp *a, mu_Context *ui, int index) {
     re_draw_text_face(draw, RE_FACE_UI, size, rest, -1, clip.x, text_y, RE_COLOR_TEXT_MUTED);
     if (!fits) re_draw_clip(draw, NULL);
   }
+  /* Re-read this directory and every folder open inside it. The listing is a snapshot taken when
+     the directory was opened, and nothing tells the desktop that something changed on disk. */
+  if (re_ui_button_ex(ui, "Refresh", RE_ICON_REFRESH, RE_UI_GHOST | RE_UI_ICON_ONLY)) re_app_tree_refresh(a, index);
+  re_app_control(a, ui, "tree-refresh", "", index);
+}
+
+static void tree_ui(ReApp *a, mu_Context *ui, int index) {
+  ReTab *t = &a->tabs[index];
   if (!t->data) {
     mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
     re_ui_label_ex(ui, *t->error ? t->error : "Loading files…", RE_UI_MUTED);
@@ -923,6 +948,23 @@ void re_app_ui(ReApp *a, mu_Context *ui, int width, int height) {
     if (format_view && re_format_split(t->format)) {
       int h = content.h * RE_METRIC_FORMAT_ENTRY_PERCENT / 100;
       below = mu_rect(content.x + RE_METRIC_EDITOR_INSET, content.y + content.h - h, re_max(0, content.w - 2 * RE_METRIC_EDITOR_INSET), re_max(0, h - RE_METRIC_EDITOR_INSET)); content.h -= h;
+    }
+    /* The explorer's path bar is sticky: it is carved off the top of the content and drawn in its
+       own window, so scrolling the tree never takes the folder you are in off screen. Everything
+       below scrolls as before. */
+    if (t->type == RE_TREE) {
+      /* The row plus the window's own padding, so the bar is exactly as tall as the row it holds
+         rather than a number that drifts from the style. */
+      mu_Rect bar = content; bar.h = RE_METRIC_DESIGN_ROW + ui->style->padding * 2;
+      content.y += bar.h; content.h = re_max(0, content.h - bar.h);
+      char bar_title[48]; snprintf(bar_title, sizeof(bar_title), "Pane path %d.%d", index, t->generation);
+      mu_get_container(ui, bar_title)->rect = bar;
+      re_ui_panel(re_draw_active(), bar, RE_COLOR_SURFACE);
+      if (mu_begin_window_ex(ui, bar_title, bar, opts | MU_OPT_NOFRAME)) {   /* opts already has NOSCROLL */
+        re_ui_clip(ui);
+        re_tree_path_bar(a, ui, index);
+        mu_end_window(ui);
+      }
     }
     mu_get_container(ui, title)->rect = content;
     re_ui_panel(re_draw_active(), content, RE_COLOR_SURFACE); /* the window is frameless so views can draw their own faces */

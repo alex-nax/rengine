@@ -168,3 +168,90 @@ test('the cap refuses rather than collapsing a branch that is in use', { timeout
     await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
   }
 });
+
+// The path bar: a refresh that re-reads what is on screen, an up arrow that says when it cannot be
+// used, and a bar that stays on screen while the tree scrolls under it.
+const control = (state, role) => state.controls.find(c => c.role === role);
+
+test('refresh re-reads the directory and the folders open inside it', { timeout: 120000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-explorer-refresh-'));
+  const project = path.join(dir, 'project');
+  await mkdir(path.join(project, 'src'), { recursive: true });
+  await writeFile(path.join(project, 'src', 'inner.txt'), 'inner\n');
+  const server = await startServer({ stateDir: path.join(dir, 'state') });
+  const root = await server.store.addRoot(project);
+  const gui = await nativeClient(server, { root: root.id });
+  try {
+    await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree), 'the explorer');
+    await nested(gui, true);
+    await gui.control('tree-entry', 'src');
+    await gui.until(s => rows(s).includes('src/inner.txt'), 'src expanded');
+
+    // Written AFTER both listings were taken, so neither is there until something re-reads.
+    await writeFile(path.join(project, 'later.txt'), 'later\n');
+    await writeFile(path.join(project, 'src', 'later-inner.txt'), 'later\n');
+    let state = await gui.command({ op: 'state' });
+    assert.ok(!rows(state).includes('later.txt'), 'the listing is a snapshot until it is refreshed');
+
+    await gui.control('tree-refresh', '');
+    state = await gui.until(s => rows(s).includes('later.txt'), 'the directory was re-read');
+    // The open folder too: refreshing only the top would leave the tree half fresh with nothing
+    // saying which half.
+    assert.ok(rows(state).includes('src/later-inner.txt'),
+              `the open folder was re-read as well: ${JSON.stringify(rows(state))}`);
+    assert.ok(rows(state).includes('src/inner.txt'), 'and src stayed expanded across the refresh');
+  } finally {
+    await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('the up arrow reads as disabled at the root and usable below it', { timeout: 120000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-explorer-up-'));
+  const project = path.join(dir, 'project');
+  await mkdir(path.join(project, 'src'), { recursive: true });
+  await writeFile(path.join(project, 'src', 'inner.txt'), 'inner\n');
+  const server = await startServer({ stateDir: path.join(dir, 'state') });
+  const root = await server.store.addRoot(project);
+  const gui = await nativeClient(server, { root: root.id });
+  try {
+    await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree), 'the explorer');
+    let state = await gui.until(s => control(s, 'tree-up'), 'the path bar');
+    assert.equal(control(state, 'tree-up').disabled, true, 'there is nowhere up from the root');
+
+    await nested(gui, false);            // flat mode: a directory row drills in
+    await gui.control('tree-entry', 'src');
+    state = await gui.until(s => s.tabs.some(t => t?.type === 1 && t.path === 'src'), 'drilled in');
+    assert.ok(!control(state, 'tree-up').disabled, 'and up is usable once there is a parent');
+  } finally {
+    await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('the path bar stays on screen while the tree scrolls under it', { timeout: 120000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-explorer-sticky-'));
+  const project = path.join(dir, 'project');
+  await fill(project, 120);            // enough rows that the tree must scroll
+  const server = await startServer({ stateDir: path.join(dir, 'state') });
+  const root = await server.store.addRoot(project);
+  const gui = await nativeClient(server, { root: root.id });
+  try {
+    await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree), 'the explorer');
+    let state = await gui.until(s => control(s, 'tree-up') && rows(s).length > 10, 'a scrollable tree');
+    const barY = control(state, 'tree-up').rect[1];
+    const first = rows(state)[0];
+    const firstY = state.controls.find(c => c.role === 'tree-entry' && c.key === first).rect[1];
+
+    const rowRect = state.controls.find(c => c.role === 'tree-entry' && c.key === first).rect;
+    await gui.command({ op: 'motion', x: rowRect[0] + 4, y: rowRect[1] + 4 });
+    for (let i = 0; i < 6; i++) await gui.command({ op: 'wheel', x: 0, y: -3 });
+    await delay(300);
+
+    state = await gui.command({ op: 'state' });
+    const moved = state.controls.find(c => c.role === 'tree-entry' && c.key === first);
+    assert.ok(!moved || moved.rect[1] < firstY, 'the rows scrolled');
+    assert.equal(control(state, 'tree-up').rect[1], barY, 'and the path bar did not move with them');
+    assert.ok(control(state, 'tree-refresh'), 'refresh is still reachable after scrolling');
+  } finally {
+    await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
+  }
+});

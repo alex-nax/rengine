@@ -107,6 +107,11 @@
       "role": "",
       "native": ""
     },
+    "text-disabled": {
+      "token": "ui-fg-disabled",
+      "role": "Disabled controls; dimmer than text-faint, which the explorer's carets already use",
+      "native": "label_color in editor/ui/ui.c when RE_UI_DISABLED is set"
+    },
     "text-indicator": {
       "token": "terminal-indicator-fg",
       "role": "Text on the terminal history indicator",

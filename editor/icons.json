@@ -15,7 +15,7 @@
     {
       "name": "close",
       "symbols": [
-        "✕"
+        "\u2715"
       ],
       "phosphor": "x",
       "codepoint": "0xe4f6"
@@ -29,8 +29,8 @@
     {
       "name": "collapsed",
       "symbols": [
-        "▸",
-        "›"
+        "\u25b8",
+        "\u203a"
       ],
       "phosphor": "caret-right",
       "codepoint": "0xe13a"
@@ -38,7 +38,7 @@
     {
       "name": "expanded",
       "symbols": [
-        "▾"
+        "\u25be"
       ],
       "phosphor": "caret-down",
       "codepoint": "0xe136"
@@ -46,7 +46,7 @@
     {
       "name": "tree",
       "symbols": [
-        "⊟"
+        "\u229f"
       ],
       "phosphor": "sidebar-simple",
       "codepoint": "0xec24"
@@ -54,7 +54,7 @@
     {
       "name": "shell",
       "symbols": [
-        "›_"
+        "\u203a_"
       ],
       "phosphor": "terminal-window",
       "codepoint": "0xeae8"
@@ -62,7 +62,7 @@
     {
       "name": "agent",
       "symbols": [
-        "◆"
+        "\u25c6"
       ],
       "phosphor": "diamond",
       "codepoint": "0xe1ec"
@@ -70,7 +70,7 @@
     {
       "name": "split-vertical",
       "symbols": [
-        "▯▯"
+        "\u25af\u25af"
       ],
       "phosphor": "columns",
       "codepoint": "0xe546"
@@ -78,7 +78,7 @@
     {
       "name": "split-horizontal",
       "symbols": [
-        "▭"
+        "\u25ad"
       ],
       "phosphor": "rows",
       "codepoint": "0xe5a2"
@@ -86,7 +86,7 @@
     {
       "name": "merge-pane",
       "symbols": [
-        "⊡"
+        "\u22a1"
       ],
       "phosphor": "selection",
       "codepoint": "0xe69a"
@@ -94,7 +94,7 @@
     {
       "name": "project",
       "symbols": [
-        "▣"
+        "\u25a3"
       ],
       "phosphor": "folder",
       "codepoint": "0xe24a"
@@ -102,7 +102,7 @@
     {
       "name": "search",
       "symbols": [
-        "⌕"
+        "\u2315"
       ],
       "phosphor": "magnifying-glass",
       "codepoint": "0xe30c"
@@ -110,8 +110,8 @@
     {
       "name": "theme",
       "symbols": [
-        "◐",
-        "◑"
+        "\u25d0",
+        "\u25d1"
       ],
       "phosphor": "circle-half",
       "codepoint": "0xe18c"
@@ -119,8 +119,8 @@
     {
       "name": "dirty",
       "symbols": [
-        "▪",
-        "●"
+        "\u25aa",
+        "\u25cf"
       ],
       "phosphor": "dot",
       "codepoint": "0xecde"
@@ -128,7 +128,7 @@
     {
       "name": "hollow",
       "symbols": [
-        "▫"
+        "\u25ab"
       ],
       "phosphor": "dot-outline",
       "codepoint": "0xece0"
@@ -144,7 +144,7 @@
     {
       "name": "arrow-up",
       "symbols": [
-        "↑"
+        "\u2191"
       ],
       "phosphor": "arrow-up",
       "codepoint": "0xe08e"
@@ -152,7 +152,7 @@
     {
       "name": "caret-up",
       "symbols": [
-        "▲"
+        "\u25b2"
       ],
       "phosphor": "caret-up",
       "codepoint": "0xe13c"
@@ -160,7 +160,7 @@
     {
       "name": "caret-left",
       "symbols": [
-        "‹"
+        "\u2039"
       ],
       "phosphor": "caret-left",
       "codepoint": "0xe138"
@@ -168,7 +168,7 @@
     {
       "name": "menu",
       "symbols": [
-        "≡"
+        "\u2261"
       ],
       "phosphor": "list",
       "codepoint": "0xe2f0"
@@ -176,7 +176,7 @@
     {
       "name": "run",
       "symbols": [
-        "▶"
+        "\u25b6"
       ],
       "phosphor": "play",
       "codepoint": "0xe3d0"
@@ -192,6 +192,12 @@
       "symbols": [],
       "phosphor": "folder-open",
       "codepoint": "0xe256"
+    },
+    {
+      "name": "refresh",
+      "symbols": [],
+      "phosphor": "arrows-clockwise",
+      "codepoint": "0xe094"
     }
   ]
 }

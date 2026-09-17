@@ -1,3 +1,53 @@
+## Session 173 (opus-5) — 2026-09-17 — A crash diagnosed, and the explorer's path bar
+
+**The editor crashed while the owner was using it, and the cause is not today's work.** Symbolicated
+against the running binary (built 2026-09-16, launched by `red-supervisor` 2307):
+
+```
+main → re_app_ui → tree_rows + 1440 → tree_rows + 44 → get_object_item
+```
+
+`tree_rows + 44` is the *first* cJSON read the function makes, so it was entered with an already-freed
+node, handed down by the recursive call one frame up. The cause is `editor/workspace.c:221`: the
+drill-in branch calls `re_app_expansions_clear(a, index)` — which `cJSON_Delete`s **every** expansion's
+data for the tab — and then `continue`s, while at depth ≥ 1 the loop's own `entries` point *into* that
+data. Introduced by `9e52352` (2026-09-06): before the tree was recursive the clear only ran in the
+depth-0 frame, whose entries come from `t->data` and survive it. The comment there — *"a new root is a
+new tree"* — shows the author knew it invalidated the tree; what was missed is that the walk was still
+standing on it. Filed as **KI-131** with the fix named, not applied: the sibling `formatview.c`
+already returns an action and lets its caller act instead of mutating mid-walk.
+
+**Then three changes to the path bar the owner asked for, and one of them was not what it looked
+like.** The up arrow was *already* flagged `RE_UI_DISABLED` at the root — the logic was right and had
+been all along. It drew in `--ui-fg-faint`, which is exactly what `--tree-icon` uses, so a disabled
+control rendered the same grey as the enabled carets beside it. Two roles had collided on one token.
+Disabled now has its own, `--ui-fg-disabled` (`--re-gray-6`), and it reads correctly in all three
+presets — dimmer than faint on dark, lighter than faint on light.
+
+**Refresh re-reads the directory AND every folder open inside it.** Reloading only the top would leave
+an expanded child showing a listing from before the refresh: a tree half fresh with nothing saying
+which half. The icon is `arrows-clockwise`; `post` in the pinned Phosphor face is version 3.0 and
+carries no glyph names, and a web search gave nothing authoritative, so the codepoint was found by
+**rasterising contact sheets with the vendored stb_truetype and looking at them** — `0xe094`,
+confirmed by rendering it alone before baking it into `icons.json`. A guessed codepoint is a wrong
+glyph shipped.
+
+**The bar is sticky** because it is now its own window above the scrolling container. microui scrolls
+a container whole, so the only way a row does not move is for it not to be in that container — the
+shape the pane header already uses. Its height is the row plus the window's own padding rather than a
+constant I would have had to invent.
+
+Each of the three was observed failing for its own reason with a rebuild between, and the rebuild was
+checked rather than assumed — `grep -c "Building C object"` on each build, after this morning's
+lesson about a restore that never compiled.
+
+Gates: `./init.sh`, `design.py check`, `agent_names.py check`, `features.py validate` (179) — green.
+**native-explorer 7/7** (4 pre-existing plus the 3 new), and `native`, `native-layout`,
+`native-input-routing`, `native-front-door` 6/6. **378/379 JS**: `red-worker.test.mjs`'s socket
+tunnelling test failed once under full-suite load and passes twice in isolation — a Rust socket test,
+untouched by a C desktop change.
+
+Spec 080 carries the four decisions.
 ## Session 172 (opus-5) — 2026-09-17 — The ABI exists and the row does not close, for one reason
 
 `packs/agent/` is real: `rengine_agent`, alias `rengine::agent`, beside `packs/gpu` and following it.

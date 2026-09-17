@@ -178,9 +178,9 @@ pub const PRESET_COUNT: usize = 3;
 pub const PRESET_NAMES: [&str; PRESET_COUNT] = ["default", "teal", "light"];
 
 /// The bound colours in declaration order, and the design token each binds (theme.json).
-pub const COLOR_COUNT: usize = 65;
-pub const COLOR_FIELDS: [&str; COLOR_COUNT] = ["canvas", "surface", "surface-raised", "surface-sunken", "control", "control-hover", "control-active", "field", "field-hover", "field-active", "border", "border-soft", "highlight", "text", "text-strong", "text-muted", "text-faint", "text-indicator", "text-on-accent", "accent", "accent-hover", "focus", "title-bg", "title-text", "panel-bg", "divider", "divider-hover", "selection", "caret", "terminal-cursor", "indicator", "scroll-track", "scroll-thumb", "scroll-thumb-active", "list-scroll-track", "list-scroll-thumb", "game-backdrop", "toolbar-bg", "toolbar-fg", "tabs-bg", "tab-fg", "tab-active-bg", "tab-active-fg", "tab-marker", "tree-bg", "tree-fg", "tree-icon", "tree-selected-bg", "tree-selected-fg", "editor-bg", "editor-fg", "editor-gutter-fg", "editor-line-bg", "editor-selection", "terminal-bg", "terminal-fg", "status-bg", "status-fg", "status-accent-bg", "status-accent-fg", "ok", "warn", "err", "info", "editor-gutter-bg"];
-pub const COLOR_FIELD_TOKENS: [&str; COLOR_COUNT] = ["--ui-canvas", "--pane-bg", "--ui-surface-raised", "--ui-surface-sunken", "--ui-control", "--ui-control-hover", "--ui-control-active", "--ui-field", "--ui-field-hover", "--ui-field-hover", "--ui-border", "--ui-border-soft", "--ui-highlight", "--ui-fg", "--ui-fg-strong", "--ui-fg-muted", "--ui-fg-faint", "--terminal-indicator-fg", "--ui-fg-on-accent", "--ui-accent", "--ui-accent-hover", "--ui-focus", "--ui-surface-raised", "--ui-fg-strong", "--ui-surface-sunken", "--pane-divider", "--pane-divider-hover", "--ui-selection", "--editor-caret", "--terminal-cursor", "--terminal-indicator-bg", "--scroll-track", "--scroll-thumb", "--scroll-thumb-hover", "--scroll-track", "--scroll-thumb", "--game-backdrop", "--toolbar-bg", "--toolbar-fg", "--tabs-bg", "--tab-fg", "--tab-active-bg", "--tab-active-fg", "--tab-marker", "--tree-bg", "--tree-fg", "--tree-icon", "--tree-selected-bg", "--tree-selected-fg", "--editor-bg", "--editor-fg", "--editor-gutter-fg", "--editor-line-bg", "--editor-selection", "--terminal-bg", "--terminal-fg", "--status-bg", "--status-fg", "--status-accent-bg", "--status-accent-fg", "--ui-ok", "--ui-warn", "--ui-err", "--ui-info", "--editor-gutter-bg"];
+pub const COLOR_COUNT: usize = 66;
+pub const COLOR_FIELDS: [&str; COLOR_COUNT] = ["canvas", "surface", "surface-raised", "surface-sunken", "control", "control-hover", "control-active", "field", "field-hover", "field-active", "border", "border-soft", "highlight", "text", "text-strong", "text-muted", "text-faint", "text-disabled", "text-indicator", "text-on-accent", "accent", "accent-hover", "focus", "title-bg", "title-text", "panel-bg", "divider", "divider-hover", "selection", "caret", "terminal-cursor", "indicator", "scroll-track", "scroll-thumb", "scroll-thumb-active", "list-scroll-track", "list-scroll-thumb", "game-backdrop", "toolbar-bg", "toolbar-fg", "tabs-bg", "tab-fg", "tab-active-bg", "tab-active-fg", "tab-marker", "tree-bg", "tree-fg", "tree-icon", "tree-selected-bg", "tree-selected-fg", "editor-bg", "editor-fg", "editor-gutter-fg", "editor-line-bg", "editor-selection", "terminal-bg", "terminal-fg", "status-bg", "status-fg", "status-accent-bg", "status-accent-fg", "ok", "warn", "err", "info", "editor-gutter-bg"];
+pub const COLOR_FIELD_TOKENS: [&str; COLOR_COUNT] = ["--ui-canvas", "--pane-bg", "--ui-surface-raised", "--ui-surface-sunken", "--ui-control", "--ui-control-hover", "--ui-control-active", "--ui-field", "--ui-field-hover", "--ui-field-hover", "--ui-border", "--ui-border-soft", "--ui-highlight", "--ui-fg", "--ui-fg-strong", "--ui-fg-muted", "--ui-fg-faint", "--ui-fg-disabled", "--terminal-indicator-fg", "--ui-fg-on-accent", "--ui-accent", "--ui-accent-hover", "--ui-focus", "--ui-surface-raised", "--ui-fg-strong", "--ui-surface-sunken", "--pane-divider", "--pane-divider-hover", "--ui-selection", "--editor-caret", "--terminal-cursor", "--terminal-indicator-bg", "--scroll-track", "--scroll-thumb", "--scroll-thumb-hover", "--scroll-track", "--scroll-thumb", "--game-backdrop", "--toolbar-bg", "--toolbar-fg", "--tabs-bg", "--tab-fg", "--tab-active-bg", "--tab-active-fg", "--tab-marker", "--tree-bg", "--tree-fg", "--tree-icon", "--tree-selected-bg", "--tree-selected-fg", "--editor-bg", "--editor-fg", "--editor-gutter-fg", "--editor-line-bg", "--editor-selection", "--terminal-bg", "--terminal-fg", "--status-bg", "--status-fg", "--status-accent-bg", "--status-accent-fg", "--ui-ok", "--ui-warn", "--ui-err", "--ui-info", "--editor-gutter-bg"];
 
 /// `[preset][colour]` as RGBA bytes — the same tables theme.c carries.
 pub const THEME_PRESETS: [[[u8; 4]; COLOR_COUNT]; PRESET_COUNT] = [
@@ -202,6 +202,7 @@ pub const THEME_PRESETS: [[[u8; 4]; COLOR_COUNT]; PRESET_COUNT] = [
         [236, 236, 236, 255], // text-strong
         [154, 154, 154, 255], // text-muted
         [106, 106, 106, 255], // text-faint
+        [71, 71, 71, 255], // text-disabled
         [236, 236, 236, 255], // text-indicator
         [33, 17, 10, 255], // text-on-accent
         [249, 124, 61, 255], // accent
@@ -269,6 +270,7 @@ pub const THEME_PRESETS: [[[u8; 4]; COLOR_COUNT]; PRESET_COUNT] = [
         [240, 244, 247, 255], // text-strong
         [146, 167, 178, 255], // text-muted
         [84, 104, 116, 255], // text-faint
+        [52, 68, 78, 255], // text-disabled
         [240, 244, 247, 255], // text-indicator
         [7, 26, 19, 255], // text-on-accent
         [124, 210, 174, 255], // accent
@@ -336,6 +338,7 @@ pub const THEME_PRESETS: [[[u8; 4]; COLOR_COUNT]; PRESET_COUNT] = [
         [20, 18, 16, 255], // text-strong
         [109, 103, 94, 255], // text-muted
         [154, 149, 140, 255], // text-faint
+        [222, 218, 211, 255], // text-disabled
         [242, 239, 233, 255], // text-indicator
         [255, 255, 255, 255], // text-on-accent
         [207, 86, 4, 255], // accent

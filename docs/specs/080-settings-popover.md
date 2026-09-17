@@ -133,6 +133,24 @@ brought to front so the pointer agrees with what is drawn. That does not weaken 
 list belongs to its surface rather than being a peer of it, closes with it, and Escape closes the
 list first and the surface second, which is what "closes the top surface" already said.
 
+## The explorer's path bar (2026-09-17)
+
+Owner request, with a screenshot of the bar at the root: a refresh button at the right end, an up
+arrow that reads as disabled when there is nowhere up, and a header that stays visible while the
+tree scrolls.
+
+| # | Decision | Why |
+|---|---|---|
+| 1 | **Refresh re-reads the current directory AND every folder open inside it** (`re_app_tree_refresh`), keeping the expansions open. | Reloading only the top would leave an expanded child showing a listing from before the refresh — a tree half fresh with nothing saying which half. |
+| 2 | **Disabled controls get their own colour**, `--ui-fg-disabled` (`--re-gray-6`), rather than `--ui-fg-faint`. | The up arrow was *already* flagged `RE_UI_DISABLED` at the root and already drew in `--ui-fg-faint` — which is exactly what `--tree-icon` uses, so it rendered the same grey as the enabled carets beside it. Nothing was broken in the logic; the two roles had simply collided on one token. |
+| 3 | **The path bar is its own window above the scrolling container.** | microui scrolls a container as a whole, so the only way a row does not move is for it not to be in that container. Same shape the pane header already uses; the bar's height is the row plus the window's own padding rather than a new constant. |
+| 4 | The inspection surface carries **`disabled: true`** on a control, and only when true. | A spec should read the state rather than infer it from a click that did nothing, and every control with nothing to say keeps the shape it had. |
+
+Checked by `tests/native-explorer.spec.mjs`: refresh picks up a file written after the listing was
+taken *and* one written into an open folder; the up arrow reports disabled at the root and not below
+it; the bar's rect is unchanged after the rows scroll under it. Each was observed failing for its own
+reason, rebuilt between the sabotage and the run.
+
 ## Deferred
 
 Keyboard navigation of the popover beyond Escape, per-project setting overrides, and a settings
