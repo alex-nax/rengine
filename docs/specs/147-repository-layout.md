@@ -143,6 +143,34 @@ pin moved, with `has unknown key action` naming the key. A contract-8 reader mee
 a closed schema and refuses by name, rather than running the posix file on Windows. That is the
 whole argument for a name over a path, observed rather than reasoned.
 
+### The second consumer, and where it differs (nolf-improved, 2026-09-17)
+
+Nine action ids over eight names — `quest` and `quest-debug` are one action and two `env` blocks, so
+a name serving two ids is normal rather than a smell. Eight forwarders, and the same conclusion about
+not moving the scripts.
+
+**What vtmb left open, this one answered.** `actions/win/` is not empty here: eight ports plus
+`lib/adb-quest.ps1`, all parsed on the qualification host and none executed. Two of them are the
+spec's own gap rule applied for the second time, and it held — `fast-start-pcvr` and
+`avp2-fast-start-pc` reach Windows over ssh, and their far side was already committed in that project
+as `.bat`, so the Windows action invokes what the box has been running rather than a second
+implementation that can disagree with it.
+
+**And a consumer's test told us something rEngine's own suite could not.** Its
+`test_pinned_schema_accepts_the_declaration` drove `orchestrator/server/schema.mjs`, so it had been
+*skipping* since the retirement — the strongest check in the file, quietly absent, in a project that
+had no reason to notice. It now drives `red-project declaration`, which validates AND resolves, so
+the test asserts every declared name comes back as a path that exists. Two things follow:
+
+- **`red-project declaration` is the consumer-facing replacement for the deleted reader**, and it is
+  better suited than the JS was, because resolution is the half a consumer cannot check for itself.
+- **A consumer test that drives a compiled reader must build it first** (KI-120 again, one repository
+  further out): on its first run it refused every action with `has unknown key action`, because the
+  pinned checkout's `red-project` was built before contract 9. The pin had moved; the binary had not.
+
+vtmb-vr has four such tests still skipping, and `nolf-improved` two more (the format-registry cases).
+The port above is the worked example for them.
+
 ## What this arc does and does not do
 
 **Does**: the moves; `actions/win/*.ps1` written; contract 9 and the consumer migration; charter D71;

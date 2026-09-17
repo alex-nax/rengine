@@ -1,3 +1,45 @@
+## Session 169 (opus-5) — 2026-09-17 — nolf migrated, and a test that had been skipping for a week
+
+The second consumer is on contract 9, which makes both of them. The interesting part is not the
+migration — spec 147 already priced that — it is what the consumer's own suite said about ours.
+
+**nolf-improved, in its own repository** (`c2f571c4`, pushed): nine action ids over eight names,
+eight `actions/posix/*.sh` forwarders that `exec` scripts which did not move, eight
+`actions/win/*.ps1` plus `lib/adb-quest.ps1`, and `editor.bat` + `editor.ps1`. Pin `71a243b`. All ten
+PowerShell files parse on `pr0fe@192.168.31.217` under 5.1.26100 through `Parser::ParseFile`; none
+has been executed, and every file says so.
+
+**The gap rule held a second time.** `fast-start-pcvr` and `avp2-fast-start-pc` reach Windows over
+ssh, and that project had already committed their far side as `.bat` — so the Windows actions invoke
+those rather than a second implementation that can disagree with the one the box has actually been
+running. Spec 147's rule was written from vtmb; it was not bent to fit here.
+
+**And the finding.** `test_pinned_schema_accepts_the_declaration` drove
+`orchestrator/server/schema.mjs` — deleted in Session 162 — so it had been **skipping** ever since:
+the strongest check in the file, the one that asks whether the PINNED rEngine accepts what the
+project declares, quietly absent in a project with no reason to notice. Six such tests exist across
+the two consumers. Filed as **KI-129**.
+
+nolf's is ported: it drives `red-project declaration`, which is a better answer than the JS was,
+because it validates AND RESOLVES — it returns the path each declared name resolves to on this
+platform, which is the half a consumer cannot check for itself. The test asserts every action comes
+back as a file that exists, and that a typo'd key and an unknown contract are each refused by name.
+
+**It failed on its first run, correctly.** `has unknown key action`, on all nine — the pinned
+checkout's `red-project` binary had been built before contract 9. The pin had moved; the binary had
+not. So the test builds the reader before judging it (KI-120, one repository further out). Both new
+cases were then observed failing for their own reason: hiding a forwarder gave *"dist-quest resolved
+to actions/posix/make-dist.sh, which does not exist"*, and relaxing the typo to a key the schema
+allows left the expected refusal empty.
+
+**vtmb's declaration test was red and I put it there.** Session 164 changed `.rengine/project.json`
+to contract 9 and never ran `tests/test_rengine_project_decl.py`: 2 failures, 2 errors, every one of
+them contract 8's question asked of a contract 9 document. Fixed in `2195e867` (pushed) — it now
+asks that an action is a NAME and that **both halves of it exist**, posix and win. That is the same
+miss as Session 165's vtmb launcher test, in the same file family, two days running: changing a
+declaration and not running the thing that judges it.
+
+rEngine's own tree: spec 147 gained the second consumer's account, and KI-129. No code changed here.
 ## Session 168 (opus-5) — 2026-09-17 — the session-message line merged, and what contract 9 charged it
 
 The second of the two lines that ran while the layout changed, merged once its workspace paused its
