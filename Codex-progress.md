@@ -1,3 +1,61 @@
+## Session 170 (opus-5) — 2026-09-17 — The agent pack, designed: our fork, one file, and a phone that serves a headset
+
+Design only; nothing implemented. Spec 150, charter **D72** and **D73**, four rows, and one accepted
+row amended with the owner's decision on the record.
+
+**The research changed two answers, so it is in the spec rather than in a message.** The largest
+quantization win available is not a cleverer generic quant — it is consuming a QAT checkpoint: Gemma
+4 E2B is 2.62 GB against 9.31 GB bf16 at **98.16%** top-1. And there is a trap that lands exactly on
+this project's "declared by digest" world: converting that QAT checkpoint naively to `Q4_0` in
+llama.cpp gives **24.77% byte-exactness** and **70.2%** top-1 where a correctly-derived `UD-Q4_K_XL`
+gives **85.6%**, because llama.cpp stores F16 block scales where QAT trained BF16 ones — and for a
+QAT checkpoint, *higher*-precision quants score *worse*. Two files of one model, both digest-clean,
+fifteen points apart. **A digest proves a file is the one you meant and says nothing about whether it
+was made correctly**, which is why F227 exists.
+
+**A recommendation of mine was measured and reversed.** I offered `ik_llama.cpp` as the obvious
+"existing fork" to base on. Its own README says CPU and CUDA are *"the only fully functional and
+performant compute backends"* and asks that Metal issues not be filed — Metal being macOS's path and
+iOS's **only** GPU path — and it was last synced with upstream in **August 2024**. So "our fork of a
+fork, so we can update the llama.cpp implementation" would have been a two-year merge, not a bugfix.
+The base is upstream; ik's work is cherry-picked per commit with a reason. The owner took that.
+
+**The owner's third answer reshaped the design more than any other.** Asked whose turns a phone
+would run, the answer was not the phone's own: *"the game runs on quest with no headspace for llm - we
+need to install companion app that will provide the inference endpoint"*. That is a role I had not
+offered — the phone as an **inference sidecar for the device beside it** — and it connects this pack
+straight to D68's first integration target. It costs nothing in new contract: D58 already declares
+mDNS on the LAN and Ed25519 pairing, spec 139 already said red.v1 gains *the models a peer serves*,
+and D58 already commits to red-core behind a small C ABI for exactly this kind of consumer. So a game
+links a static library and calls C, and the only thing crossing the network is still Rust.
+
+**One file for every host, and the cost is named.** The owner chose to raise the floor by choosing a
+bigger model rather than shipping a per-host artifact. That is a real trade and spec 150 records it as
+decision 8 rather than leaving it to be discovered: the Snapdragon Hexagon NPU publishes `Q4_0`/`Q8_0`
+only, so a K-quant file cannot run on it and Android generates at roughly a fifth of the NPU's rate.
+First model: **Gemma 4 E2B QAT (~2.62 GB)**, comfortable on the iPhone 15 Pro Max's 8 GB. To the
+owner's question — an iPhone 15 Pro Max suffices for a **4B-class** model, not an 8B — and thermals,
+not RAM, are the sustained ceiling on every phone.
+
+**F201 amended, owner-decided.** It said "pinned llama.cpp (release archive plus SHA-256 at first
+configure)" with a criterion about flipping a hex digit; a forked submodule makes that describe
+nothing. Description and that one criterion moved; the other five are verbatim; F224 was added as a
+dependency because the row cannot be built before the fork exists. The old text is quoted in the row's
+own evidence, so nothing was silently rewritten.
+
+**Filed rather than swept: KI-130.** Twenty-one rows (F192–F212, including all nine of spec 139's)
+carry another feature's `deliverable` — *"The Projects modal in editor, the toolbar's two controls
+removed…"*. `features.py validate` never compares a deliverable to its description, so one row's text
+spread to twenty others unnoticed. Correcting accepted fields is the owner's call; the guard that
+would have caught it is cheap and is in the row.
+
+Rows: **F224** the fork and its two-directional change policy, **F225** the per-platform host layer
+(the iOS entitlement, thermal backoff, the harness), **F226** the sidecar endpoint, **F227** the
+declaration recording quantization and its measurement. F226's Windows half is blocked behind F223 —
+`red/` does not compile there yet.
+
+Gates: `./init.sh`, `design.py check`, `agent_names.py check`, `features.py validate` (179 rows) —
+green. Graph regenerated. No code changed.
 ## Session 169 (opus-5) — 2026-09-17 — nolf migrated, and a test that had been skipping for a week
 
 The second consumer is on contract 9, which makes both of them. The interesting part is not the

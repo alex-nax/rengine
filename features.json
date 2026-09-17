@@ -3831,9 +3831,9 @@
       "milestone": "O1",
       "category": "workspace",
       "priority": "medium",
-      "description": "re_model: the C engine library over pinned llama.cpp (release archive plus SHA-256 at first configure, no shared libs, no server or example binaries, Metal on macOS) behind a C ABI - open a declared model, attach declared adapters, run one turn with a grammar, stream, cancel, report identity and counters (charter D68, spec 139).",
+      "description": "re_model: the C engine library over llama_r.cpp - this project's fork of upstream llama.cpp, pinned as a submodule at third_party/ (no shared libs, no server or example binaries, Metal on macOS) - behind a C ABI: open a declared model, attach declared adapters, run one turn with a grammar, stream, cancel, report identity and counters (charter D68/D72, specs 139 and 150).",
       "acceptance_criteria": [
-        "Configure fetches nothing when the archive is present and refuses by name on a digest mismatch, observed by flipping one hex digit.",
+        "Configure fetches nothing: the engine is the submodule at third_party/llama_r.cpp and a missing or uninitialised submodule is refused by name rather than cloned, observed with it uninitialised.",
         "A CTest against a digest-pinned tiny fixture model produces identical tokens at temperature 0 across two runs; with the fixture absent the test is SKIPPED and the harness names the prerequisite, never green.",
         "Cancel returns within one token of the request.",
         "A model file whose digest differs from its declaration is refused before load, observed by corrupting one byte.",
@@ -3842,12 +3842,15 @@
       ],
       "passes": false,
       "dependencies": [
-        133
+        133,
+        224
       ],
       "owner_workspace": "rengine",
       "deliverable": "The Projects modal in editor, the toolbar's two controls removed, the status-bar opener, the agent dropdown, and their specs.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "AMENDED 2026-09-17, owner-decided in a design interview, rationale recorded as spec 150 decision 2: the engine became this project's own fork pinned as a submodule (charter D72), so the previous description and first criterion - \"pinned llama.cpp (release archive plus SHA-256 at first configure)\" and \"Configure fetches nothing when the archive is present and refuses by name on a digest mismatch, observed by flipping one hex digit.\" - described a vendoring approach the project no longer takes. The other five criteria are unchanged, and F224 was added as a dependency because this row cannot be built before the fork exists."
+      ]
     },
     {
       "id": 202,
@@ -4374,6 +4377,101 @@
         "Renumbered from F221 to F223 on 2026-09-17, owner-decided: a parallel line developed from nolf-improved's submodule (branch feat/session-message) filed its own F221 and F222 off the same commit. Two rows with one id pass `features.py validate` on each branch in isolation and collide only at merge, silently. This row is the younger and nothing references it, so it moved.",
         "2026-09-17, on pr0fe@192.168.31.217 (PowerShell 5.1.26100): all 8 of vtmb-vr's actions/win/*.ps1 and its editor.ps1 parse through Parser::ParseFile, and two were EXECUTED and behaved \u2014 printed and exited 2. Also established, and load-bearing for this row: `Get-ExecutionPolicy -List` is Undefined at every scope on that host, so a script refuses with \"running scripts is disabled on this system\" unless invoked with -ExecutionPolicy Bypass.",
         "2026-09-17, on merging the session-message line: a NINTH action exists now (grant-session-message, F222/spec 148), ported to actions/win/grant-session-message.ps1 and parse-checked on pr0fe@192.168.31.217 with the other eight. This row's criteria say \"eight\" and are left as accepted; correcting the count is the owner's call, and the ninth action is subject to the same gate."
+      ]
+    },
+    {
+      "id": 224,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "llama_r.cpp: this project's fork of UPSTREAM llama.cpp in its own repository, pinned as a submodule at third_party/llama_r.cpp, with a written policy for both directions of change - upstream merged on this project's schedule, and a specific ik_llama.cpp kernel or quant type cherry-picked only with a recorded reason per commit. The base is upstream rather than an existing fork because ik_llama.cpp states CPU and CUDA are its only fully supported backends and asks that Metal issues not be filed, while Metal is macOS's path and iOS's only GPU path, and it was last synced with upstream in August 2024 (charter D72, spec 150).",
+      "acceptance_criteria": [
+        "The fork's history is upstream llama.cpp's, so a cherry-pick from another fork of the same history applies as an ordinary git operation, demonstrated once on a real commit.",
+        "rEngine builds the engine from the submodule with nothing fetched at configure time, and an uninitialised submodule is refused by name with the init command in the message.",
+        "The repository documents which upstream commit it is merged to and when, and every commit of ours that is not an upstream merge carries a reason - a bugfix, a port, or a named cherry-pick.",
+        "No server, example or tool binary from the engine is built by rEngine's targets.",
+        "A recorded upstream merge is performed once before this row closes, so the policy is exercised rather than only written."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "The llama_r.cpp repository, its submodule pin at third_party/, the upstream-merge and cherry-pick policy, and the build that consumes it.",
+      "external_references": [],
+      "evidence": [
+        "Not started. The measurement behind choosing upstream over ik_llama.cpp as the base is recorded in spec 150: ik_llama.cpp's own README names CPU and CUDA as the only fully functional and performant backends and asks that Metal issues not be filed, and its last upstream sync was August 2024."
+      ]
+    },
+    {
+      "id": 225,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "The pack's per-platform host layer: one host file per platform under packs/agent/, owning what inference needs from a platform rather than an application - process and memory ownership, the iOS increased-memory-limit entitlement, thermal backoff, and lifecycle - plus a thin harness app that runs the engine standalone on a device. apps/companion/ stays the shipped app (D58) and links the pack. Same shape as editor/render/seam_host.h: one source, one host file per platform (charter D73, spec 150 decision 4).",
+      "acceptance_criteria": [
+        "One source and one host file per platform: no #ifdef on platform in the shared source, asserted by a check the way the render seam's hosts are.",
+        "On an 8 GB iPhone the declared model loads and answers with the increased-memory-limit entitlement, and without the entitlement the host refuses by name before loading rather than being killed mid-load.",
+        "Sustained generation backs off on thermal pressure instead of being terminated, and the backoff is visible to the caller rather than silent - measured, because thermals and not RAM are the sustained-inference ceiling.",
+        "The harness app runs a turn on a real device of each supported platform, with load time, resident delta and tokens per second recorded in an evidence document.",
+        "apps/companion/ is unchanged by this row except for linking the pack."
+      ],
+      "passes": false,
+      "dependencies": [
+        201
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The host files for iOS and Android under packs/agent/, the entitlement and thermal handling, the harness app, and the on-device measurements.",
+      "external_references": [],
+      "evidence": [
+        "Not started. Device floors recorded in spec 150 from 2026 sources: an 8 GB iPhone holds a 3-4B class model at 4 bits, 12 GB holds 7-8B; Android is 1-3B at Q4_K_M on 6 GB and comfortable at 12 GB+; thermals rather than RAM are the sustained ceiling."
+      ]
+    },
+    {
+      "id": 226,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "A device that cannot host a model borrows one from a device beside it: a game on a Quest whose memory is spent on rendering reaches a phone's (or a Windows PC's) inference endpoint through red-core's C ABI over red-link, discovered by mDNS on the LAN and identified by the Ed25519 pairing D58 already declares, over red.v1 gaining \"the models a peer serves\". No new wire contract and no new listener: the consumer links a static library and calls C, and the only thing crossing the network is Rust (charter D73, spec 150 decision 5).",
+      "acceptance_criteria": [
+        "A C consumer that links only red-core's C ABI discovers a serving peer on the LAN, asks what models it serves, runs a turn and streams tokens back, with no HTTP listener anywhere in the path.",
+        "An unpaired peer is refused by name before any model is named to it, and revoking the pairing takes effect without restarting the serving device.",
+        "The serving device refuses a second concurrent turn by name rather than queueing it silently, because a phone's budget is one turn's worth of thermal headroom.",
+        "Weights never cross the link, asserted on the wire by the same check F206 uses.",
+        "Round-trip latency and tokens per second over the LAN are recorded in an evidence document, separated from the serving device's own generation rate."
+      ],
+      "passes": false,
+      "dependencies": [
+        203,
+        206,
+        225
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The models-a-peer-serves surface on red.v1, the C consumer path through red-core's ABI, the pairing refusals, and the measured LAN round trip.",
+      "external_references": [],
+      "evidence": [
+        "Not started. Blocked for the Windows half by F223: red/ does not compile on Windows, so a Windows PC cannot serve this endpoint until that row closes. The phone half is not blocked by it."
+      ]
+    },
+    {
+      "id": 227,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "A model declaration records WHICH QUANTIZATION a file is and the measurement behind it, not only its path and digest. Two correctly-digested files of one model can differ by fifteen points: converting a QAT checkpoint naively to Q4_0 in llama.cpp gives 24.77% byte-exactness against the BF16 QAT lattice and 70.2% top-1 where a correctly-derived UD-Q4_K_XL gives 85.6%, and for a QAT checkpoint higher-precision quants score WORSE. A digest proves a file is the one you meant and says nothing about whether it was made correctly (spec 150 decision 9, extending F202).",
+      "acceptance_criteria": [
+        "A declaration carries the quantization type and a reference to the measurement that justified it, and a declaration without them is refused by name rather than defaulted.",
+        "The guided action shows the recorded quantization and measurement before it writes, so a person confirms the file's provenance and not only its hash.",
+        "A file whose recorded quantization disagrees with what the engine reports after loading it is refused by name, observed by declaring one type and supplying another.",
+        "Nothing in this row downloads, converts or re-quantizes anything: the declaration records what a file is, and producing files stays outside rEngine."
+      ],
+      "passes": false,
+      "dependencies": [
+        202
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The quantization and measurement fields on a model declaration, their refusals, and the guided action showing them before it writes.",
+      "external_references": [],
+      "evidence": [
+        "Not started. The QAT/Q4_0 figures are recorded in spec 150 with their source; they are the reason this row exists rather than a schema preference."
       ]
     }
   ]

@@ -357,8 +357,9 @@ flowchart TD
   F114 --> F199
   F200["F200: blocked"]
   F198 --> F200
-  F201["F201: ready"]
+  F201["F201: blocked"]
   F133 --> F201
+  F224 --> F201
   F202["F202: blocked"]
   F201 --> F202
   F203["F203: blocked"]
@@ -406,6 +407,15 @@ flowchart TD
   F221 --> F222
   F223["F223: blocked"]
   F163 --> F223
+  F224["F224: ready"]
+  F225["F225: blocked"]
+  F201 --> F225
+  F226["F226: blocked"]
+  F203 --> F226
+  F206 --> F226
+  F225 --> F226
+  F227["F227: blocked"]
+  F202 --> F227
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -562,7 +572,7 @@ flowchart TD
 | F198 | O1 | rengine | blocked | An ACP recipe a project declares (spec 138): the agent-recipe grammar gains an acp capability, contract 6 admits a model-less ACP entry, and kohai-acp proves it from Kohai's external declaration and registry-extra rather than from rEngine's own registry. |
 | F199 | O1 | rengine | blocked | The Agent tab: one native C view of an ACP session for every ACP agent - transcript, composer, approve/deny where the agent asks permission, plan entries carrying links as buttons, tool calls in plain words, and an ended-here-continues-there state for a session the agent cannot load back. Held to D67's consumer-side standard. |
 | F200 | O1 | rengine | blocked | Declared extra MCP servers offered to an ACP agent (charter D70): a project lists them, the workspace passes them at session/new beside its own and names them in the tab, and an agent that does not advertise matching capabilities has them reported as not taken rather than dropped silently. Consumption by another project's bridge is an external prerequisite, referenced and never asserted. |
-| F201 | O1 | rengine | ready | re_model: the C engine library over pinned llama.cpp (release archive plus SHA-256 at first configure, no shared libs, no server or example binaries, Metal on macOS) behind a C ABI - open a declared model, attach declared adapters, run one turn with a grammar, stream, cancel, report identity and counters (charter D68, spec 139). |
+| F201 | O1 | rengine | blocked | re_model: the C engine library over llama_r.cpp - this project's fork of upstream llama.cpp, pinned as a submodule at third_party/ (no shared libs, no server or example binaries, Metal on macOS) - behind a C ABI: open a declared model, attach declared adapters, run one turn with a grammar, stream, cancel, report identity and counters (charter D68/D72, specs 139 and 150). |
 | F202 | O1 | rengine | blocked | Models and adapters declared per machine in the workspace state directory by path and digest, with a guided action that verifies them and never downloads, shown and confirmed before it writes (D63 pattern). |
 | F203 | O1 | rengine | blocked | red-model: the Rust per-state-directory service importing re_model over FFI - the first Rust-imports-C in the cargo workspace - serving open, turn and cancel, and surviving host replacement with its model loaded. |
 | F204 | O1 | rengine | blocked | The local agent as an ACP agent through F114: the C turn loop with a host-supplied tool vtable, tools reached through one route on red-host with red-mcp linked as a library and the agent's identity explicit, so the project token gates the agent rather than exempting it as the person at the desktop. |
@@ -585,3 +595,7 @@ flowchart TD
 | F221 | O1 | rengine | passing | How a CLI is handed the brief a spawn carries is a declared capability rather than an assumption. A spawn appended the rendered brief to the pane's argv for every CLI, which is how two of the five take one — and a CLI that reads a bare word as a subcommand answered "unknown command '# F1765 …'" and exited 1 about two seconds after its pane opened, with the workspace reporting the session as having no conversation. `prompt.kind` declares the delivery: `argv` is the last positional argument, `paste` is typed into the pane as a bracketed paste by the service that owns its PTY, submitted only once the pane echoes the line back, and a CLI that declares neither is refused by name with nothing started — the treatment `model_args` already gives a model flag rEngine does not know. |
 | F222 | O1 | rengine | ready | Saying one line to a pane that is already running is a declared capability with an owner's grant on it, rather than two curl calls and a person watching the pane. `session_message` types ONE printable line into a retained agent pane of the same project and presses Enter only once the pane echoes the line's own token back — spec 149's handshake, attached to a pane that is already up rather than to a spawn. How a CLI takes a message to a running composer is `message.kind` in its recipe, distinct from `prompt.kind`, and a CLI that declares none is refused by name with nothing typed. The project token is necessary and NOT sufficient: the token transfers to a contester on silence, so a relay also needs a separate owner grant naming one pane and bounded by a count and a deadline, written only by an interactively confirmed dashboard action. Spec 139 decision 6 and F205 are reconciled rather than amended — they scope the local model agent's delegation gesture, the tool is excluded from that loop's set by default, and its route trace still shows no input-route call. |
 | F223 | J0 | rengine | blocked | Every dashboard action runs on Windows with no bash: the eight PowerShell ports in actions/win/ are EXECUTED on a Windows host and their behaviour compared to the posix originals, and the Rust side stops assuming bash — red_project::command::bash_path() and its live call sites in red-worker (dashboard run_payload, the agent menu, pipe) and red-host (panes.rs, including a terminal pane's default shell) gain a Windows arm, and actions/pane/win/agent.ps1 replaces the RENGINE_BASH wrap red-agent-launch applies on win32 (owner, 2026-09-16: "You should not use bash on windows even at transitional phases"; charter D71, spec 147). |
+| F224 | O1 | rengine | ready | llama_r.cpp: this project's fork of UPSTREAM llama.cpp in its own repository, pinned as a submodule at third_party/llama_r.cpp, with a written policy for both directions of change - upstream merged on this project's schedule, and a specific ik_llama.cpp kernel or quant type cherry-picked only with a recorded reason per commit. The base is upstream rather than an existing fork because ik_llama.cpp states CPU and CUDA are its only fully supported backends and asks that Metal issues not be filed, while Metal is macOS's path and iOS's only GPU path, and it was last synced with upstream in August 2024 (charter D72, spec 150). |
+| F225 | O1 | rengine | blocked | The pack's per-platform host layer: one host file per platform under packs/agent/, owning what inference needs from a platform rather than an application - process and memory ownership, the iOS increased-memory-limit entitlement, thermal backoff, and lifecycle - plus a thin harness app that runs the engine standalone on a device. apps/companion/ stays the shipped app (D58) and links the pack. Same shape as editor/render/seam_host.h: one source, one host file per platform (charter D73, spec 150 decision 4). |
+| F226 | O1 | rengine | blocked | A device that cannot host a model borrows one from a device beside it: a game on a Quest whose memory is spent on rendering reaches a phone's (or a Windows PC's) inference endpoint through red-core's C ABI over red-link, discovered by mDNS on the LAN and identified by the Ed25519 pairing D58 already declares, over red.v1 gaining "the models a peer serves". No new wire contract and no new listener: the consumer links a static library and calls C, and the only thing crossing the network is Rust (charter D73, spec 150 decision 5). |
+| F227 | O1 | rengine | blocked | A model declaration records WHICH QUANTIZATION a file is and the measurement behind it, not only its path and digest. Two correctly-digested files of one model can differ by fifteen points: converting a QAT checkpoint naively to Q4_0 in llama.cpp gives 24.77% byte-exactness against the BF16 QAT lattice and 70.2% top-1 where a correctly-derived UD-Q4_K_XL gives 85.6%, and for a QAT checkpoint higher-precision quants score WORSE. A digest proves a file is the one you meant and says nothing about whether it was made correctly (spec 150 decision 9, extending F202). |

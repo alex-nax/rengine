@@ -125,6 +125,19 @@ a coherent change. Preserve other sessions' entries and unrelated edits.
   antipattern `docs/lessons-learned.md` records — it makes adding an agent an edit to shared code
   every other agent depends on. Where the difference is a capability rather than an identity, the
   recipe declares it and shared code asks the recipe, never the name.
+- **The agent pack is `packs/agent/` over our own engine fork (charter D72, D73; spec 150).** The
+  inference engine is `llama_r.cpp` — this project's fork of **upstream** llama.cpp, pinned as a
+  submodule at `third_party/llama_r.cpp`; a kernel or quant type from another fork is cherry-picked
+  only with a recorded reason per commit, never taken wholesale. The pack itself lives in this tree
+  beside `packs/gpu` and carries the C engine, the C turn loop and **one host file per platform** —
+  not an application: `apps/companion/` stays the shipped app and links the pack. A device that
+  cannot host a model (a Quest spending its memory on rendering) borrows one from a phone or a PC
+  beside it over **red-link with no new wire contract and no new listener**, reached through
+  red-core's C ABI and discovered by the mDNS path D58 declares. **One model file serves every
+  host**: the floor rises by choosing a bigger model, never by shipping a per-host artifact, and a
+  declaration records which quantization a file is and what measured it — because two
+  correctly-digested files of one model can differ by fifteen points.
+
 - **Language is decided by who a component serves, not by where it sits (charter D67).** Consumer
   side — the mobile companion and, explicitly, the **editor interface** — is C (the kind Rust can
   import over FFI) or C++; Objective-C/Swift only on macOS and only where C++ is genuinely not an
