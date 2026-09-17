@@ -5,8 +5,8 @@
       "id": "lock-order-emit-never-takes-the-host",
       "kind": "constraint",
       "anchor": {
-        "start": 85,
-        "end": 138,
+        "start": 71,
+        "end": 124,
         "symbol": "answer",
         "snippet": "fn answer(host: &Mutex<Host>, mint: &Mutex<Mint>, request: &Value) -> Value {"
       },
@@ -16,8 +16,8 @@
       "id": "one-answer-function-two-transports",
       "kind": "rationale",
       "anchor": {
-        "start": 83,
-        "end": 84,
+        "start": 69,
+        "end": 70,
         "symbol": "answer",
         "snippet": "/// One request, one answer. Both transports run every method through this, so the socket cannot"
       },

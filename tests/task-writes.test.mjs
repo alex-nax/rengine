@@ -17,7 +17,7 @@ import { validateSchema } from './store-client.mjs';
 import { agentsMenu, helpModels, modelArgs, promptFor, promptValues, writeDocument } from './tasks.mjs';
 import { declaration } from './format-fixtures.mjs';
 import { api, fakeDesktop, feedSocket, identity, ok, until } from './token-fixtures.mjs';
-import { fakeCli, features, taskDeclaration, taskProject, writeLog } from './task-fixtures.mjs';
+import { fakeCli, fakePasteCli, features, taskDeclaration, taskProject, writeLog } from './task-fixtures.mjs';
 import { built } from './cargo.mjs';
 
 /* This spec drives a Rust binary through the service client, so it builds one first: run alone — or
@@ -305,6 +305,57 @@ test('a spawn starts the chosen CLI with its own model flag and the rendered pro
   assert.equal(notHolder.status, 409);
   assert.match(notHolder.body.error, /held by claude/);
   assert.equal(host.sessions.items.size, before, 'none of the three refusals started a pane');
+});
+
+/* F221, spec 149. The live failure: a spawn appended the rendered brief to the pane's argv, which is
+   how two of the five declared CLIs take one — and the third read it as a SUBCOMMAND, answered
+   `unknown command '# F1765 …'` and exited 1 about two seconds after the pane opened. So how a CLI is
+   handed a brief is declared now, and a CLI that takes none on its command line is typed into by the
+   service that owns its PTY: pasted whole, and submitted only once the pane echoes it back. */
+test('a CLI that takes no prompt on its command line is typed into instead, and nothing is submitted unechoed', { timeout: 180000 }, async t => {
+  const { stateDir, host, root, worker } = await workspace(t);
+  const kimi = await fakePasteCli(stateDir, 'kimi');
+  const alice = identity('claude');
+  await hold(worker, root.id, alice);
+
+  const spawned = await ok(worker, 'agent-spawn', { rootId: root.id, taskKey: 'F1', agent: 'kimi', model: 'k3', brief: 'task' }, alice);
+  assert.equal(spawned.conversation, null, 'this CLI names its own conversations, so none is claimed for it');
+  const record = await until(async () => kimi.read().catch(() => null), 'the CLI recorded what it was started with', 600);
+  assert.equal(record.unknownCommand, null, 'the brief is not a bare word on the command line any more');
+  assert.deepEqual(record.argv, ['-m', 'k3'], 'only the model rides on argv');
+
+  const pane = () => host.sessions.list().find(session => session.id === spawned.session.id);
+  assert.equal(pane().state, 'running', 'and the pane is alive rather than dead of an unknown command');
+
+  /* A budget matched to what it waits for, not to an idle machine (KI-124): the handshake settles,
+     types, waits for an echo and may try three times, which is fifteen seconds before the suite is
+     loaded at all. */
+  const typed = await until(async () => (await kimi.read()).pasted, 'the brief was typed into the pane', 2400);
+  const file = path.join(stateDir, 'integrations', `${spawned.session.id}.brief.md`);
+  assert.ok(typed.includes(file), `the typed line names this launch's own brief file: ${typed}`);
+  assert.equal(typed.includes('\n'), false, 'one line, because only a line is echoed back to confirm');
+  const brief = readFileSync(file, 'utf8');
+  assert.ok(brief.includes('F1'), 'and the file is the rendered brief');
+  assert.ok(brief.includes('The write runs the project’s own command'), 'carrying the task’s acceptance criteria');
+
+  await until(async () => (await kimi.read()).submitted, 'the echo earned the Enter that submits it', 2400);
+  await until(() => pane()?.seed === 'delivered', 'and the pane record says the brief arrived', 2400);
+});
+
+/* The same rule from the other side: a CLI that has declared nothing is refused by name with nothing
+   started, which is what `model_args` already does for a model flag rEngine does not know. */
+test('a spawn for a CLI that has not declared how it takes a brief is refused by name', { timeout: 40000 }, async t => {
+  const { host, root, worker } = await workspace(t);
+  /* No CLI is installed for this one on purpose: the refusal comes before anything is looked for. */
+  const alice = identity('claude');
+  await hold(worker, root.id, alice);
+  const before = host.sessions.items.size;
+  const refused = await api(worker, 'agent-spawn', { rootId: root.id, taskKey: 'F1', agent: 'opencode' }, alice);
+  assert.equal(refused.status, 409, refused.body.error);
+  assert.match(refused.body.error, /does not know how opencode is handed the brief/);
+  assert.match(refused.body.error, /subcommand/, 'it names what would go wrong rather than a missing key');
+  assert.match(refused.body.error, /Nothing was started\.$/);
+  assert.equal(host.sessions.items.size, before, 'and nothing was');
 });
 
 test('the desktop assigns the token to a chosen agent, settling an open contest without charging it', { timeout: 40000 }, async t => {

@@ -8,7 +8,7 @@ skipped by later batches; a spec without one is in the queue. The routine is
 | --- | --- | --- |
 | 077 | 2026-09-16 | The launcher it execs is `red-launch`; the template now builds the Rust binaries every launch (the pin-bump hole) and resolves a bare `RENGINE_NODE`; the external half is `red-project install-external` with a Python helper. Consumer divergence confirmed intentional. |
 | 098 | 2026-09-16 | Decisions unchanged; host is `red-host`, launcher is `red-launch`, action is `actions/posix/`. Recorded the deleted-module defect fixed the same day, and that `CODE_AREAS` still names the JavaScript tree (under-reports; KI-120). The POSIX-only detach is still open under D71's no-bash rule. |
-| 129 | 2026-09-16 | Status was "rows filed"; the retirement is finished and production JavaScript is zero. `red-client` and `red-util` were never built — recorded where that work actually went. **KI-126 filed: nine rows carry evidence and read `passes: false`.** |
+| 129 | 2026-09-16 | Status was "rows filed"; the retirement is finished and production JavaScript is zero. `red-client` and `red-util` were never built — recorded where that work actually went. **KI-128 filed: nine rows carry evidence and read `passes: false`.** |
 
 ## Batch 1 also ran a guarded path sweep (2026-09-16)
 

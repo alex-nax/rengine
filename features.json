@@ -4288,6 +4288,34 @@
       ]
     },
     {
+      "id": 221,
+      "milestone": "O1",
+      "category": "workspace",
+      "priority": "high",
+      "description": "How a CLI is handed the brief a spawn carries is a declared capability rather than an assumption. A spawn appended the rendered brief to the pane's argv for every CLI, which is how two of the five take one \u2014 and a CLI that reads a bare word as a subcommand answered \"unknown command '# F1765 \u2026'\" and exited 1 about two seconds after its pane opened, with the workspace reporting the session as having no conversation. `prompt.kind` declares the delivery: `argv` is the last positional argument, `paste` is typed into the pane as a bracketed paste by the service that owns its PTY, submitted only once the pane echoes the line back, and a CLI that declares neither is refused by name with nothing started \u2014 the treatment `model_args` already gives a model flag rEngine does not know.",
+      "acceptance_criteria": [
+        "The delivery is read from the recipe and never from the agent's name; a kind rEngine does not implement is refused at cook, and a recipe that declares none is refused at the spawn with nothing started.",
+        "A CLI that takes no initial prompt on its command line comes up as a live interactive pane holding the brief: the brief is written to a per-launch file, one line naming it is typed in as a bracketed paste, and the Enter that submits it is sent only after the pane echoes the line's own token back.",
+        "An unconfirmed paste is never submitted, is retried inside a bound, and leaves the pane's record saying the brief did not arrive.",
+        "`argv` delivery is unchanged: the same argument in the same position after the model flag, proven by the spawn specs that already covered it."
+      ],
+      "passes": true,
+      "dependencies": [
+        138,
+        217
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The `prompt` recipe key, its two kinds, the refusal for a CLI that declares neither, and the PTY-side seed handshake that types a brief into a pane that cannot be handed one.",
+      "external_references": [],
+      "evidence": [
+        "docs/specs/149-agent-prompt-delivery.md",
+        "docs/evidence/agent-prompt-delivery-f221-2026-09-16.md",
+        "orchestrator/agents/registry.toml",
+        "orchestrator/tests/task-writes.test.mjs",
+        "red/red-pty/src/lib.rs"
+      ]
+    },
+    {
       "id": 223,
       "milestone": "J0",
       "category": "orchestrator",

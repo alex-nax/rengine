@@ -323,6 +323,10 @@ const PARSERS: [&str; 3] = ["claude-flags", "kimi-flags", "codex-resume"];
 /* The resume spellings `parsers.rs` implements, named for what they do (spec 141). A recipe
    declares which one it speaks; nothing here knows which CLI that is. */
 const READ_SPELLINGS: [&str; 2] = ["flags", "subcommand"];
+/* How a CLI is handed the brief a spawn carries (F221, spec 149): `argv` is the last positional
+   argument, `paste` is typed into the pane by whoever owns its PTY. A CLI that declares neither is
+   refused by name at the spawn — never handed a bare positional it would read as a subcommand. */
+const PROMPT_DELIVERIES: [&str; 2] = ["argv", "paste"];
 
 fn agent_name(cli: &str) -> bool {
     let bytes = cli.as_bytes();
@@ -375,6 +379,11 @@ pub fn cook(cli: &str, raw: &Value) -> Result<(), String> {
     if let Some(kind) = raw.get("hooks").and_then(|h| h.get("kind")).and_then(Value::string) {
         if !HOOK_OVERLAYS.contains(&kind) {
             return Err(format!("Registry recipe {cli} names a hooks overlay rEngine does not implement."));
+        }
+    }
+    if let Some(kind) = raw.get("prompt").and_then(|p| p.get("kind")).and_then(Value::string) {
+        if !PROMPT_DELIVERIES.contains(&kind) {
+            return Err(format!("Registry recipe {cli} names a prompt delivery rEngine does not implement."));
         }
     }
     if let Some(talk) = raw.get("conversation") {
@@ -497,6 +506,11 @@ fn declared_since(raw: &Value, view: &mut serde_json::Value) {
                 "ready": strings_or_null(handoff.get("ready")),
             }));
         }
+    }
+    /* F221: how this CLI is handed the brief a spawn carries. A kind, never a name — `argv` and
+       `paste` are the two rEngine implements (spec 149). */
+    if let Some(prompt) = raw.get("prompt") {
+        table.insert("prompt".to_string(), json!({ "kind": prompt.get("kind").and_then(Value::string) }));
     }
     /* F214: the flag that hands a `per-launch-settings` CLI the settings written for its launch. */
     if let Some(flag) = raw.get("hooks").and_then(|hooks| hooks.get("flag")).and_then(Value::string) {
@@ -674,6 +688,40 @@ mod tests {
         assert_eq!(models.len(), 4);
         assert!(recipes[2].1.get("conversation").is_none(), "gemini names no conversation");
         assert!(recipes[2].1.get("hooks").is_none(), "gemini names no hooks");
+    }
+
+    /* F221, spec 149. The live failure this guards: a brief appended to a command line reached a CLI
+       that reads a bare word as a subcommand, which answered `unknown command '# F1765 …'` and exited
+       1 about two seconds after the pane opened. So the delivery is DECLARED, and a CLI that declares
+       none is refused by name instead of being handed one. */
+    #[test]
+    fn how_a_cli_takes_a_brief_is_declared_and_an_undeclared_one_is_refused_by_name() {
+        let recipes = shipped();
+        assert_eq!(launch::prompt_delivery(&recipes, "claude").expect("declared"), "argv");
+        assert_eq!(launch::prompt_delivery(&recipes, "codex").expect("declared"), "argv");
+        assert_eq!(launch::prompt_delivery(&recipes, "kimi").expect("declared"), "paste",
+                   "the CLI that died on a positional is typed into instead");
+        for undeclared in ["gemini", "opencode", "nosuchcli"] {
+            let refusal = launch::prompt_delivery(&recipes, undeclared).expect_err("refused");
+            assert!(refusal.contains(undeclared), "refused by name: {refusal}");
+            assert!(refusal.contains("subcommand"), "it says what would go wrong: {refusal}");
+            assert!(refusal.ends_with("Nothing was started."), "{refusal}");
+        }
+    }
+
+    /* A delivery KIND is rEngine's to implement, so a recipe naming one it does not is refused where
+       every other unimplemented capability is — at cook, by the kind, never by the agent. */
+    #[test]
+    fn a_prompt_delivery_rengine_does_not_implement_is_refused_at_cook() {
+        let document = |kind: &str| format!(
+            "[recipes.x]\npackage = \"p\"\n[recipes.x.update]\nkind = \"self\"\n[recipes.x.mcp]\nkind = \"env-inline\"\nenvVar = \"E\"\n[recipes.x.prompt]\nkind = \"{kind}\"\n");
+        for kind in ["argv", "paste"] {
+            let parsed = parse_toml(&document(kind), "case.toml").expect("parses");
+            cook("x", parsed.get("recipes").unwrap().get("x").unwrap()).unwrap_or_else(|error| panic!("{kind} is implemented: {error}"));
+        }
+        let parsed = parse_toml(&document("telepathy"), "case.toml").expect("parses");
+        let refusal = cook("x", parsed.get("recipes").unwrap().get("x").unwrap()).expect_err("refused");
+        assert!(refusal.contains("prompt delivery"), "{refusal}");
     }
 
     #[test]

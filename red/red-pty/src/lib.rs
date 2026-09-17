@@ -92,6 +92,8 @@ pub struct PtySession {
     tail: Vec<u8>,
     writer: Box<dyn Write + Send>,
     master: Box<dyn MasterPty + Send>,
+    /// The seed handshake in flight, when this pane was started with one (F221, spec 149).
+    seed: Option<SeedWatch>,
 }
 
 impl PtySession {
@@ -159,6 +161,149 @@ fn base64_encode(bytes: &[u8]) -> String {
     out
 }
 
+/* ---- seeding a pane that cannot be handed its first message on the command line ---------------
+   F221, spec 149. Some interactive CLIs take no initial prompt in argv — one of them reads a bare
+   word as a SUBCOMMAND and exits on it — so the only way in is the way a person's would be: typed.
+   This service holds the master side of the pane, which makes it the only place that can type. */
+
+/// What a caller asks to be typed into a pane once it is listening, and what proves it arrived.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Seed {
+    /// One line, because a CLI that collapses a long paste into a summary echoes nothing to match.
+    pub paste: String,
+    /// A token the line carries; the Enter that submits it is sent only once this comes back.
+    pub confirm: String,
+}
+
+/// The pane has drawn something and stopped: the moment a person would start typing.
+const SETTLE_MS: u64 = 800;
+/// And the moment to stop waiting for quiet. A CLI that redraws a clock or a spinner never falls
+/// silent, and waiting for a silence that is not coming would seed nothing at all; a person watching
+/// one of those starts typing anyway. Safe because the Enter is still earned by the echo — a paste
+/// sent too early costs a redraw and is retried.
+const TALKING_MS: u64 = 10_000;
+/// How long an echo may take before the attempt is abandoned.
+const CONFIRM_MS: u64 = 4_000;
+/// Attempts before the seed is given up on. More than one because the first pane in a project can
+/// open on the CLI's own trust prompt, which ignores a paste and waits for a person.
+const ATTEMPTS: u8 = 3;
+/// The whole handshake's bound, from the spawn.
+const SEED_DEADLINE_MS: u64 = 90_000;
+/// What the watcher keeps of the output since its last paste, in normalised characters.
+const SEEN_LIMIT: usize = 64 * 1024;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SeedStep {
+    /// Nothing to do yet.
+    Wait,
+    /// Type the line.
+    Paste,
+    /// The echo came back: press Enter, and the pane holds the brief.
+    Submit,
+    /// No echo, no Enter — ever. A brief that did not arrive must not look like one that did.
+    GiveUp,
+}
+
+/// The handshake's whole decision, separated from the writing so it can be judged without a
+/// terminal: what has been seen and when, against what was asked for.
+#[derive(Debug)]
+pub struct SeedWatch {
+    seed: Seed,
+    started: u64,
+    last_output: Option<u64>,
+    /// When this attempt started waiting, so a CLI that never stops talking is still typed into.
+    since: Option<u64>,
+    pasted_at: Option<u64>,
+    attempts: u8,
+    seen: String,
+    settled: bool,
+}
+
+/// Everything a composer's box drawing, wrapping and colour can do to a line, undone: what is left
+/// is the characters, so a token split across a wrap is still a token.
+fn normalised(text: &str) -> String {
+    text.chars().filter(|c| c.is_ascii_alphanumeric()).map(|c| c.to_ascii_lowercase()).collect()
+}
+
+impl SeedWatch {
+    pub fn new(seed: Seed, now: u64) -> Self {
+        SeedWatch { seed, started: now, last_output: None, since: None, pasted_at: None, attempts: 0, seen: String::new(), settled: false }
+    }
+
+    /// The pane said something. Before a paste this only marks the clock; after one it is the echo
+    /// this is waiting for.
+    pub fn saw_output(&mut self, decoded: &str, now: u64) {
+        self.last_output = Some(now);
+        self.since.get_or_insert(now);
+        if self.pasted_at.is_some() {
+            self.seen.push_str(&normalised(decoded));
+            if self.seen.len() > SEEN_LIMIT {
+                let drop = self.seen.len() - SEEN_LIMIT;
+                self.seen.drain(..drop);
+            }
+        }
+    }
+
+    /// What to do now. Every terminal answer is returned once: the caller acts on it and stops.
+    pub fn step(&mut self, now: u64) -> SeedStep {
+        if self.settled {
+            return SeedStep::Wait;
+        }
+        match self.pasted_at {
+            None => {
+                let Some(last) = self.last_output else {
+                    /* Not one byte yet. A CLI that never speaks is never typed at. */
+                    return self.expire(now);
+                };
+                let waited = now.saturating_sub(self.since.unwrap_or(now));
+                if now.saturating_sub(last) >= SETTLE_MS || waited >= TALKING_MS {
+                    self.pasted_at = Some(now);
+                    self.attempts += 1;
+                    self.seen.clear();
+                    return SeedStep::Paste;
+                }
+                self.expire(now)
+            }
+            Some(pasted) => {
+                if self.seen.contains(&normalised(&self.seed.confirm)) {
+                    self.settled = true;
+                    return SeedStep::Submit;
+                }
+                if now.saturating_sub(pasted) < CONFIRM_MS {
+                    return self.expire(now);
+                }
+                /* No echo. Whatever is up there is not a composer — a paste it ignored cost it a
+                   redraw and nothing else — so wait for the next settle and try again. */
+                if self.attempts >= ATTEMPTS {
+                    self.settled = true;
+                    return SeedStep::GiveUp;
+                }
+                self.pasted_at = None;
+                self.last_output = Some(now);
+                self.since = Some(now);
+                self.expire(now)
+            }
+        }
+    }
+
+    fn expire(&mut self, now: u64) -> SeedStep {
+        if now.saturating_sub(self.started) >= SEED_DEADLINE_MS {
+            self.settled = true;
+            return SeedStep::GiveUp;
+        }
+        SeedStep::Wait
+    }
+
+    /// The bytes a `Paste` writes: bracketed, so the receiving CLI reads the whole line as one
+    /// pasted event rather than as keystrokes — which is what keeps a newline out of a dialog.
+    pub fn paste_bytes(&self) -> Vec<u8> {
+        let mut bytes = b"\x1b[200~".to_vec();
+        bytes.extend_from_slice(self.seed.paste.as_bytes());
+        bytes.extend_from_slice(b"\x1b[201~");
+        bytes
+    }
+}
+
 pub struct PtyHost<F: FnMut(Value) + Send> {
     sessions: HashMap<String, Arc<Mutex<PtySession>>>,
     emit: Arc<Mutex<F>>,
@@ -170,7 +315,7 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
         PtyHost { sessions: HashMap::new(), emit: Arc::new(Mutex::new(emit)), pty_system: native_pty_system() }
     }
 
-    pub fn spawn(&mut self, id: String, file: &str, argv: &[String], env: &HashMap<String, String>, cwd: &str, cols: u16, rows: u16, meta: Value) -> Result<Value> {
+    pub fn spawn(&mut self, id: String, file: &str, argv: &[String], env: &HashMap<String, String>, cwd: &str, cols: u16, rows: u16, meta: Value, seed: Option<Seed>) -> Result<Value> {
         let pair = self
             .pty_system
             .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
@@ -207,6 +352,7 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
             tail: Vec::new(),
             writer,
             master: pair.master,
+            seed: seed.map(|seed| SeedWatch::new(seed, now_ms())),
         }));
         self.sessions.insert(id.clone(), session.clone());
         // The output pump: read, decode, append, emit one event per chunk (the JS host emits
@@ -224,6 +370,12 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
                             let mut session = pump.lock().expect("session lock");
                             let decoded = decode_chunk(&mut session.tail, &buffer[..read]);
                             session.push_output(&decoded);
+                            /* The seed handshake's eyes: before a paste this is the settle clock,
+                               after one it is the echo that decides whether Enter is ever sent. */
+                            let at = now_ms();
+                            if let Some(watch) = session.seed.as_mut() {
+                                watch.saw_output(&decoded, at);
+                            }
                             (decoded, session.sequence)
                         };
                         (pump_emit.lock().expect("emit lock"))(json!({ "type": "output", "id": pump.lock().expect("session lock").id, "sequence": sequence, "data": decoded }));
@@ -255,6 +407,50 @@ impl<F: FnMut(Value) + Send + 'static> PtyHost<F> {
             };
             (watch_emit.lock().expect("emit lock"))(json!({ "type": "session", "session": snapshot }));
         });
+        /* The seed handshake, when this launch asked for one: a slow poll beside the pump, because
+           the decision depends on the pane going QUIET and silence is not an event. It writes twice
+           at most — the paste, then the Enter the echo earns — and records which happened on the
+           pane's own record, so a brief that never arrived cannot read like one that did. */
+        if session.lock().expect("session lock").seed.is_some() {
+            let seeded = session.clone();
+            let seed_emit = self.emit.clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(std::time::Duration::from_millis(150));
+                let outcome = {
+                    let mut held = seeded.lock().expect("session lock");
+                    if held.state != "running" {
+                        break;
+                    }
+                    let now = now_ms();
+                    let Some(watch) = held.seed.as_mut() else { break };
+                    match watch.step(now) {
+                        SeedStep::Wait => continue,
+                        SeedStep::Paste => {
+                            let bytes = watch.paste_bytes();
+                            let _ = held.writer.write_all(&bytes);
+                            let _ = held.writer.flush();
+                            continue;
+                        }
+                        SeedStep::Submit => {
+                            let _ = held.writer.write_all(b"\r");
+                            let _ = held.writer.flush();
+                            "delivered"
+                        }
+                        SeedStep::GiveUp => "unconfirmed",
+                    }
+                };
+                let snapshot = {
+                    let mut held = seeded.lock().expect("session lock");
+                    if !held.meta.is_object() {
+                        held.meta = json!({});
+                    }
+                    held.meta.as_object_mut().expect("a record").insert("seed".to_string(), json!(outcome));
+                    held.event_snapshot()
+                };
+                (seed_emit.lock().expect("emit lock"))(json!({ "type": "session", "session": snapshot }));
+                break;
+            });
+        }
         let announced = session.lock().expect("session lock").event_snapshot();
         let snapshot = session.lock().expect("session lock").core_snapshot();
         /* Announced, not just answered. The caller gets this snapshot as its result, but every
@@ -441,6 +637,86 @@ fn signal_tree(pid: u32, signal: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn watching() -> SeedWatch {
+        SeedWatch::new(Seed { paste: "Your brief is the file /s/ec36a646.brief.md. Read it.".into(), confirm: "ec36a646".into() }, 0)
+    }
+
+    /* F221, spec 149. The handshake in the order it happens: the pane speaks, falls quiet, is typed
+       into, echoes what it was given, and only then is Enter pressed. */
+    #[test]
+    fn a_seed_is_typed_once_the_pane_is_quiet_and_submitted_once_it_comes_back() {
+        let mut watch = watching();
+        watch.saw_output("welcome", 100);
+        assert_eq!(watch.step(400), SeedStep::Wait, "still talking");
+        watch.saw_output("drawing", 500);
+        assert_eq!(watch.step(900), SeedStep::Wait, "quiet, but not for long enough yet");
+        assert_eq!(watch.step(1_400), SeedStep::Paste);
+        assert_eq!(watch.step(1_500), SeedStep::Wait, "nothing came back yet, so nothing is pressed");
+        /* What a composer does to a line it wrapped inside a box: the token arrives in two pieces,
+           separated by the frame. Normalisation is what makes it one token again. */
+        watch.saw_output(" \u{2502} Your brief is the file /s/ec36a6 \u{2502}\n \u{2502} 46.brief.md. Read it.    \u{2502}", 1_600);
+        assert_eq!(watch.step(1_700), SeedStep::Submit);
+        assert_eq!(watch.step(1_800), SeedStep::Wait, "a settled handshake answers once");
+    }
+
+    /* The hazard this shape exists for: a CLI showing a modal that ignores a paste. Measured at six
+       bytes of redraw and nothing else (spec 149), so retrying is safe — and Enter is never pressed,
+       because an Enter into a modal answers a question a person was being asked. */
+    #[test]
+    fn a_paste_nothing_echoes_is_retried_and_then_given_up_on_without_an_enter() {
+        let mut watch = watching();
+        let mut pastes = 0;
+        let mut verdict = SeedStep::Wait;
+        for tick in 1..=1_200 {
+            let now = tick * 100;
+            watch.saw_output("", now.min(200));
+            match watch.step(now) {
+                SeedStep::Paste => pastes += 1,
+                SeedStep::Submit => panic!("an unechoed paste must never be submitted"),
+                SeedStep::GiveUp => { verdict = SeedStep::GiveUp; break }
+                SeedStep::Wait => {}
+            }
+        }
+        assert_eq!(pastes, 3, "three attempts, for the person answering a trust prompt in between");
+        assert_eq!(verdict, SeedStep::GiveUp);
+    }
+
+    /* The other side of that: a CLI that never STOPS saying things — a spinner, a clock in a status
+       line — must not wait forever for a silence that is not coming. It is typed into anyway, which
+       is safe for the same reason the retries are: only the echo earns the Enter. */
+    #[test]
+    fn a_pane_that_never_falls_silent_is_still_typed_into() {
+        let mut watch = watching();
+        let mut pasted_at = None;
+        for tick in 1..=200 {
+            let now = tick * 100;
+            watch.saw_output("spinning", now);          // never a quiet moment
+            if watch.step(now) == SeedStep::Paste {
+                pasted_at = Some(now);
+                break;
+            }
+        }
+        // The clock starts at the pane's FIRST word, which here is 100 ms in.
+        assert_eq!(pasted_at, Some(10_100), "typed into once it has plainly been up for a while");
+    }
+
+    /* A CLI that never says anything is never typed at: there is nothing to say it is listening. */
+    #[test]
+    fn a_pane_that_says_nothing_is_given_up_on_rather_than_typed_at() {
+        let mut watch = watching();
+        assert_eq!(watch.step(50_000), SeedStep::Wait);
+        assert_eq!(watch.step(90_000), SeedStep::GiveUp);
+    }
+
+    /* The paste is bracketed and carries no carriage return, which is what keeps a multi-line
+       composer entry from submitting itself and a modal from being answered by the text. */
+    #[test]
+    fn the_typed_bytes_are_one_bracketed_paste_and_press_nothing() {
+        let bytes = watching().paste_bytes();
+        assert!(bytes.starts_with(b"\x1b[200~") && bytes.ends_with(b"\x1b[201~"));
+        assert!(!bytes.contains(&b'\r') && !bytes.contains(&b'\n'));
+    }
 
     #[test]
     fn decode_holds_an_incomplete_tail_and_replaces_invalid_bytes() {

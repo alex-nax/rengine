@@ -1,37 +1,102 @@
-## Session 164 (opus-5) — 2026-09-17 — Contract 9, the ports, and vtmb migrated
+## Session 166 (macos) — 2026-09-16 — a brief reaches the CLI that could not be handed one (F221, spec 149)
 
-Contract 9 replaces a script PATH with an action NAME, resolved as
-`actions/<platform>/<name>.<ext>`. The owner's answer, and better than the option I argued for: I
-had objected to a reader resolving a platform segment, citing the schema's own warning about
-reinterpretation — but that objection does not apply to a NAME. A path is what an older reader runs
-LITERALLY; a name is an unknown key in a closed schema and is refused by name.
+*Written on the `agent-prompt-delivery` line branched from Session 161, and merged into main on
+2026-09-17. It was numbered 162 there; 162–165 were taken on the line it merged into, so it takes
+the next free number here. Its spec is 149 for the same reason: 146 was taken.*
 
-**That got confirmed by accident.** vtmb's declaration was refused before its pin moved, with `has
-unknown key action`. The argument for a name over a path, observed rather than reasoned.
+Reported from the NOLF workspace as a pane that died in two seconds:
 
-The resolution lives in ONE place — where the reader accepts a valid dashboard block — so nothing
-downstream learns the contract. The name survives beside the path, because a bug report from a
-Windows user and one from a macOS user must not describe two different declarations.
+```
+Workspace identity: kimi ec36a646
+unknown command '# F1765 — Replay fidelity: …'. See 'kimi --help'.
+```
 
-**Eight PowerShell ports written, and parsed on the real host**: all nine files under `actions/win/`
-parse under Windows PowerShell 5.1.26100 on `pr0fe@192.168.31.217`. That proves the target can READ
-them and nothing else — nothing executed, and `red/` does not compile on Windows yet. The README
-says exactly that, and F223 closes on execution rather than existence.
+Everything the workspace does was right — MCP wired, identity stamped, pane retained — and then
+`agent_spawn` appended the rendered brief to the pane's argv, under a comment saying that is "how
+both of the CLIs that take one take it". Two of five take one that way. **A brief is not a neutral
+thing to append**: a CLI with subcommands reads the first bare word as the subcommand, so the brief
+was not ignored, it was a command that does not exist.
 
-**vtmb-vr is migrated, and its scripts did not move.** The interview priced the consumer migration
-as "declaration edits"; it is not. `fast-start-quest.sh` is named by 27 files there and
-`deploy-quest.sh` by 20, including `claude-progress.md` and `known-issues.md` — records rather than
-code. So `actions/posix/*.sh` are three-line forwarders that `exec` the project's own script. The
-contract stops being something imposed on a project's layout, and no history got rewritten to fix a
-path.
+The same class the model flag was already held to — `model_args` refuses by name rather than
+guessing a flag — with no such rule for the prompt. So there is one: **`prompt.kind` in the recipe**,
+`argv` or `paste`, and a CLI that declares neither is refused by name with nothing started.
 
-**nolf-improved was NOT touched, deliberately.** It has an active session: uncommitted engine work,
-and its rEngine submodule on `feat/session-message` — a parallel line branched from the same commit
-this arc continued from. That line filed its own F221 and F222 the same day this one filed an F221.
-Two rows with one id pass `features.py validate` on each branch in isolation and collide only at
-merge, quietly. This arc's row moved to **F223**: it is the younger and nothing referenced it.
-`features.py` cannot see a branch it is not on, so "the next free id" is only free with respect to
-the tree in front of it — recorded in spec 147, because two lines on one inventory will do it again.
+### Seven measurements before a line of design
+
+Against the installed CLI with its base URL pointed at a closed port, so no turn is ever taken. The
+two that shaped it:
+
+- **There is no readiness marker.** `ESC[?2004h` is emitted once at startup, *before* the CLI's own
+  trust dialog — so "the composer is up" cannot be watched for, and anything that waited for it
+  would type into whatever is on screen.
+- **A paste into a modal costs six bytes and does nothing.** It is decoded as one paste event and
+  ignored. That is what makes typing into an unknown state safe, and what makes pressing **Enter**
+  into one unsafe: the highlighted option in that dialog is "Trust this folder".
+
+So the handshake asks rather than watches: settle, paste, and send the carriage return **only** when
+the pane echoes the line back. Unconfirmed is unsubmitted, forever, and the pane's record says
+`seed: "unconfirmed"` rather than letting a brief that never arrived look like one that did.
+
+A third measurement chose the payload. A 31-line paste collapses to `[paste #1 +31 lines]` and
+echoes no text; a single line comes back verbatim. An echo is the only thing that can earn an Enter,
+so the brief goes to `<state>/integrations/<id>.brief.md` and what is typed is one line naming it.
+
+### Where each layer is allowed to stop knowing
+
+The registry says the kind; `red_agents::launch::prompt_delivery` answers it or refuses; the worker
+appends or seeds; `red-host` writes the file and composes the line and the token; `red-pty` runs the
+handshake and knows only that something asked to be typed. No agent name entered shared code —
+`agent_names.py check` still reports five declared and five declared exceptions.
+
+### The fixture had to become a TUI before its green meant anything
+
+The end-to-end test failed first. The stand-in CLI left its stdin **cooked**, so the kernel echoed
+the paste back on its behalf and `ICRNL` turned the workspace's `\r` into `\n`: the handshake looked
+like it worked against the *kernel's* echo while the application saw neither the paste nor the
+Enter. A real TUI sets raw mode. The fixture does now, and the echo the Enter is earned by is the
+application's own.
+
+### What the full suite found that the spec alone could not
+
+The end-to-end spec passed alone and **failed under the loaded suite**, and the second thing that
+came out of that is worth more than the first. The first is a budget measured on an idle machine
+(KI-124's lesson again): fifteen seconds of waiting for a handshake whose own worst case is fifteen
+seconds. The second is a real hole — **a CLI that never falls silent would never have been typed into
+at all**, because the settle rule waits for quiet and a spinner or a status-line clock means quiet
+never comes. The watcher types after ten seconds of continuous talking as well, which is safe for the
+same reason the retries are: only the echo earns the Enter.
+
+### Sabotages
+
+Ten, each observed failing at its own assertion, each compiled before it ran (KI-120): the brief
+back on the command line (which reproduces the reported failure exactly), the host composing no
+seed, an undeclared CLI falling back to a positional, `cook` accepting any delivery, the echo gate
+removed, normalisation removed so a wrapped token is two tokens, a silent pane counting as quiet, a
+talking pane waiting for a silence that never comes, one attempt instead of three, and a paste that
+presses Enter itself. One sabotage **passed** first
+time round and was worth more than the ones that failed: the host edit did not compile, so the test
+judged a stale binary and came back green.
+
+### What is not proven, and one thing the owner should look at
+
+A pane of the real CLI opened from the real workspace. That is the same owner-run step **F186**
+already exists for; every mechanism it stands on was measured against the real CLI first.
+
+Inside that, one choice worth a second opinion: the brief file is written to
+`<state>/integrations/<id>.brief.md`, beside every other per-launch file, which puts it **outside the
+pane's working directory**. A CLI that confines its reads to its workspace may ask before opening it.
+The alternatives — writing it into the person's checkout, or declaring a flag that widens a CLI's
+readable directories — are both larger than this row, and nothing is lost in the bad case: the path
+is on screen. Recorded in spec 149 as open rather than decided.
+
+Commands: `cargo test --workspace` 360/360, `npm test` 365/366, `./init.sh` green. The one failure is
+`red-agents-launch.test.mjs` and it is not this branch's — baselined rather than assumed: stashed, it
+fails at HEAD with the same two paths side by side, because `agents-fixtures.json` freezes the
+recorder's own checkout path in eleven places and no other directory can match it. Filed as KI-127.
+Evidence: `docs/evidence/agent-prompt-delivery-f221-2026-09-16.md`.
+
+Left behind, and not mine to fix: `red_pty_serve.rs`'s sidecar entry `why-the-port-and-not-the-pid`
+anchors a function F159's descriptor consolidation removed. Recorded rather than deleted.
 
 ## Session 165 (opus-5) — 2026-09-17 — vtmb finished, and a Windows shape that is not a port
 
@@ -69,6 +134,67 @@ now, and `editor.bat` already passes it.
 Verified on `pr0fe@192.168.31.217` (PowerShell 5.1.26100): all 8 of vtmb's PowerShell files parse
 through `Parser::ParseFile`, and two were EXECUTED and behaved. Nothing has run in its current form;
 every file says so.
+
+**And the branches are merged into main.** Twenty-six remote branches, twenty-five already in; the
+one that was not is `agent-prompt-delivery`, one commit off `fca8630`, and it is Session 166 above.
+Git followed every rename the layout change made, so their `orchestrator/tests/*` and
+`orchestrator/agents/registry.toml` edits landed at `tests/*` and `agents/registry.toml` with no
+help. Every Rust file auto-merged. What conflicted was **the four files two lines both append to**,
+and each collision is the same shape — a number that is only free with respect to the tree in front
+of it:
+
+| Collision | Resolution |
+| --- | --- |
+| `features.json` | both rows kept; no id collision, because the F221→F223 renumber the owner asked for had already moved mine |
+| `known-issues.md` | both KI-126; theirs is a pair filed together and mine had one reference, so **mine became KI-128** |
+| `docs/specs/146-*` | both 146; mine is referenced by 22 files and theirs by 2, so **theirs became 149** — and the references in `agents/registry.toml`, six Rust files, two specs and a sidecar moved with it |
+| `Codex-progress.md` | both Session 162; **theirs became 166**, the next free number, and says so in its own entry |
+| `docs/roadmap-graph.md` | generated, so regenerated rather than hand-merged |
+
+Two things worth keeping from that. The progress log had 164 sitting above 165 in main — my own
+prepend that did not prepend — and the merge is where it was noticed; fixed here. And
+`red-agents-launch.test.mjs`, which their entry records as the suite's one failure, **passes in this
+checkout** and will keep failing in every other one: KI-127 is exactly right about why, and its path
+was still the pre-layout one, corrected.
+
+Gates after the merge: `./init.sh`, `design.py check`, `agent_names.py check`, `features.py validate`
+— green. **371/371 JS tests, 365/365 Rust tests.** Sidecars: the two I touched reviewed and stamped;
+`red_pty_serve.rs`'s dangling anchor is KI-126 and stays theirs to fix.
+
+## Session 164 (opus-5) — 2026-09-17 — Contract 9, the ports, and vtmb migrated
+
+Contract 9 replaces a script PATH with an action NAME, resolved as
+`actions/<platform>/<name>.<ext>`. The owner's answer, and better than the option I argued for: I
+had objected to a reader resolving a platform segment, citing the schema's own warning about
+reinterpretation — but that objection does not apply to a NAME. A path is what an older reader runs
+LITERALLY; a name is an unknown key in a closed schema and is refused by name.
+
+**That got confirmed by accident.** vtmb's declaration was refused before its pin moved, with `has
+unknown key action`. The argument for a name over a path, observed rather than reasoned.
+
+The resolution lives in ONE place — where the reader accepts a valid dashboard block — so nothing
+downstream learns the contract. The name survives beside the path, because a bug report from a
+Windows user and one from a macOS user must not describe two different declarations.
+
+**Eight PowerShell ports written, and parsed on the real host**: all nine files under `actions/win/`
+parse under Windows PowerShell 5.1.26100 on `pr0fe@192.168.31.217`. That proves the target can READ
+them and nothing else — nothing executed, and `red/` does not compile on Windows yet. The README
+says exactly that, and F223 closes on execution rather than existence.
+
+**vtmb-vr is migrated, and its scripts did not move.** The interview priced the consumer migration
+as "declaration edits"; it is not. `fast-start-quest.sh` is named by 27 files there and
+`deploy-quest.sh` by 20, including `claude-progress.md` and `known-issues.md` — records rather than
+code. So `actions/posix/*.sh` are three-line forwarders that `exec` the project's own script. The
+contract stops being something imposed on a project's layout, and no history got rewritten to fix a
+path.
+
+**nolf-improved was NOT touched, deliberately.** It has an active session: uncommitted engine work,
+and its rEngine submodule on `feat/session-message` — a parallel line branched from the same commit
+this arc continued from. That line filed its own F221 and F222 the same day this one filed an F221.
+Two rows with one id pass `features.py validate` on each branch in isolation and collide only at
+merge, quietly. This arc's row moved to **F223**: it is the younger and nothing referenced it.
+`features.py` cannot see a branch it is not on, so "the next free id" is only free with respect to
+the tree in front of it — recorded in spec 147, because two lines on one inventory will do it again.
 
 ## Session 163 (opus-5) — 2026-09-16 — The layout, and a housekeeping batch behind it
 

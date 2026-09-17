@@ -84,3 +84,54 @@ export async function fakeCli(stateDirectory, agent) {
   await chmod(executable, 0o755);
   return { executable, argvFile, read: async () => JSON.parse(await readFile(argvFile, 'utf8')) };
 }
+
+/* The other kind of CLI (F221, spec 149): one that takes no initial prompt on its command line and
+   reads a bare word as a SUBCOMMAND — which is how a rendered brief became
+   `unknown command '# F1765 …'` and a pane that exited 1 two seconds after it opened. It records
+   what it was handed, and when it is started properly it behaves like the composer that was
+   measured: it says something, enables bracketed paste, echoes a paste back, and notices the Enter
+   that follows. */
+export async function fakePasteCli(stateDirectory, agent) {
+  const home = path.join(stateDirectory, 'agents', agent, 'node_modules/.bin');
+  const recordFile = path.join(stateDirectory, `${agent}.record.json`);
+  await mkdir(home, { recursive: true });
+  const executable = path.join(home, agent);
+  await writeFile(executable, `#!/usr/bin/env node
+import { writeFile } from 'node:fs/promises';
+const record = { argv: process.argv.slice(2), unknownCommand: null, pasted: null, submitted: false };
+const save = () => writeFile(${JSON.stringify(recordFile)}, JSON.stringify(record));
+const argv = record.argv;
+for (let index = 0; index < argv.length; index += 1) {
+  if (argv[index] === '-m' || argv[index] === '--model') { index += 1; continue; }
+  if (argv[index].startsWith('-')) continue;
+  record.unknownCommand = argv[index];
+  await save();
+  process.stderr.write(\`unknown command '\${argv[index]}'. See '\${${JSON.stringify(agent)}} --help'.\\n\`);
+  process.exit(1);
+}
+await save();
+process.stdout.write('\\u001b[?2004h');            // this surface takes pastes
+process.stdout.write('Welcome. Session: none\\n > ');
+let buffer = '';
+/* Raw, the way an interactive TUI takes its keys: no line discipline echo to confirm a paste for
+   it, and a carriage return that arrives as one. A cooked stdin would have the KERNEL echo the
+   paste back and translate the Enter, so the handshake would appear to work without the
+   application ever having seen either. */
+if (process.stdin.isTTY) process.stdin.setRawMode(true);
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', async chunk => {
+  buffer += chunk;
+  const start = buffer.indexOf('\\u001b[200~'), end = buffer.indexOf('\\u001b[201~');
+  if (record.pasted === null && start >= 0 && end > start) {
+    record.pasted = buffer.slice(start + 6, end);
+    buffer = buffer.slice(end + 6);
+    await save();
+    process.stdout.write(\`\\n > \${record.pasted}\`);   // the composer shows what it was given
+  }
+  if (record.pasted !== null && buffer.includes('\\r')) { record.submitted = true; await save(); }
+});
+setTimeout(() => {}, 120000);
+`);
+  await chmod(executable, 0o755);
+  return { executable, recordFile, read: async () => JSON.parse(await readFile(recordFile, 'utf8')) };
+}

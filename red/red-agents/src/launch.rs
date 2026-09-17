@@ -125,6 +125,22 @@ pub fn start_hint(recipes: &[(String, Value)], cli: &str, paths: &Json) -> Optio
     Some(parts.join(" "))
 }
 
+/// How this CLI is handed the brief a spawn carries — the KIND, so a caller asks what a CLI takes
+/// rather than who it is (F221, spec 149).
+///
+/// `Err` when the recipe declares none, and the refusal is the point: a brief is not a neutral thing
+/// to append to a command line. A CLI with subcommands reads the first bare word as the subcommand,
+/// so an undeclared CLI handed one does not ignore it — it exits on it, about two seconds after a
+/// person watched the pane open. Refusing by name is the same treatment `model_args` gives a CLI
+/// whose model flag rEngine does not know.
+pub fn prompt_delivery(recipes: &[(String, Value)], cli: &str) -> Result<String, String> {
+    projected(recipes, cli)
+        .and_then(|recipe| recipe.get("prompt").and_then(|prompt| prompt.get("kind")).and_then(Json::as_str).map(str::to_string))
+        .ok_or_else(|| format!(
+            "rEngine does not know how {cli} is handed the brief for a task, so it will not append it to the command line: a CLI that reads a bare word as a subcommand exits on it. Declare how {cli} takes an initial prompt, or spawn a CLI that has. Nothing was started."
+        ))
+}
+
 /// Which MCP overlay this recipe declares — the capability, so callers ask what a CLI needs rather
 /// than who it is.
 pub fn mcp_kind(recipes: &[(String, Value)], cli: &str) -> Option<String> {

@@ -185,7 +185,7 @@ prerequisite would be a claim with a hole in it*. The hole is real and the work 
 module those rows name is deleted.
 
 This is the one thing in this epic that needs an owner, and housekeeping cannot do it (`passes`
-never flips to true in a housekeeping pass — the skill's own rule). See **KI-127**.
+never flips to true in a housekeeping pass — the skill's own rule). See **KI-128**.
 
 Genuinely open, not a marking question:
 

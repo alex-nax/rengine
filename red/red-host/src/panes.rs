@@ -336,6 +336,7 @@ async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String
         None => vec!["-l".to_string()],
     };
     let mut conversation = text("conversation");
+    let mut seed = Value::Null;
     if kind == "agent" {
         file = bash_path();
         let integrations = state.join("integrations");
@@ -359,6 +360,21 @@ async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String
         }
         let context = integrations.join(format!("{root_id}.json"));
         write_private(&context, agent_context(&front.url, &front.token, &front.instance, &root_id).to_string().as_bytes())?;
+
+        /* A brief for a CLI that takes none on its command line, to be TYPED into the pane by the
+           service that holds its master side (F221, spec 149). The line names a file rather than
+           carrying the brief because a composer collapses a long paste into a summary and echoes a
+           short line back — and the echo is the only thing that may earn an Enter. The token is this
+           launch's own, and the file name carries it, so what comes back identifies THIS pane. */
+        if let Some(text) = options.get("seed").and_then(|asked| asked.get("text")).and_then(Value::as_str).filter(|text| !text.is_empty()) {
+            let file = integrations.join(format!("{id}.brief.md"));
+            write_private(&file, text.as_bytes())?;
+            let token: String = id.chars().take(8).collect();
+            seed = json!({
+                "paste": format!("Your brief for this pane is the file {}. Read it and start.", file.to_string_lossy()),
+                "confirm": token,
+            });
+        }
 
         let decided = conversation.is_some() || options.get("args").and_then(Value::as_array).is_some_and(|args| !args.is_empty());
         let remembered = if decided {
@@ -454,7 +470,7 @@ async fn spawn_pane(front: &Arc<Front>, options: &Value) -> Result<Value, String
 
     let started = ask_pty(front, "spawn", json!([{
         "id": id, "meta": Value::Object(record), "command": file, "args": argv,
-        "cols": cols, "rows": rows, "cwd": working.to_string_lossy(), "env": env,
+        "cols": cols, "rows": rows, "cwd": working.to_string_lossy(), "env": env, "seed": seed,
     }])).await?;
     /* Known here, now. The service announces every session it holds and that announcement is how
        this door learns of panes OTHER hosts start — but for a pane this door just started, waiting
@@ -630,6 +646,10 @@ pub(crate) fn pane_snapshot(session: &serde_json::Value) -> serde_json::Value {
     put(&mut out, "sequence", own("sequence"));
     put(&mut out, "conversation", held("conversation"));
     put(&mut out, "task", held("task"));
+    /* Whether the brief this pane was seeded with actually arrived (F221, spec 149). Only a seeded
+       pane carries it, and it is carried because "typed in and confirmed" and "never landed" must
+       not look alike to whoever lists this session. */
+    put(&mut out, "seed", held("seed"));
     if kind == "game" {
         put(&mut out, "surface", held("surface"));
         put(&mut out, "game", held("game"));

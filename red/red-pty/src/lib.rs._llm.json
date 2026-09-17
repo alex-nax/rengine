@@ -5,8 +5,8 @@
       "id": "stop-process-tree",
       "kind": "rationale",
       "anchor": {
-        "start": 309,
-        "end": 336,
+        "start": 579,
+        "end": 606,
         "symbol": "signal_tree",
         "snippet": "fn signal_tree(pid: u32, signal: &str) -> Result<()> {"
       },
@@ -15,6 +15,27 @@
         "docs/specs/055-nolf-workspace-goal.md",
         "docs/evidence/sessions-swap-f178-2026-09-13.md"
       ]
+    },
+    {
+      "id": "seed-handshake-never-presses-blind",
+      "kind": "rationale",
+      "anchor": {
+        "start": 248,
+        "end": 287,
+        "symbol": "SeedWatch::step",
+        "snippet": "pub fn step(&mut self, now: u64) -> SeedStep {"
+      },
+      "note": "Why this asks instead of watching, and why the Enter is separate from the paste (F221, spec 149).\n\nThe CLI this exists for emits its bracketed-paste-enable sequence ONCE, at startup, BEFORE it may show a modal of its own \u2014 so there is no output marker that means \"the composer is ready\", and waiting for one would type into whatever happens to be on screen. What is measurable instead is the ANSWER: a bracketed paste into a modal that takes arrow keys costs six bytes of redraw and is ignored, while a composer echoes a single line back verbatim. So the paste is safe to send into an unknown state, and only the echo earns the carriage return.\n\nThe retries exist for one case and no other: the first pane in a project can open on the CLI's own trust prompt, which a person answers seconds or minutes later. Three attempts inside 90 s covers that; a paste that is ignored costs nothing, and an Enter into that prompt would answer a security question on somebody's behalf (the highlighted option is \"Trust this folder\").\n\nMatching is done over output normalised to alphanumerics because the echo comes back WRAPPED inside the composer's box: the launch's token arrives in two pieces with frame characters between them, and a substring search on the raw text finds nothing.\n\nAnd why there are two ways to decide the pane is listening: the settle rule waits for quiet, which a CLI that redraws a spinner or a clock never gives, so it would have been seeded never. Ten seconds of continuous talking counts too. That is safe for the same reason a retry is \u2014 the Enter is still the echo's to earn.",
+      "refs": [
+        "docs/specs/149-agent-prompt-delivery.md",
+        "docs/evidence/agent-prompt-delivery-f221-2026-09-16.md"
+      ]
     }
-  ]
+  ],
+  "source": {
+    "path": "red/red-pty/src/lib.rs",
+    "sha256": "34a0c1b042afd3dc35e44215732e9d83b95381a0b1c38e2843a68d9c08227186",
+    "format": "rust",
+    "format_fingerprint": "3802714b4569aa9e93696227dc96f5433c9f027b6349406e4e8901968d9e7fea"
+  }
 }
