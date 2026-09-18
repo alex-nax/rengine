@@ -96,20 +96,30 @@ test('the caret drills in from a nested row without freeing the walk under itsel
   await writeFile(path.join(project, 'src', 'deep', 'deepest.txt'), 'deepest\n');
   const server = await startServer({ stateDir: path.join(dir, 'state') });
   const root = await server.store.addRoot(project);
-  // MallocScribble fills a freed block with 0x55 rather than leaving whatever was there, which is
-  // what makes reading one a definite wrong answer instead of an occasional one.
-  const gui = await nativeClient(server, { root: root.id });
+  // MallocScribble fills a freed block with 0x55 rather than leaving whatever was there, which turns
+  // reading one from an occasional wrong answer into a certain one. It is the platform's own knob:
+  // where it is ignored the assertion keeps its meaning and loses only its guarantee.
+  const gui = await nativeClient(server, { root: root.id, env: { MallocScribble: '1' } });
   try {
     await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree), 'the explorer');
     await nested(gui, true);
     await gui.control('tree-entry', 'src');
     await gui.until(s => rows(s).includes('src/deep'), 'src expanded in place');
+    await gui.control('tree-entry', 'src/deep');
+    await gui.until(s => rows(s).includes('src/deep/deepest.txt'), 'the second level expanded');
+
+    // Collapsing from depth 1 frees an expansion mid-walk too, and this one is allowed to: a branch
+    // closes whole, so it takes the row's OWN listing and what is under it, never the listing the
+    // walk is iterating, which belongs to its parent.
+    await gui.control('tree-entry', 'src/deep');
+    let state = await gui.until(s => !rows(s).includes('src/deep/deepest.txt'), 'the second level collapsed');
+    assert.ok(rows(state).includes('src/inner.txt'), 'the listing being walked survived the collapse');
 
     // The caret on a row that is NOT at the top level: its entry lives in src's expansion, not in
     // the tab's own listing, which is the whole difference from the depth-0 case above.
     await gui.control('tree-drill', 'src/deep');
-    const state = await gui.until(s => s.tabs.some(t => t?.type === 1 && t.path === 'src/deep'),
-                                  'the nested caret drilled into the directory it names');
+    state = await gui.until(s => s.tabs.some(t => t?.type === 1 && t.path === 'src/deep'),
+                            'the nested caret drilled into the directory it names');
     assert.ok(rows(state).includes('src/deep/deepest.txt'), `the new root lists its entries: ${JSON.stringify(rows(state))}`);
     assert.ok(!rows(state).includes('src/inner.txt'), 'the old tree is gone');
     assert.ok(!rows(state).includes('top.txt'), 'and so is the level above it');

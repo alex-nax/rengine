@@ -1,3 +1,51 @@
+## Session 176 (opus-5) — 2026-09-18 — The explorer's walk stops freeing the tree it is walking
+
+KI-131, fixed and closed. The crash the owner caught on 2026-09-17 — `re_app_ui` into `tree_rows`
+into `tree_rows` into cJSON's first object read — was a recursive frame handed an already-freed
+node, and the diagnosis in the row was right in every particular.
+
+**Only depth 0 iterates the tab's own listing.** Every frame below it walks a listing that lives
+inside `a->expansions[slot].data`, and the drill-in branch called `re_app_expansions_clear` from
+inside the row, which freed the array the enclosing `cJSON_ArrayForEach` was holding. A row now
+records the drill-in by value and `tree_ui` performs it after the walk returns — the shape
+`formatview.c`'s `tree_rows` already uses, and the rule this same file already states for format
+views: actions returned by a view are performed after drawing so they never interleave with layout.
+
+**The crash was the visible half, and the quiet half is what made the regression possible.** One
+statement after the clear, the branch copies `path` into the tab — and `path` points at the entry's
+own `valuestring`, which the clear has just freed. So the explorer drilled into whatever the freed
+block then held. That is an observable wrong answer rather than a maybe-crash, and the check asserts
+it: expand a folder, collapse a branch from inside it, click the drill caret on a directory at
+depth 1, and require the tab to be on the directory it names. The window runs under `MallocScribble`,
+which is what turns "may still read the old bytes" into "definitely does not": with the defect put
+back, the tab reports `''` — the root — three runs out of three, in 1.4 seconds, with the state dump
+naming the folder it should have reached. Without the poison the same defect failed differently each
+time, once as `Native button timed out` with the window wedged in a corrupted list, which is exactly
+the unreliability that makes a bare "did not crash" assertion worthless here.
+
+Sabotaged, rebuilt, run red; restored, rebuilt, run green — with the `Building C object` count
+checked on each side, because KI-120's trap is one `cp` away in this file.
+
+**The two other mutations the walk still makes were checked and deliberately left alone.**
+`re_app_expand`'s collapse releases only the clicked path and what is under it, never the parent
+listing being iterated, and the slot is re-read immediately so the recursion is never handed a freed
+child; `re_app_tab` can release another view's expansions, but `reclaim_view` skips any tab the
+layout shows and the tab being drawn is always shown. `re_app_load` is a request — the listing is
+replaced when the answer arrives, outside any frame. All three are written down in the file's
+sidecar so the next person does not have to re-derive them.
+
+Gates: `npm run build`, `./init.sh`, `design.py check`, `agent_names.py check`, `features.py validate`
+— green. The three desktop specs 11/11 together. `npm test` 378/379 with one cancelled:
+`external-declaration`'s legacy-host case, which passes 4/4 alone and is the same test session 175
+named as the suite's standing concurrency flake. One earlier run of `native.spec` + `native-layout`
+had a single failure whose name I did not capture; it did not return in the three runs since. Spec
+080 carries the account; no feature row changed.
+
+**Another session is working in this checkout**, and its `git add -A` swept the first draft of the
+regression into a9ed26b — so HEAD briefly carried the check without the fix it checks. This commit
+carries `editor/workspace.c`, the rest of the test and the records, and nothing of theirs: staged by
+name, not by `-A`, which is the habit that would have prevented the crossing in the first place.
+
 ## Session 175 (opus-5) — 2026-09-18 — JEV built as a plugin, after being stopped for building it as core
 
 **The owner stopped this mid-implementation and was right.** I had put a `red-jev` crate in the core

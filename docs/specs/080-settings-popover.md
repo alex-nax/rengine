@@ -151,6 +151,37 @@ taken *and* one written into an open folder; the up arrow reports disabled at th
 it; the bar's rect is unchanged after the rows scroll under it. Each was observed failing for its own
 reason, rebuilt between the sabotage and the run.
 
+## The walk does not mutate the tree (2026-09-18)
+
+The desktop segfaulted in the explorer, and the trace went `re_app_ui` into `tree_rows` into
+`tree_rows` into cJSON's first object read: a recursive frame was handed a node that had already
+been freed. Nothing about the nested mode was wrong; the drill-in was in the wrong place.
+
+Since the walk became recursive, only depth 0 iterates the tab's own listing. Every frame below it
+iterates a listing that lives inside an expansion. Drilling in starts a new tree and therefore
+releases every expansion the tab holds — and it did that from inside the row, which freed the array
+the enclosing `cJSON_ArrayForEach` was walking, and freed the entry's own path string one statement
+before copying it into the tab. The crash was the visible half. The quiet half is worse: with the
+string gone, the explorer drilled into whatever the freed block then held, which in practice was the
+root, so a person clicking a caret inside an open folder landed somewhere they had not asked for.
+
+A row now *records* a drill-in, by value, and `tree_ui` performs it after the walk returns. The
+same file already required this of format views — "actions returned by the view are performed after
+drawing so request/mode changes never interleave with layout" — and `formatview.c`'s own `tree_rows`
+returns an action to its caller rather than acting inside its loop.
+
+The two other mutations the walk still makes were checked and left alone. Collapsing frees only the
+clicked branch and what is under it, never the parent listing being iterated, and the slot is re-read
+immediately so the recursion is never handed a freed child. Opening a file can release another view's
+expansions, but a view the layout is showing is never the one released, and the tab being drawn is
+always shown. Loading is a request; the listing is replaced when the answer arrives, outside any frame.
+
+`tests/native-explorer.spec.mjs` expands a folder, collapses a branch from inside it, then clicks the
+drill caret on a directory at depth 1 and requires the tab to be on the directory it names. The
+window runs with a poisoned heap (`MallocScribble`), which is what turns "may read the old bytes"
+into a definite wrong answer: with the drill-in back in the row the tab reports `''` three runs out
+of three, and the assertion names the directory it should have reached.
+
 ## Deferred
 
 Keyboard navigation of the popover beyond Escape, per-project setting overrides, and a settings

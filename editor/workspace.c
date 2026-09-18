@@ -201,11 +201,16 @@ static const char *entry_meta(ReApp *a, const ReTab *t, const cJSON *entry, cons
   if (cJSON_IsNumber(children)) { snprintf(buffer, size, "%d", (int)children->valuedouble); return buffer; }
   return "";
 }
+/* A drill-in the walk asked for and did not perform; `tree_ui` applies it once the walk is over.
+ * Doing it in the row freed the listing being iterated and the path being copied out of it, which
+ * is the sidecar entry below and what `formatview.c`'s tree_rows returns an action to avoid. */
+typedef struct { bool drill; char path[sizeof(((ReTab *)0)->path)]; } ReTreeAction;
+
 /* Explorer rows. In flat mode a directory row drills in, which is the behaviour the desktop has
  * always had. In nested mode the row expands the directory in place and the caret glyph drills in,
  * so today's behaviour stays reachable (spec 080 decision 9). The mode is a setting, never inferred
  * from how large a project is (decision 1). */
-static void tree_rows(ReApp *a, mu_Context *ui, int index, const cJSON *entries, int depth) {
+static void tree_rows(ReApp *a, mu_Context *ui, int index, const cJSON *entries, int depth, ReTreeAction *action) {
   ReTab *t = &a->tabs[index];
   const cJSON *entry = NULL;
   cJSON_ArrayForEach(entry, entries) {
@@ -231,9 +236,7 @@ static void tree_rows(ReApp *a, mu_Context *ui, int index, const cJSON *entries,
       bool on_caret = nested && re_inside(caret, ui->mouse_pos.x, ui->mouse_pos.y);
       if (nested && !on_caret) { re_app_expand(a, index, path); slot = re_app_expanded(a, index, path); }
       else if (directory) {
-        re_app_expansions_clear(a, index);     /* a new root is a new tree */
-        re_copy(t->path, sizeof(t->path), path); t->selected[0] = 0;
-        re_app_load(a, index); re_app_layout_changed(a);
+        action->drill = true; re_copy(action->path, sizeof(action->path), path);   /* applied after the walk */
         continue;
       } else {
         /* The selection is the file being worked on, not whichever folder was last toggled. It is
@@ -251,7 +254,7 @@ static void tree_rows(ReApp *a, mu_Context *ui, int index, const cJSON *entries,
       if (!children) {
         mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
         re_ui_row_ex(ui, "Loading…", RE_ICON_UNKNOWN, "", depth + 1, RE_UI_MUTED | RE_UI_DISABLED);
-      } else tree_rows(a, ui, index, children, depth + 1);
+      } else tree_rows(a, ui, index, children, depth + 1, action);
     }
   }
 }
@@ -298,10 +301,16 @@ static void tree_ui(ReApp *a, mu_Context *ui, int index) {
     re_ui_label_ex(ui, *t->error ? t->error : "Loading files…", RE_UI_MUTED);
     return;
   }
-  tree_rows(a, ui, index, cJSON_GetObjectItemCaseSensitive(t->data, "entries"), 0);
+  ReTreeAction action = {0};
+  tree_rows(a, ui, index, cJSON_GetObjectItemCaseSensitive(t->data, "entries"), 0, &action);
   if (cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(t->data, "truncated"))) {
     mu_layout_row(ui, 1, (int[]){-1}, RE_METRIC_DESIGN_TREE_ROW);
     re_ui_label_ex(ui, "Showing the first 2,000 directory entries.", RE_UI_MUTED | RE_UI_SMALL);
+  }
+  if (action.drill) {
+    re_app_expansions_clear(a, index);     /* a new root is a new tree */
+    re_copy(t->path, sizeof(t->path), action.path); t->selected[0] = 0;
+    re_app_load(a, index); re_app_layout_changed(a);
   }
 }
 /* A session's state maps to the card's semantic dot. */

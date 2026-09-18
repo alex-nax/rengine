@@ -16,11 +16,25 @@
       ]
     },
     {
+      "id": "explorer-walk-does-not-mutate",
+      "kind": "rationale",
+      "anchor": {
+        "start": 213,
+        "end": 213,
+        "snippet": "static void tree_rows(ReApp *a, mu_Context *ui, int index, const cJSON *entries, int depth, ReTreeAction *action) {"
+      },
+      "note": "The explorer's walk draws rows and records what a click asked for; it never changes what it is walking. Depth 0 iterates the tab's own listing, but every deeper frame iterates a listing that lives inside a->expansions[slot].data, so anything that releases expansions from inside the loop frees the array cJSON_ArrayForEach is holding AND the entry's path string the branch is about to copy. Drilling in does exactly that - a new root is a new tree, so it clears every expansion for the tab - and from 2026-09-06, when the walk became recursive, until 2026-09-18 it did so in the row: the desktop segfaulted in the next recursion, and when it did not, the tab drilled into whatever the freed block then held rather than the directory clicked. The drill is recorded by VALUE (the string does not outlive the clear) and applied by tree_ui after the walk returns. Two neighbours are deliberately left in the loop and are safe for their own reasons: re_app_expand collapses only the clicked path and what is under it, never the parent listing being iterated, and the slot is re-read straight after so the recursion is not handed a freed child; re_app_tab can release a view's expansions, but reclaim_view skips any tab the layout shows, and the tab being drawn is one of those. re_app_load is a request, not a replacement: the listing changes when the answer arrives, outside any frame. Checked by the nested-drill case in tests/native-explorer.spec.mjs, which runs the window with a poisoned heap so a read of freed memory is a definite wrong answer.",
+      "refs": [
+        "docs/specs/080-settings-popover.md",
+        "known-issues.md"
+      ]
+    },
+    {
       "id": "format-tab-layout",
       "kind": "rationale",
       "anchor": {
-        "start": 615,
-        "end": 615,
+        "start": 624,
+        "end": 624,
         "snippet": "static void editor_ui(ReApp *a, mu_Context *ui, int index, mu_Rect content, mu_Rect below) {"
       },
       "note": "A format-aware editor tab draws the mode toolbar first; text mode keeps the Save/Discard row below it and shifts the buffer down by one row, raw and text previews take the whole content area as a draw-list rect, and a tree preview lives inside the scrollable microui window with the selected entry drawn in the reserved lower split. Actions returned by the view are performed after drawing so request/mode changes never interleave with layout. The third root container per pane is avoided on purpose: the entry area is a draw-list rect, not another microui window (upstream's 32-root limit).",
@@ -32,8 +46,8 @@
       "id": "bounded-tab-strip",
       "kind": "rationale",
       "anchor": {
-        "start": 652,
-        "end": 652,
+        "start": 661,
+        "end": 661,
         "snippet": "static void pane_header(ReApp *a, mu_Context *ui, int n) {"
       },
       "note": "Visible tab slots and previous/next controls fit the measured pane header; only displayed tabs receive hit rectangles. Strip offsets are ephemeral and can browse away from the selected content without retargeting it. Explicit layout changes invalidate the cached width to reveal the selected tab even when pane indices are reused. Drops choose insertion boundaries from visible header midpoints, then adjust for removal when source and destination are the same pane. Root/session identity stays on ReTab.",
@@ -45,8 +59,8 @@
       "id": "one-overlay",
       "kind": "rationale",
       "anchor": {
-        "start": 791,
-        "end": 820,
+        "start": 800,
+        "end": 829,
         "symbol": "overlay_open",
         "snippet": "static void overlay_open(ReApp *a, mu_Context *ui, int kind) {"
       },
@@ -59,8 +73,8 @@
       "id": "view-switcher-indices",
       "kind": "constraint",
       "anchor": {
-        "start": 843,
-        "end": 843,
+        "start": 852,
+        "end": 852,
         "snippet": "struct { const char *label; int icon; } switcher[] = {"
       },
       "note": "The view switcher is a fixed table walked by index, and the click handler branches on that same index \u2014 so inserting an entry is not a one-line change: `views` must match the table length and every later branch must be re-numbered. Tasks sits at index 2 and Devices at 3, so the terminal/agent branch is `i == 4`/`i == 5`; getting it wrong opens a shell where the user asked for an agent, silently, because both call launch_terminal. The group ring is drawn once around the whole run using GROUP_FIRST/LAST, so the first and last entries must stay first and last.",
@@ -72,8 +86,8 @@
       "id": "external-game-status-row",
       "kind": "rationale",
       "anchor": {
-        "start": 984,
-        "end": 984,
+        "start": 998,
+        "end": 998,
         "snippet": "      } else if (t->type == RE_GAME && t->terminal) {"
       },
       "note": "An external game runs in its own window, so its tab has no frame surface to draw: it shows the retained PTY output with a status row above it, and the row reads the session's live state rather than the tab's, because the process can exit while the tab stays open. The rect is still set from the game insets so the terminal below occupies the same area an embedded surface would. This branch must precede the t->game one \u2014 an external tab has a terminal and no game surface. Without it surface \"external\" has no view at all, which is what the vtmb-vr consumer declares for both of its games."
@@ -82,8 +96,8 @@
       "id": "native-focus-and-detach",
       "kind": "rationale",
       "anchor": {
-        "start": 1065,
-        "end": 1065,
+        "start": 1079,
+        "end": 1079,
         "snippet": "bool re_app_event(ReApp *a, const SDL_Event *e, ReDraw *draw) {"
       },
       "note": "Pointer focus selects a view without changing its root/session binding. Toolbar focus clears custom editor/terminal/game keyboard routing. Detach never calls Stop. Wheel targets the visible hovered terminal/editor; negotiated terminal reporting gets first refusal before native history. Mouse motion/buttons route to an existing held terminal first, otherwise the hovered visible terminal; layout drags do not become application motion. Hover never changes keyboard focus. Focus loss releases all terminal holds, focus transfer releases the previous terminal, and hidden views release during drawing. Native UI still receives mouse motion to settle microui hover; consumed application buttons are not forwarded to chrome. Modified file clicks are consumed locally before negotiated terminal buttons; both halves are handled by re_app_file_link_event. Image panes receive their own hovered wheel events and release image resources on detach while preserving tab identity.",
@@ -97,8 +111,8 @@
       "id": "status-segment-geometry",
       "kind": "constraint",
       "anchor": {
-        "start": 710,
-        "end": 710,
+        "start": 719,
+        "end": 719,
         "snippet": "void re_app_status(ReApp *a, ReDraw *draw) {"
       },
       "note": "The status bar is drawn outside microui, after every pane, so a segment on it cannot be a control: it is a face here and a rectangle reported to automation, and the press is served in re_app_event beside the pane strip's context menu. A window of its own would have cost a root container, and fifteen leaf panes with a surface open already sit at microui's root list of 32. The token segment takes the right edge and the facts move left of it so that its rectangle depends on the window width and its own text alone; measuring it from the facts instead would make the pressable rectangle lag the drawn one by a frame.",
@@ -109,7 +123,7 @@
   ],
   "source": {
     "path": "editor/workspace.c",
-    "sha256": "0837ec1f7e10cae55d5491c1226cc5d6c64ee0724c652537c33e922794df9660",
+    "sha256": "3b65de49335b7447483f9eb7386fd8345eee32f5befb0ea2a72e71604de6f6a3",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }
