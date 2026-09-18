@@ -12,7 +12,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -91,4 +91,68 @@ test('red-mcp refuses a binding it cannot serve, in the words the worker uses', 
   const refused = await run(BINARY, ['--context', bad]).then(() => null, error => error);
   assert.ok(refused, 'a context that is not a local workspace is refused');
   assert.match(String(refused.stderr), /Invalid local workspace context/);
+});
+
+/* What an agent is told when a plugin is switched on (F235, spec 152 decisions 2 and 9).
+ *
+ * The vendor's own quick start asks a person to install a skill, per agent CLI, so the agent knows a
+ * capability exists. This is the workspace answering that question itself: a switched-on plugin's
+ * instructions reach the surface at `initialize` and its tools reach `tools/list`, and both leave
+ * the moment it is switched off. The captured declaration is what "off" has to look like — exactly
+ * the surface red-mcp is judged against above, with nothing added. */
+test('a switched-on plugin reaches an agent at initialize, and a switched-off one does not',
+     { timeout: 120000 }, async t => {
+  await built('-p', 'red-mcp', '--bin', 'red-mcp');
+  const directory = await mkdtemp(path.join(tmpdir(), 'red-mcp-plugin-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const stateDir = path.join(directory, 'state');
+  const server = await startServer({ stateDir });
+  t.after(() => server.close());
+  const root = await server.store.addRoot(directory);
+  const contextFile = path.join(directory, 'context.json');
+  await writeFile(contextFile, JSON.stringify({ url: server.url, token: server.token, instance: server.instance, rootId: root.id }), { mode: 0o600 });
+
+  await mkdir(path.join(directory, 'plugins', 'fixture'), { recursive: true });
+  await writeFile(path.join(directory, 'plugins', 'fixture', 'plugin.json'), JSON.stringify({
+    name: 'fixture',
+    service: {
+      command: ['plugins/fixture/service.sh'],
+      instructions: 'say.md',
+      tools: [{ name: 'ask', command: 'ask', description: 'A fixture tool.', inputSchema: { type: 'object' } }],
+    },
+  }));
+  await writeFile(path.join(directory, 'plugins', 'fixture', 'say.md'),
+                  'The fixture capability is available here. You do not need to install anything to use it.');
+
+  const declared = JSON.parse(await readFile(path.join(ROOT, 'red/red-mcp/src/tools.json'), 'utf8'));
+
+  /* Off: the surface is the captured one, to the character. A plugin nobody switched on is a
+     workspace that behaves exactly as it did before the plugin was there. */
+  const off = await connect(t, BINARY, ['--context', contextFile]);
+  assert.equal(off.getInstructions(), declared.instructions, 'a switched-off plugin teaches nothing');
+  assert.deepEqual((await off.listTools()).tools.map(tool => tool.name), declared.tools.map(tool => tool.name));
+  await off.close();
+
+  /* On. The marker file IS the switch — core reads exactly one file in a plugin's state directory
+     (spec 152 decision 5) — so this is the same gesture the Plugins page makes. */
+  await mkdir(path.join(stateDir, 'plugins', 'fixture'), { recursive: true });
+  await writeFile(path.join(stateDir, 'plugins', 'fixture', 'enabled'), 'on\n');
+
+  const on = await connect(t, BINARY, ['--context', contextFile]);
+  const taught = on.getInstructions();
+  assert.ok(taught.startsWith(declared.instructions), 'the workspace still says everything it said before');
+  assert.match(taught, /do not need to install anything/, 'and the plugin has added what it wants an agent to know');
+  const tools = (await on.listTools()).tools;
+  assert.ok(tools.some(tool => tool.name === 'fixture.ask'),
+            `its tool is offered, namespaced: ${JSON.stringify(tools.map(t => t.name).slice(-3))}`);
+  assert.deepEqual(tools.slice(0, declared.tools.length).map(tool => tool.name), declared.tools.map(tool => tool.name),
+                   'ahead of it, the captured surface is unchanged');
+  await on.close();
+
+  /* And off again: switching it off is what makes the toggle mean something to an AGENT rather than
+     only to a page. */
+  await rm(path.join(stateDir, 'plugins', 'fixture', 'enabled'));
+  const again = await connect(t, BINARY, ['--context', contextFile]);
+  assert.equal(again.getInstructions(), declared.instructions, 'and stops being told the moment it is off');
+  assert.deepEqual((await again.listTools()).tools.map(tool => tool.name), declared.tools.map(tool => tool.name));
 });

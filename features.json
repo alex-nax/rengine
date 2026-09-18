@@ -4606,13 +4606,16 @@
         "A broken manifest is skipped rather than emptying the page, and a service that is not built says so where a person reads it.",
         "A service is invoked with its own state directory, the project root as its working directory, and no inherited environment beyond what it was declared with."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [],
       "owner_workspace": "rengine",
       "deliverable": "red_project::plugins, the worker's extensions/toggle/plugin-call/plugin-tools routes, and the MCP merge.",
       "external_references": [],
       "evidence": [
-        "Built 2026-09-18. 7 unit tests in red_project::plugins; 387/387 Rust; the captured declaration untouched. The whole path was exercised against the real jev plugin: declared -> page -> toggle -> jev.triage offered -> invoked as a subprocess -> live API -> recorded judgement."
+        "Built 2026-09-18. 7 unit tests in red_project::plugins; 387/387 Rust; the captured declaration untouched. The whole path was exercised against the real jev plugin: declared, switched on, described, and its tool called.",
+        "Criterion 2, added 2026-09-18 as a test rather than a claim - tests/red-mcp.test.mjs 'a switched-on plugin reaches an agent at initialize, and a switched-off one does not': with the plugin off, tools/list is the captured tools.json name for name; switched on, `fixture.ask` is offered behind an unchanged captured surface; switched off, it is gone. The captured tools.json is not edited and its parity test still passes.",
+        "Criterion 7, added 2026-09-18 - tests/native-extensions.spec.mjs: the fixture service reports the working directory and $HOME it was invoked with, and the page shows the project root and an EMPTY home. Observed failing for its own reason by removing `.env_clear()` from red_project::plugins::invoke, rebuilt before the run: the run failed on 'and it inherits no environment', reporting home=[/Users/alex].",
+        "Criteria 1, 3, 4, 5 and 6: red_project::plugins unit tests - off until switched on and offering nothing while off; a plugin over the tool cap refused by name with nothing offered; tools namespaced by plugin; four name shapes that could escape a directory or a namespace not read as plugins at all; a broken manifest skipped without emptying the page, and an unbuilt service saying 'not built' in the sentence the page renders."
       ]
     },
     {
@@ -4676,7 +4679,7 @@
         "A setting the plugin never declared is refused rather than passed to its command line.",
         "The key file is written 0600, and a value with whitespace in it is refused as a probable mis-paste rather than stored."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         232
       ],
@@ -4684,8 +4687,12 @@
       "deliverable": "The instructions and config halves of the service facet, the worker's plugin-instructions and plugin-configure routes, the MCP initialize merge, and the jev plugin's instructions.md and configure subcommand.",
       "external_references": [],
       "evidence": [
-        "Rust side built 2026-09-18: 11 unit tests in red_project::plugins covering the teach/off cycle, both caps, the escape refusal and the undeclared-setting refusal; the jev plugin's configure round trip verified at 0600 with the key absent from the answer, and a whitespace paste refused. The real plugin contributes 2,898 characters of instructions.",
-        "NOT DONE: the Plugins page does not yet render the declared config fields - the editor half is outstanding, and the route it will call exists and is tested."
+        "Rust side built 2026-09-18: 12 unit tests in red_project::plugins covering the teach/off cycle, both caps, the directory-escape refusal, the undeclared-setting refusal, and that a plugin reporting a VALUE where `set` belongs contributes nothing to the page. 392/392 Rust tests pass.",
+        "Criterion 1 - tests/red-mcp.test.mjs 'a switched-on plugin reaches an agent at initialize, and a switched-off one does not': with the plugin off the surface is the captured declaration to the character; with it on, initialize's instructions still start with the workspace's own and now carry the plugin's; switched off again, exactly the captured surface returns. Observed failing for its own reason by making red-mcp's instructions() merge nothing - the run failed on 'and the plugin has added what it wants an agent to know' and on nothing earlier.",
+        "Criteria 2, 3 and 5 - red_project::plugins unit tests: instructions over the per-plugin cap are refused by name and contribute nothing; an instructions path containing '..' is refused with 'beside its manifest'; a setting the plugin never declared is refused before any command line is built.",
+        "Criterion 4 - tests/native-extensions.spec.mjs 'a declared setting is typed into the page, reaches the plugin, and is never read back': the page draws the declared field, the save is unavailable until something is typed, the typed key reaches the plugin's own state directory, and the whole published desktop state contains no part of it. Replacing it a second time is the same gesture and the plugin ends with the new value. The field is drawn MASKED: text-runs - every string the frame actually drew - contains no substring of the key and does contain one '*' per character. Observed failing for its own reason twice, each with a rebuild between the sabotage and the run: drawing the buffer instead of the mask failed only the 'nothing drawn is the key' assertion, with the key visible in the run list; removing the `set` merge failed only 'switched on, the plugin reports it has no key'.",
+        "Criterion 6 - the jev plugin's own tests: configure writes 0600, the answer contains no part of the key, and a paste with whitespace in it is refused as a probable mis-paste.",
+        "The routes moved from the worker to red_project::serve, the module BOTH servers call (spec 152 decision 13). They had been answerable only at the worker: the door, which is the whole workspace when nothing is behind it, answered 'Unknown workspace endpoint.' and the Plugins page loaded empty - observed twice before the move and green after it. tests/native-front-door, native-devices and native-dashboard confirm the door's other project routes are unchanged."
       ]
     }
   ]

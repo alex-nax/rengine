@@ -1,3 +1,57 @@
+## Session 177 (opus-5) — 2026-09-18 — A plugin's settings are typed into the page, and the door can answer for them
+
+F232 and F235 close. The Plugins page now renders the settings a plugin declares, and the routes
+behind them are answered by the module both servers call rather than by one of them.
+
+**The page half.** A declared setting draws as a closed row — its label, whether the plugin says it
+has one, and a button. Opening it gives a field and Save/Cancel; the field opens EMPTY, because there
+is nothing on this side to prefill it with and never was. For `kind: "secret"` the field is masked:
+`RE_UI_SECRET` leaves the buffer alone and draws one `*` per character, so backspace and the caret
+still count real characters while the screen, a screenshot and the `text-runs` automation op carry a
+length instead of a credential. Save posts one setting to the plugin's own `configure` and wipes the
+buffer in the same call, so no path that sends a key forgets to forget it. `plugins::page` now also
+carries each declared field's `set` flag, taken from the plugin's own answer and **only when it is a
+boolean** — a plugin answering `{"set": "sk-live-..."}` would otherwise have found the one channel
+allowed to describe a secret and put the secret through it.
+
+**The correction, and it is the larger half.** The plugin routes existed only in `red_worker`. The
+desktop in every test — and in any directory with no backend — talks to `red-host`, which answered
+`Unknown workspace endpoint.` The Plugins page loaded EMPTY at the address people actually use, and
+every check written for the feature had run against the worker. `red_project::serve` exists for
+exactly this ("BOTH answer them and neither may forward them"), so the six routes moved there, with
+`state_directory` added to `Asked` and a `needs_state_directory` predicate so a worker only pays for
+the round trip when a route needs it. The door was also keeping a hand-written copy of that module's
+route table; it now calls `serve::owns`. `docs/lessons-learned.md` has the transferable rule: a
+module that publishes a predicate for its own routes is not optional to call, and a copy that agrees
+today is drift waiting for the next row.
+
+**Evidence, each observed failing for its own reason with a rebuild in between.**
+`tests/native-extensions.spec.mjs` (new) drives a fixture plugin end to end: field drawn, save
+unavailable until something is typed, key reaching the plugin's state directory, key absent from the
+whole published desktop state, replace doing it again with a second value, and the field masked.
+Sabotages: drawing the buffer instead of the mask failed only the mask assertion, with the key
+visible in the run list; removing the `set` merge failed only the "reports it has no key" wait;
+removing `.env_clear()` failed only "it inherits no environment", reporting `home=[/Users/alex]` —
+which is F232's decision-8 criterion, previously asserted by nobody.
+`tests/red-mcp.test.mjs` gained the on/off cycle: switched off the surface is the captured
+declaration to the character, switched on the instructions carry the plugin's and `tools/list`
+carries `fixture.ask`, switched off it returns exactly. Sabotaging red-mcp's merge failed only the
+"has added what it wants an agent to know" assertion. That criterion had been verified by hand last
+session against the route that has now moved, so the manual evidence was stale either way.
+
+Gates: 392/392 Rust, `native-extensions` green, `red-mcp` 3/3, `native-front-door` +
+`native-devices` + `native-dashboard` 7/7 for the door's other project routes, `./init.sh`,
+`design.py check`, `agent_names.py check`, `features.py validate` (187 rows) all green. Sidecar
+anchors repaired and stamped, with a new `secret-mask` rationale in `editor/ui/ui.c`.
+
+**Left undone.** F234, the jev plugin's own native tab under `plugins/jev/ui/`, is untouched. A
+second provider (OpenRouter was named) still costs nothing to add: another declared field here or
+another plugin, and neither needs any of this to change.
+
+**Housekeeping from my own previous commit.** `a9ed26b` had swept up the first draft of the
+explorer regression and a stray `.bak`; the backup is amended out of it, and Session 176's commit
+carries the finished check with its fix.
+
 ## Session 176 (opus-5) — 2026-09-18 — The explorer's walk stops freeing the tree it is walking
 
 KI-131, fixed and closed. The crash the owner caught on 2026-09-17 — `re_app_ui` into `tree_rows`

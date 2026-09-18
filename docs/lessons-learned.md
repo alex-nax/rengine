@@ -73,3 +73,25 @@ prescribed shape), one frozen record's vocabulary, and one design-source name th
 A word boundary is the wrong tool for this check, twice over: `\b` does not break at `_`, so
 `\bkimi\b` misses `kimi_flags`; widening it to "not a letter or digit" then misses `codexModels`,
 because JavaScript spells the same violation in camelCase. Split identifiers into words instead.
+
+## ANTIPATTERN — a route table copied into the server that calls it
+
+`red_project::serve` owns the routes about a project, and it exists for one reason: the door and the
+worker both answer them and neither may forward them, so a second implementation would be a second
+answer to "what does this project declare". It states the set as a function — `owns(method, path)` —
+precisely so there is one list.
+
+The door then re-listed those paths in its own dispatch, as a hand-written `matches!` that happened
+to agree. Adding a route to `owns` therefore made it answerable at the worker and 404 at the door —
+and the door **is** the whole workspace whenever nothing is behind it, which is what the desktop
+talks to in every test and in a directory with no backend. The page was written, the routes were
+written, the unit tests passed, and the feature was dead at the address people use.
+
+The transferable rule: **when a module publishes a predicate for its own routes, calling it is not
+optional — a copy that agrees today is drift waiting for the next row.** The copy is invisible
+because it is correct at the moment it is written, and a guard cannot see it either: both lists were
+valid code that compiled. What caught it was the first test that drove the desktop against the door.
+
+The corollary is about where a feature's first test points. Every check on the new routes ran against
+the worker, because that is where the handlers had been written; the one thing none of them asked was
+whether the surface a person actually opens could reach them.

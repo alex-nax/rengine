@@ -34,6 +34,7 @@ enum {                          /* opt flags; microui's MU_OPT_* still apply whe
   RE_UI_GROUP_LAST = 1 << 13,   /* round only the trailing corners */
   RE_UI_TRANSPARENT = 1 << 14,  /* hit area only: the caller drew the face itself */
   RE_UI_FIELD_PAD = 1 << 15,    /* the card's field padding rather than a button's */
+  RE_UI_SECRET = 1 << 16,       /* a textbox that edits its buffer and draws dots: a pasted credential */
 };
 
 void re_ui_begin(ReDraw *draw, double seconds);  /* once per frame, before any control */

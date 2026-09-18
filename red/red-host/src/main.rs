@@ -504,15 +504,11 @@ async fn connection(front: Arc<Front>, mut client: TcpStream) -> io::Result<()> 
             if !head.keeps_alive() { return Ok(()); }
             continue;
         }
-        /* What the project itself declares and leaves behind (F156). The last two are POSTs, asked
-           with a JSON document rather than a query string; the capture is the one that writes. */
-        if (head.method == "GET"
-            && matches!(
-                head.path().as_str(),
-                "/api/formats" | "/api/recordings" | "/api/recording" | "/api/dashboard" | "/api/devices" | "/api/game-config" | "/api/tracker" | "/api/bytes" | "/api/worktrees" | "/api/conversations"
-            ))
-            || (head.method == "POST" && matches!(head.path().as_str(), "/api/format-preview" | "/api/dashboard-capture"))
-        {
+        /* What the project itself declares and leaves behind (F156), asked of the module that owns
+           the table rather than of a copy of it kept here. The copy was the drift that module exists
+           to prevent: routes added to it answered at the worker and 404ed at this door, which is the
+           whole workspace whenever there is no backend behind it. */
+        if red_project::serve::owns(&head.method, head.path().as_str()) {
             let body = if head.method == "POST" { head.read_body(&mut client, &mut buffered).await? } else { String::new() };
             /* `None` is this door declining after all — a remote tracker, whose providers need a
                network client F154 owns — and it falls through to the forwarder below. */

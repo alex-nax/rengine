@@ -92,8 +92,8 @@
       "id": "menu-item",
       "kind": "rationale",
       "anchor": {
-        "start": 427,
-        "end": 452,
+        "start": 440,
+        "end": 465,
         "symbol": "re_ui_menu_item",
         "snippet": "int re_ui_menu_item(mu_Context *ctx, const char *label, int icon, const char *hint, bool marked) {"
       },
@@ -108,8 +108,8 @@
       "id": "hue-track",
       "kind": "rationale",
       "anchor": {
-        "start": 466,
-        "end": 496,
+        "start": 479,
+        "end": 509,
         "symbol": "re_ui_hue_slider",
         "snippet": "int re_ui_hue_slider(mu_Context *ctx, float *hue) {"
       },
@@ -134,11 +134,25 @@
         "known-issues.md",
         "tests/native-tracker-virtual.spec.mjs"
       ]
+    },
+    {
+      "id": "secret-mask",
+      "kind": "rationale",
+      "anchor": {
+        "start": 364,
+        "end": 373,
+        "snippet": "  char masked[64];",
+        "symbol": "re_ui_textbox_ex"
+      },
+      "note": "RE_UI_SECRET masks what is DRAWN and leaves the buffer alone, which is the only split that works. The editing rules above operate on the real buffer, so backspace removes a real character and the caret sits after the real text width; a masked buffer would have to be edited and then somehow reversed. The mask is one '*' per CHARACTER rather than per byte - the continuation-byte test is why - so a pasted key of multibyte junk does not report a misleading length. It is capped at 64 because it is a length indicator and the field is narrower than that anyway; text_clipped clips the rest. What this buys is that a credential typed into the Plugins page is absent from the screen, from a screenshot, and from the `text-runs` automation op that a spec reads - which is where tests/native-extensions.spec.mjs asserts it.",
+      "refs": [
+        "docs/specs/152-plugin-service-facet.md"
+      ]
     }
   ],
   "source": {
     "path": "editor/ui/ui.c",
-    "sha256": "2d7e487424c2dec8911fe86a24d79583a25a6355bc6075b34afb2a1681052926",
+    "sha256": "1cb3d85baa67d955672e6d619f54acb405fd17328aa0f31347da5c872fd65b16",
     "format": "c",
     "format_fingerprint": "6893201a8120b54c4ae86198441a791fd50e0731d85917c6c1fe0e5fb8ad9627"
   }

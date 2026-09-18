@@ -98,6 +98,9 @@ pub(crate) async fn answer_about_project(front: &Arc<Front>, path: &str, head: &
             query: &|name: &str| asked.get(name).cloned(),
             query_last: &|name: &str| last.get(name).cloned(),
             environment: &environment,
+            /* This door's own --state: it IS the workspace's, which is why a plugin switched on
+               here is switched on for everything the directory serves. */
+            state_directory: &state,
             /* The door is the longer-lived of the two servers that answer these, so the probe cache
                it keeps is the same optimisation with a longer life: one listing costs one probe per
                device, not one per action. */

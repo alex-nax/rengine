@@ -5,8 +5,8 @@
       "id": "probe-without-provider-session",
       "kind": "rationale",
       "anchor": {
-        "start": 140,
-        "end": 140,
+        "start": 216,
+        "end": 216,
         "symbol": "probe",
         "snippet": "fn probe(workspace: &mut Workspace, surface: &Value) -> Result<(), String> {"
       },
@@ -20,8 +20,8 @@
       "id": "root-bound-replaceable-tools",
       "kind": "rationale",
       "anchor": {
-        "start": 158,
-        "end": 158,
+        "start": 234,
+        "end": 234,
         "symbol": "main",
         "snippet": "fn main() -> ExitCode {"
       },
@@ -31,5 +31,11 @@
         "docs/evidence/mcp-cutover-f187-2026-09-13.md"
       ]
     }
-  ]
+  ],
+  "source": {
+    "path": "red/red-mcp/src/main.rs",
+    "sha256": "3a6e3dfeb4415103365bc3b69753bd299c9d37c14a6c226cf620bcf25b969ec7",
+    "format": "rust",
+    "format_fingerprint": "3802714b4569aa9e93696227dc96f5433c9f027b6349406e4e8901968d9e7fea"
+  }
 }

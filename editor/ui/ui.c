@@ -358,9 +358,22 @@ int re_ui_textbox_ex(mu_Context *ctx, char *buffer, int size, int icon, const ch
     x += text_size + RE_METRIC_DESIGN_ICON_GAP;
   }
   mu_Rect box = mu_rect(rect.x, rect.y, rect.w - pad, rect.h);
+  /* A secret is EDITED in full and DRAWN as dots: the buffer above is untouched, so backspace and
+     the caret still count real characters, and what is on the screen — and in any screenshot, and in
+     the snapshot a spec writes — is a length rather than a credential. */
+  char masked[64];
+  const char *shown = buffer;
+  if ((opt & RE_UI_SECRET) && *buffer) {
+    int dots = 0;
+    for (const char *c = buffer; *c && dots < (int)sizeof(masked) - 4; c++) {
+      if ((*c & 0xc0) != 0x80) masked[dots++] = '*';   /* one per character, not per byte */
+    }
+    masked[dots] = 0;
+    shown = masked;
+  }
   if (*buffer) {
-    int width = re_draw_text_width(ui.draw, RE_FACE_UI, text_size, buffer, -1);
-    text_clipped(RE_FACE_UI, text_size, buffer, x, text_y, RE_COLOR_TEXT, box);
+    int width = re_draw_text_width(ui.draw, RE_FACE_UI, text_size, shown, -1);
+    text_clipped(RE_FACE_UI, text_size, shown, x, text_y, RE_COLOR_TEXT, box);
     if (focused && x + width + 1 + RE_METRIC_EDITOR_CARET_WIDTH <= box.x + box.w) {
       ui_rect(mu_rect(x + width + 1, text_y, RE_METRIC_EDITOR_CARET_WIDTH, text_size), RE_COLOR_CARET);
     }

@@ -196,13 +196,31 @@ pub fn page(project_root: &str, state_directory: &str) -> Value {
             match describe(&manifest, project_root, state_directory) {
                 Ok(said) => { row["detail"] = said.get("detail").cloned().unwrap_or(Value::Null);
                               row["ready"] = said.get("ready").cloned().unwrap_or(json!(true));
-                              row["usage"] = said.get("usage").cloned().unwrap_or(Value::Null); }
+                              row["usage"] = said.get("usage").cloned().unwrap_or(Value::Null);
+                              settings_present(&mut row, &said); }
                 Err(error) => { row["detail"] = json!(error); row["ready"] = json!(false); }
             }
         }
         rows.push(row);
     }
     json!({ "extensions": rows })
+}
+
+/// Mark each declared setting with whether the plugin says it has one.
+///
+/// A plugin answers `config: { "<setting>": { "set": true|false } }` and that is the whole of what
+/// it ever says about a setting: whether there is one, never what it is. Only a BOOLEAN is taken —
+/// a plugin that answered `{"set": "sk-live-..."}` would otherwise have found a way to put a
+/// credential on a page through the one field that is allowed to describe it.
+fn settings_present(row: &mut Value, said: &Value) {
+    let Some(reported) = said.get("config").and_then(Value::as_object) else { return };
+    let Some(fields) = row["config"].as_array_mut() else { return };
+    for field in fields {
+        let Some(name) = field.get("name").and_then(Value::as_str).map(str::to_string) else { continue };
+        if let Some(set) = reported.get(&name).and_then(|s| s.get("set")).and_then(Value::as_bool) {
+            field["set"] = json!(set);
+        }
+    }
 }
 
 /// Ask a plugin's service to describe itself.
@@ -512,6 +530,22 @@ mod tests {
         assert!(error.contains("declares no setting"), "{error}");
         // And an empty change is refused rather than invoking the service for nothing.
         assert!(configure(&manifest, &json!({ "key": "" }), &root, &state).is_err());
+    }
+
+    #[test]
+    fn a_setting_carries_whether_the_plugin_has_one_and_never_what_it_is() {
+        let mut row = json!({ "config": [{ "name": "key", "label": "API key", "kind": "secret" },
+                                         { "name": "silent", "label": "Never answered" }] });
+        settings_present(&mut row, &json!({ "config": { "key": { "set": true } } }));
+        assert_eq!(row["config"][0]["set"], true, "the page can say a key is there");
+        assert!(row["config"][1].get("set").is_none(),
+                "and says nothing about a setting the plugin did not mention");
+
+        // The page renders what is in this field. A plugin answering with the value itself must not
+        // reach it — `set` is a yes or a no, and anything else is not an answer to that question.
+        let mut row = json!({ "config": [{ "name": "key" }] });
+        settings_present(&mut row, &json!({ "config": { "key": { "set": "sk-live-smuggled" } } }));
+        assert!(row["config"][0].get("set").is_none(), "a value is not a yes: {}", row["config"][0]);
     }
 
     #[test]

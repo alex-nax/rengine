@@ -34,6 +34,12 @@ pub struct Asked<'a> {
     /// `Object.fromEntries(query)`: the LAST. `/api/bytes` alone read its query as an object.
     pub query_last: &'a dyn Fn(&str) -> Option<String>,
     pub environment: &'a [(String, String)],
+    /// The WORKSPACE's state directory, which is the one thing here that is not about the project.
+    ///
+    /// A plugin is declared in the checkout and switched on beside the state: the manifest travels
+    /// with the project and the decision to run it does not (spec 152 decision 5). So the routes
+    /// that read one need both, and this is where the asker says where its own state is.
+    pub state_directory: &'a str,
     /// The device probes the asker keeps. One listing costs one probe per device, not one per
     /// action, and the cache's LIFE is the asker's — a door outlives a worker, and both are right.
     pub probes: &'a crate::devices::Probes,
@@ -56,6 +62,33 @@ pub fn owns(method: &str, path: &str) -> bool {
             | ("GET", "/api/conversations")
             | ("POST", "/api/format-preview")
             | ("POST", "/api/dashboard-capture")
+            /* The plugin routes, here for this module's own reason: BOTH servers answer them and
+               neither may forward them. A door with no backend is the whole workspace and answers
+               everything; a worker's retained host predates plugins entirely. A copy in either one
+               is a Plugins page that works at one address and is empty at the other. */
+            | ("GET", "/api/extensions")
+            | ("POST", "/api/extension-toggle")
+            | ("GET", "/api/plugin-tools")
+            | ("GET", "/api/plugin-instructions")
+            | ("POST", "/api/plugin-call")
+            | ("POST", "/api/plugin-configure")
+    )
+}
+
+/// Does this route need the asker's STATE directory as well as the project's path?
+///
+/// Only the plugin routes do, and one asker pays for it: a worker learns its host's state directory
+/// by asking it, which is a round trip. So it is fetched where it is needed rather than before every
+/// route that reads a project.
+pub fn needs_state_directory(path: &str) -> bool {
+    matches!(
+        path,
+        "/api/extensions"
+            | "/api/extension-toggle"
+            | "/api/plugin-tools"
+            | "/api/plugin-instructions"
+            | "/api/plugin-call"
+            | "/api/plugin-configure"
     )
 }
 
@@ -75,7 +108,8 @@ pub fn local_tracker(root_path: &str, declaration_file: Option<&str>) -> bool {
 /// The answer. Blocking — every one of these reads a filesystem and some of them run a command — so
 /// a caller on an async runtime hands it to a blocking thread.
 pub fn route(asked: &Asked) -> Result<Value, Fail> {
-    let Asked { root_id, root_path, declaration_file, path, data, query, query_last, environment, probes } = asked;
+    let Asked { root_id, root_path, declaration_file, path, data, query, query_last, environment,
+                state_directory, probes } = asked;
     let declared = || crate::declaration::read(root_path, *declaration_file);
     let now = || std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|since| since.as_millis() as i64).unwrap_or(0);
     let context = |controls: bool, refresh: bool| crate::devices::Context {
@@ -101,6 +135,61 @@ pub fn route(asked: &Asked) -> Result<Value, Fail> {
             Ok(Value::Object(listed))
         }
         "/api/recordings" => crate::recordings::list(root_id, root_path, query("limit").as_deref()),
+        /* The Plugins page. Core knows which plugins this checkout declares and which of them are
+           switched on; what each one IS, and whether it can work, is the plugin's own answer, asked
+           of the plugin (spec 152). Nothing in this module names one. */
+        "/api/extensions" => Ok(crate::plugins::page(root_path, state_directory)),
+        "/api/extension-toggle" => {
+            let name = data.get("name").and_then(Value::as_str).unwrap_or_default();
+            let Some(on) = data.get("enabled").and_then(Value::as_bool) else {
+                return Err(Fail::with_status("A toggle needs `enabled` to be true or false.", 400));
+            };
+            if !crate::plugins::declared(root_path).iter().any(|manifest| manifest.name == name) {
+                return Err(Fail::with_status(format!("There is no plugin named {name:?} in this project."), 404));
+            }
+            crate::plugins::set_enabled(state_directory, name, on).map_err(|e| Fail::with_status(e, 409))?;
+            /* Answered with the page as it now stands, so a switch shows what the workspace decided
+               rather than what the click hoped for. */
+            Ok(crate::plugins::page(root_path, state_directory))
+        }
+        /* The tools the switched-on plugins offer, for an agent's tool list. A plugin over its own
+           cap is REPORTED rather than quietly dropped: a tool that is missing should be a thing
+           somebody can read about. */
+        "/api/plugin-tools" => {
+            let (tools, refusals) = crate::plugins::tools(root_path, state_directory);
+            Ok(serde_json::json!({ "tools": tools, "refusals": refusals }))
+        }
+        /* What the switched-on plugins want every agent to know — how an agent learns a capability
+           exists without anybody installing a skill to tell it (spec 152 decision 9). */
+        "/api/plugin-instructions" => {
+            let (text, refusals) = crate::plugins::instructions(root_path, state_directory);
+            Ok(serde_json::json!({ "instructions": text, "refusals": refusals }))
+        }
+        /* Settings a person typed into the Plugins page, handed to the plugin that declared them.
+           Core does not keep them and is never told what a secret is; the plugin describes itself
+           again afterwards, which is where "set" comes from. */
+        "/api/plugin-configure" => {
+            let name = data.get("name").and_then(Value::as_str).unwrap_or_default();
+            let values = data.get("values").cloned().unwrap_or(Value::Null);
+            let manifest = crate::plugins::declared(root_path).into_iter().find(|m| m.name == name)
+                .ok_or_else(|| Fail::with_status(format!("There is no plugin named {name:?} in this project."), 404))?;
+            crate::plugins::configure(&manifest, &values, root_path, state_directory)
+                .map_err(|error| Fail::with_status(error, 409))?;
+            Ok(crate::plugins::page(root_path, state_directory))
+        }
+        /* One call to a switched-on plugin's tool. The namespace is what routes it, and a plugin
+           that is off is simply not routable. */
+        "/api/plugin-call" => {
+            let tool = data.get("tool").and_then(Value::as_str).unwrap_or_default();
+            let arguments = data.get("arguments").cloned().unwrap_or(Value::Null);
+            let (manifest, short) = crate::plugins::route(root_path, state_directory, tool)
+                .ok_or_else(|| Fail::with_status(format!(
+                    "{tool} is not offered: either no plugin declares it, or the one that does is \
+                     switched off in Plugins."), 404))?;
+            crate::plugins::call(&manifest, &short, &arguments, root_path, state_directory)
+                .map_err(|error| Fail::with_status(error, 409))
+        }
+
         "/api/dashboard" => Ok(crate::dashboard::dashboard_actions(&context(false, false), &declared())),
         "/api/devices" => {
             /* The Devices tab asks for the controls bound to each box; a caller that only wants to

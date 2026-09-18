@@ -353,6 +353,21 @@ void re_app_extension_toggle(ReApp *a, int tab, const char *name, bool on) {
   request(a, OP_LOAD, tab, "extension-toggle", body);
   cJSON_Delete(body);
 }
+/* One setting, sent to the plugin that declared it, answered with the page as it now stands — the
+   toggle's rule, for the same reason: a key the plugin refuses must not leave a field looking saved.
+   The value is scrubbed from the buffer here rather than by the caller, so every path that sends one
+   forgets it, and the body carrying it is freed immediately. */
+void re_app_extension_configure(ReApp *a, int tab, const char *name, const char *setting, const char *value) {
+  cJSON *body = cJSON_CreateObject();
+  cJSON_AddStringToObject(body, "rootId", a->tabs[tab].root);
+  cJSON_AddStringToObject(body, "name", name);
+  cJSON *values = cJSON_AddObjectToObject(body, "values");
+  cJSON_AddStringToObject(values, setting, value);
+  request(a, OP_LOAD, tab, "plugin-configure", body);
+  cJSON_Delete(body);
+  memset(a->extension_value, 0, sizeof(a->extension_value));
+  a->extension_field[0] = 0;
+}
 int re_app_dashboard(ReApp *a, const char *root) {
   if (!*root) return -1;
   if (!listed(a->dashboards_opened, root)) cJSON_AddItemToArray(a->dashboards_opened, cJSON_CreateString(root));

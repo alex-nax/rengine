@@ -66,6 +66,11 @@ typedef struct ReApp {
   char initial_scene[1024]; bool scene_opened;   /* RENGINE_INITIAL_SCENE, opened once (spec 126) */
   char primary_root[65];                     /* the root the window opened on; identity comes from it (spec 084) */
   char project_input[1024], agent[256], status[512];
+  /* The Plugins page's one open setting, and what has been typed into it. ONE buffer, because a
+     person fills in one setting at a time and because the value may be a credential: it is wiped the
+     moment it is sent, so a key does not outlive the click that saved it. `extension_field` is
+     "<plugin>/<setting>", empty when nothing is being edited (spec 152 decision 11). */
+  char extension_field[160], extension_value[512];
   /* The workspace's own agent list, for the toolbar's select (spec 134 D7). The Tasks tab keeps a
      per-tab menu of its own; this one is the workspace's, fetched for the selected root when the
      select is opened, so a tab that was never opened does not decide what the toolbar offers. */
@@ -187,6 +192,9 @@ int  re_app_devices(ReApp *app, const char *root);
 int  re_app_extensions(ReApp *app, const char *root);   /* the Plugins page */
 void re_app_extensions_refresh(ReApp *app, int tab);
 void re_app_extension_toggle(ReApp *app, int tab, const char *name, bool on);
+/* Hand one declared setting to its plugin. The value leaves here and is not kept: core does not
+   learn what a plugin's settings mean and never reads one back (spec 152 decision 11). */
+void re_app_extension_configure(ReApp *app, int tab, const char *name, const char *setting, const char *value);
 void re_extensions_ui(ReApp *app, mu_Context *ui, int tab);
 void re_app_devices_refresh(ReApp *app, int tab);
 int re_app_tracker(ReApp *app, const char *root);       /* the project's task list (spec 083) */
