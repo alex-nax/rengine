@@ -128,13 +128,31 @@ fn refused(message: &str, root_path: &str) -> Value {
     json!({ "isError": true, "content": [{ "type": "text", "text": text }] })
 }
 
+/// The workspace's own instructions with the enabled plugins' appended. A plugin that cannot be
+/// asked changes nothing: the captured text is what an agent gets.
+fn instructions(surface: &Value, workspace: &Workspace) -> Value {
+    let own = surface.get("instructions").and_then(Value::as_str).unwrap_or_default().to_string();
+    let route = format!("plugin-instructions?rootId={}", workspace.binding.root_id);
+    let added = workspace.get(&route).ok()
+        .and_then(|answer| answer.get("instructions").and_then(Value::as_str).map(str::to_string))
+        .unwrap_or_default();
+    if added.trim().is_empty() {
+        return if own.is_empty() { Value::Null } else { json!(own) };
+    }
+    json!(format!("{own}\n\n{added}").trim().to_string())
+}
+
 fn answer(method: &str, params: &Value, surface: &Value, workspace: &mut Workspace) -> Result<Value, (i64, String)> {
     match method {
         "initialize" => Ok(json!({
             "protocolVersion": negotiated(params.get("protocolVersion").and_then(Value::as_str)),
             "capabilities": surface.get("capabilities").cloned().unwrap_or_else(|| json!({ "tools": {} })),
             "serverInfo": surface.get("server").cloned().unwrap_or_else(|| json!({ "name": "rengine-workspace", "version": "1.0.0" })),
-            "instructions": surface.get("instructions").cloned().unwrap_or(Value::Null),
+            /* The captured instructions, plus what each switched-on plugin wants an agent to
+               know (charter D75, spec 152). This is the answer to "an agent should not have to
+               install a skill to discover a capability this workspace already has": a pane learns
+               it on connection and stops being told the moment the plugin is switched off. */
+            "instructions": instructions(surface, workspace),
         })),
         /* The captured surface, plus whatever the plugins that are switched ON offer right now
            (charter D75, spec 152). The captured entries are evidence and are never regenerated; a

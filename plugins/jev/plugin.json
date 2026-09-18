@@ -1,11 +1,23 @@
 {
   "name": "jev",
   "version": "0.1.0",
-  "title": "Jev · typed judgements",
+  "title": "Jev \u00b7 typed judgements",
   "description": "Asks a cloud judgement service typed questions and gets probabilities back. Off until switched on; every call is recorded, and the record stays in this workspace's state directory. Charter D74/D75, specs 151 and 152.",
   "service": {
-    "command": ["plugins/jev/server/target/debug/red-jev"],
+    "command": [
+      "plugins/jev/server/target/debug/red-jev"
+    ],
     "describe": "status",
+    "configure": "configure",
+    "instructions": "instructions.md",
+    "config": [
+      {
+        "name": "key",
+        "label": "API key",
+        "kind": "secret",
+        "detail": "From console.typesafe.ai/settings/keys. Stored in this workspace's state directory, never in the checkout, and never shown again once set."
+      }
+    ],
     "state": "jev",
     "tools": [
       {
@@ -15,10 +27,19 @@
         "inputSchema": {
           "type": "object",
           "properties": {
-            "output": { "type": "string", "description": "A run recorded under the workspace state directory, named relative to it." },
-            "test": { "type": "string", "description": "The failing test's name, as the run reported it." }
+            "output": {
+              "type": "string",
+              "description": "A run recorded under the workspace state directory, named relative to it."
+            },
+            "test": {
+              "type": "string",
+              "description": "The failing test's name, as the run reported it."
+            }
           },
-          "required": ["output", "test"]
+          "required": [
+            "output",
+            "test"
+          ]
         }
       }
     ]

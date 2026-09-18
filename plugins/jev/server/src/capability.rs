@@ -23,6 +23,8 @@ pub fn status(state_directory: &str) -> serde_json::Value {
     let counts = record::tally(state_directory);
     serde_json::json!({
         "ready": has_key,
+        // What the page renders beside each declared setting: whether it is there, never what it is.
+        "config": { "key": { "set": has_key } },
         "detail": if has_key {
             "Ready. Every judgement is recorded here and nothing is acted on.".to_string()
         } else {
@@ -34,6 +36,33 @@ pub fn status(state_directory: &str) -> serde_json::Value {
             "model": crate::MODEL,
         },
     })
+}
+
+/// Write the API key a person typed into the Plugins page.
+///
+/// `0600`, and never echoed: the value does not appear in the answer, in a log line, or in what the
+/// page renders afterwards. A key is set or replaced here and read back nowhere — the page is told
+/// only whether one exists.
+pub fn configure(state_directory: &str, key: &str) -> Result<serde_json::Value, String> {
+    let key = key.trim();
+    if key.is_empty() {
+        return Err("an empty key is not a key. Leave the field alone to keep the one that is set.".to_string());
+    }
+    // Refuse what is obviously a paste of the wrong thing, before writing it where a call will fail.
+    if key.contains(char::is_whitespace) {
+        return Err("that does not look like a key: it has whitespace in it. Paste the value alone.".to_string());
+    }
+    std::fs::create_dir_all(state_directory)
+        .map_err(|e| format!("cannot make {state_directory}: {e}"))?;
+    let path = crate::key_path(state_directory);
+    std::fs::write(&path, format!("{key}\n")).map_err(|e| format!("cannot write the key: {e}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        // Same-UID agents can still read it (spec 151 records that honestly); this stops everyone else.
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+    }
+    Ok(status(state_directory))
 }
 
 /// Remove from text the things that are written down here but have no business leaving the machine.

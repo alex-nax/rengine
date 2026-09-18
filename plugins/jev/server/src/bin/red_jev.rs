@@ -15,7 +15,8 @@ use red_jev::record::{self, Outcome};
 
 fn usage() -> &'static str {
     "Usage:
-  red-jev status   --state DIR
+  red-jev status    --state DIR
+  red-jev configure --state DIR --key VALUE
   red-jev triage   --state DIR --output NAME --test NAME
   red-jev settle   --state DIR --id ID --outcome accepted|overridden|confirmed|reverted
   red-jev tally    --state DIR"
@@ -40,6 +41,7 @@ fn main() -> std::process::ExitCode {
 
     let outcome = match command.as_str() {
         "status" => Ok(capability::status(&state)),
+        "configure" => need(&args, "--key").and_then(|key| capability::configure(&state, &key)),
 
         "triage" => (|| {
             let output = need(&args, "--output")?;

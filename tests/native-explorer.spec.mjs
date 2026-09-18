@@ -78,6 +78,48 @@ test('the explorer expands in place, drills in from the caret and honours the fl
   }
 });
 
+// KI-131: the walk may not free the tree it is walking. A directory at depth >= 1 draws inside a
+// recursive `tree_rows` whose `entries` live in an expansion's data, and the drill-in used to clear
+// every expansion for the tab from inside that loop — freeing both the array being iterated and the
+// `path` string it was about to copy into the tab. The gesture is the caret on a nested directory,
+// and what it must leave behind is the directory it names, not whatever the freed block held.
+test('the caret drills in from a nested row without freeing the walk under itself', { timeout: 120000 }, async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rengine-explorer-nested-drill-'));
+  const project = path.join(dir, 'project');
+  await mkdir(path.join(project, 'src', 'deep'), { recursive: true });
+  await writeFile(path.join(project, 'top.txt'), 'top\n');
+  await writeFile(path.join(project, 'src', 'inner.txt'), 'inner\n');
+  // Siblings on both sides of `deep`, so the walk still has rows of that listing to draw after the
+  // caret is clicked: the freed iteration is what the crash walked off the end of.
+  await writeFile(path.join(project, 'src', 'aaa.txt'), 'a\n');
+  await writeFile(path.join(project, 'src', 'zzz.txt'), 'z\n');
+  await writeFile(path.join(project, 'src', 'deep', 'deepest.txt'), 'deepest\n');
+  const server = await startServer({ stateDir: path.join(dir, 'state') });
+  const root = await server.store.addRoot(project);
+  // MallocScribble fills a freed block with 0x55 rather than leaving whatever was there, which is
+  // what makes reading one a definite wrong answer instead of an occasional one.
+  const gui = await nativeClient(server, { root: root.id });
+  try {
+    await gui.until(s => s.connected && s.tabs.some(t => t?.type === 1 && t.tree), 'the explorer');
+    await nested(gui, true);
+    await gui.control('tree-entry', 'src');
+    await gui.until(s => rows(s).includes('src/deep'), 'src expanded in place');
+
+    // The caret on a row that is NOT at the top level: its entry lives in src's expansion, not in
+    // the tab's own listing, which is the whole difference from the depth-0 case above.
+    await gui.control('tree-drill', 'src/deep');
+    const state = await gui.until(s => s.tabs.some(t => t?.type === 1 && t.path === 'src/deep'),
+                                  'the nested caret drilled into the directory it names');
+    assert.ok(rows(state).includes('src/deep/deepest.txt'), `the new root lists its entries: ${JSON.stringify(rows(state))}`);
+    assert.ok(!rows(state).includes('src/inner.txt'), 'the old tree is gone');
+    assert.ok(!rows(state).includes('top.txt'), 'and so is the level above it');
+    // A new root is a new tree: nothing from the old one is still expanded under it.
+    assert.deepEqual(rows(state), ['src/deep/deepest.txt'], 'the expansions went with the old tree');
+  } finally {
+    await gui.close(); await server.close(); await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('expansion survives a reload of the same directory', { timeout: 120000 }, async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'rengine-explorer-reload-'));
   const project = path.join(dir, 'project');

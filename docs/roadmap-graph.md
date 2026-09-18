@@ -430,6 +430,8 @@ flowchart TD
   F234["F234: blocked"]
   F232 --> F234
   F233 --> F234
+  F235["F235: blocked"]
+  F232 --> F235
 ```
 
 | ID | Milestone | Owner | State | Description |
@@ -620,3 +622,4 @@ flowchart TD
 | F232 | O1 | rengine | ready | The plugin service facet in core: a pack may declare an executable the workspace invokes per call, declare its own tools, and have them merged into the agent's tool list only while it is switched on - namespaced by plugin and capped at 4 per plugin and 16 in total, refused by name over the cap. A plugin owns <state>/plugins/<name>/ and core reads exactly one file in it. Nothing in core names a plugin (charter D75, spec 152). |
 | F233 | O1 | rengine | blocked | The Plugins page in the desktop: a view listing what this workspace can switch on, with a toggle per plugin, the plugin's own sentence about whether it can work, and what it has cost so far. Switched ON and able to WORK are shown as different answers, because a switch that hid "I have no key" behind "on" would be a switch that lies (charter D75, spec 152). |
 | F234 | O1 | rengine | blocked | The jev plugin's UI facet: a tab module under plugins/jev/ui/ built against editor/plugin_abi.h that draws the recorded judgements. It needs NO ABI movement - a plugin tab already receives subject(), the absolute path of what it was opened for, which is how plugins/scene knows its .obj, so the tab is opened on the plugin's own record file and reads it (charter D75, spec 152 decision 7). |
+| F235 | O1 | rengine | blocked | A plugin teaches the agents and is configured from the page. It declares its instructions as a file beside its manifest, which the workspace appends to the MCP surface's initialize instructions WHILE IT IS ON - so an agent knows a capability exists on connection, without anyone installing a per-agent skill to tell it, which is what the vendor's own quick start asks for. It declares the settings it needs, which the page renders and hands to its configure subcommand; a `secret` field is write-only by construction and core is never told its value, only whether one is set. Both are capped the way tools are - 4,000 characters per plugin, 12,000 in total - because instructions are read on every connection (charter D75, spec 152 decisions 9-11). |

@@ -17,6 +17,10 @@ use serde_json::{json, Value};
 /// call, so the growth is bounded here rather than by everyone's restraint.
 pub const TOOLS_PER_PLUGIN: usize = 4;
 pub const TOOLS_IN_TOTAL: usize = 16;
+/// The same reasoning as the tool cap, for the same reason: what a plugin contributes to an agent's
+/// instructions is read on every connection, so it is bounded here rather than by good intentions.
+pub const INSTRUCTIONS_PER_PLUGIN: usize = 4000;
+pub const INSTRUCTIONS_IN_TOTAL: usize = 12000;
 
 /// Where a plugin keeps everything of its own. Core reads exactly one file in here.
 pub fn plugin_state(state_directory: &str, name: &str) -> PathBuf {
@@ -101,6 +105,50 @@ impl Manifest {
         Ok(tools)
     }
 
+    /// What this plugin wants every agent to know while it is switched on.
+    ///
+    /// This is the answer to "an agent should not have to install a skill to find out that a
+    /// capability exists". The workspace's MCP surface returns `instructions` at `initialize`, so a
+    /// plugin's knowledge reaches every pane on connection, and leaves when the plugin is switched
+    /// off. Declared as a file beside the manifest, so it is prose somebody can edit and review
+    /// rather than a string wedged into JSON.
+    pub fn instructions(&self) -> Result<Option<String>, String> {
+        let Some(service) = &self.service else { return Ok(None) };
+        let Some(named) = service.get("instructions").and_then(Value::as_str) else { return Ok(None) };
+        if named.contains("..") || Path::new(named).is_absolute() {
+            return Err(format!("{}'s instructions must sit beside its manifest", self.name));
+        }
+        let path = self.root.join(named);
+        let text = std::fs::read_to_string(&path)
+            .map_err(|e| format!("cannot read {}'s instructions at {}: {e}", self.name, path.display()))?;
+        let text = text.trim().to_string();
+        if text.len() > INSTRUCTIONS_PER_PLUGIN {
+            return Err(format!(
+                "{}'s instructions are {} characters and a plugin may contribute at most {}. \
+                 Refused rather than trimmed: instructions cut in half read as instructions.",
+                self.name, text.len(), INSTRUCTIONS_PER_PLUGIN));
+        }
+        Ok(Some(text))
+    }
+
+    /// The settings this plugin asks a person for. A `secret` is write-only by construction: the
+    /// page may set one and is never told what it is.
+    pub fn config(&self) -> Vec<Value> {
+        self.service.as_ref()
+            .and_then(|service| service.get("config"))
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    fn configure_command(&self) -> Option<(Vec<String>, String)> {
+        let service = self.service.as_ref()?;
+        let program = service.get("command")?.as_array()?.iter()
+            .filter_map(|part| part.as_str().map(str::to_string)).collect::<Vec<_>>();
+        if program.is_empty() { return None; }
+        Some((program, service.get("configure")?.as_str()?.to_string()))
+    }
+
     fn command_for(&self, tool: &str) -> Option<(Vec<String>, String)> {
         let service = self.service.as_ref()?;
         let program = service.get("command")?.as_array()?.iter()
@@ -140,6 +188,8 @@ pub fn page(project_root: &str, state_directory: &str) -> Value {
             "enabled": on,
             "hasService": manifest.service.is_some(),
             "tools": manifest.tools().map(|tools| tools.len()).unwrap_or(0),
+            "config": manifest.config(),
+            "teaches": manifest.instructions().map(|text| text.is_some()).unwrap_or(false),
         });
         // Asking the plugin to describe itself costs a process, so it is asked only when it is on.
         if on {
@@ -239,6 +289,61 @@ pub fn tools(project_root: &str, state_directory: &str) -> (Vec<Value>, Vec<Stri
         }
     }
     (offered, refusals)
+}
+
+/// Everything the switched-on plugins want an agent to know, in one block, capped in total.
+///
+/// Returned with its refusals rather than silently short: a plugin whose instructions were dropped
+/// should be something a person can find out about.
+pub fn instructions(project_root: &str, state_directory: &str) -> (String, Vec<String>) {
+    let mut blocks: Vec<String> = Vec::new();
+    let mut refusals = Vec::new();
+    let mut total = 0usize;
+    for manifest in declared(project_root) {
+        if !enabled(state_directory, &manifest.name) { continue; }
+        match manifest.instructions() {
+            Ok(None) => {}
+            Ok(Some(text)) => {
+                if total + text.len() > INSTRUCTIONS_IN_TOTAL {
+                    refusals.push(format!(
+                        "{} is switched on but its instructions are not offered: {} characters is \
+                         the limit for all plugins together.", manifest.name, INSTRUCTIONS_IN_TOTAL));
+                    continue;
+                }
+                total += text.len();
+                blocks.push(text);
+            }
+            Err(refusal) => refusals.push(refusal),
+        }
+    }
+    (blocks.join("\n\n"), refusals)
+}
+
+/// Hand a plugin the settings a person typed. Core does not keep them, does not read them back, and
+/// does not know what any of them mean — it passes them to the service and asks it to describe
+/// itself again.
+pub fn configure(manifest: &Manifest, values: &Value, project_root: &str, state_directory: &str)
+                 -> Result<Value, String> {
+    let (program, subcommand) = manifest.configure_command()
+        .ok_or_else(|| format!("{} takes no configuration", manifest.name))?;
+    let declared: Vec<String> = manifest.config().iter()
+        .filter_map(|field| field.get("name").and_then(Value::as_str).map(str::to_string)).collect();
+    let mut flags = Vec::new();
+    for (key, value) in values.as_object().cloned().unwrap_or_default() {
+        // Only what the plugin declared: a caller cannot invent a setting, and a setting the plugin
+        // does not know about would reach its command line as an argument it never asked for.
+        if !declared.contains(&key) {
+            return Err(format!("{} declares no setting named {key:?}", manifest.name));
+        }
+        let Some(text) = value.as_str() else {
+            return Err(format!("the setting {key:?} takes text"));
+        };
+        if text.is_empty() { continue; }
+        flags.push(format!("--{key}"));
+        flags.push(text.to_string());
+    }
+    if flags.is_empty() { return Err("nothing to change".to_string()); }
+    invoke(&program, &subcommand, &flags, project_root, state_directory, &manifest.name)
 }
 
 /// Find the plugin a namespaced tool belongs to, and the short name it knows itself by.
@@ -343,6 +448,70 @@ mod tests {
         assert_eq!(row["ready"], false);
         assert!(row["detail"].as_str().expect("detail").contains("not built"),
                 "the page says what is wrong: {}", row["detail"]);
+    }
+
+    #[test]
+    fn a_plugin_teaches_agents_only_while_it_is_on() {
+        let (root, state) = workspace("teach");
+        let demo = Path::new(&root).join("plugins").join("demo");
+        std::fs::write(demo.join("say.md"), "Demo is available here. You need install nothing.").expect("write");
+        std::fs::write(demo.join("plugin.json"), json!({
+            "name": "demo", "service": { "command": ["bin/demo"], "instructions": "say.md" } }).to_string()).expect("write");
+
+        let (text, refusals) = instructions(&root, &state);
+        assert!(text.is_empty(), "a switched-off plugin teaches nothing");
+        assert!(refusals.is_empty());
+
+        set_enabled(&state, "demo", true).expect("on");
+        let (text, refusals) = instructions(&root, &state);
+        assert!(text.contains("install nothing"), "and a switched-on one does: {text}");
+        assert!(refusals.is_empty());
+
+        set_enabled(&state, "demo", false).expect("off");
+        assert!(instructions(&root, &state).0.is_empty(), "and stops when it is switched off again");
+    }
+
+    #[test]
+    fn instructions_over_the_cap_are_refused_by_name_rather_than_cut_in_half() {
+        let (root, state) = workspace("teachcap");
+        let demo = Path::new(&root).join("plugins").join("demo");
+        std::fs::write(demo.join("say.md"), "x".repeat(INSTRUCTIONS_PER_PLUGIN + 1)).expect("write");
+        std::fs::write(demo.join("plugin.json"), json!({
+            "name": "demo", "service": { "command": ["bin/demo"], "instructions": "say.md" } }).to_string()).expect("write");
+        set_enabled(&state, "demo", true).expect("on");
+
+        let (text, refusals) = instructions(&root, &state);
+        assert!(text.is_empty(), "nothing is contributed");
+        assert_eq!(refusals.len(), 1);
+        assert!(refusals[0].contains("demo") && refusals[0].contains("at most"), "{}", refusals[0]);
+    }
+
+    #[test]
+    fn instructions_cannot_be_read_from_outside_the_plugins_own_directory() {
+        let (root, state) = workspace("teachescape");
+        std::fs::write(Path::new(&root).join("plugins/demo/plugin.json"), json!({
+            "name": "demo", "service": { "command": ["bin/demo"], "instructions": "../../../etc/passwd" } }).to_string()).expect("write");
+        set_enabled(&state, "demo", true).expect("on");
+        let (_, refusals) = instructions(&root, &state);
+        assert_eq!(refusals.len(), 1);
+        assert!(refusals[0].contains("beside its manifest"), "{}", refusals[0]);
+    }
+
+    #[test]
+    fn a_setting_the_plugin_never_declared_is_refused() {
+        let (root, state) = workspace("cfg");
+        std::fs::write(Path::new(&root).join("plugins/demo/plugin.json"), json!({
+            "name": "demo",
+            "service": { "command": ["bin/demo"], "configure": "configure",
+                         "config": [{ "name": "key", "label": "API key", "kind": "secret" }] }
+        }).to_string()).expect("write");
+        let manifest = declared(&root).into_iter().next().expect("one");
+        assert_eq!(manifest.config().len(), 1);
+
+        let error = configure(&manifest, &json!({ "smuggled": "value" }), &root, &state).expect_err("refused");
+        assert!(error.contains("declares no setting"), "{error}");
+        // And an empty change is refused rather than invoking the service for nothing.
+        assert!(configure(&manifest, &json!({ "key": "" }), &root, &state).is_err());
     }
 
     #[test]

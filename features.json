@@ -4661,6 +4661,32 @@
       "evidence": [
         "Not started. The owner chose a native tab module over a page-only plugin when asked, 2026-09-18."
       ]
+    },
+    {
+      "id": 235,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "A plugin teaches the agents and is configured from the page. It declares its instructions as a file beside its manifest, which the workspace appends to the MCP surface's initialize instructions WHILE IT IS ON - so an agent knows a capability exists on connection, without anyone installing a per-agent skill to tell it, which is what the vendor's own quick start asks for. It declares the settings it needs, which the page renders and hands to its configure subcommand; a `secret` field is write-only by construction and core is never told its value, only whether one is set. Both are capped the way tools are - 4,000 characters per plugin, 12,000 in total - because instructions are read on every connection (charter D75, spec 152 decisions 9-11).",
+      "acceptance_criteria": [
+        "An agent connecting while the plugin is on receives its instructions at initialize, and connecting while it is off does not.",
+        "Instructions over the cap are refused BY NAME and contribute nothing, rather than being cut in half.",
+        "A plugin cannot read its instructions from outside its own directory, observed with a path that tries to escape.",
+        "A secret is write-only: it can be set and replaced, the answer after setting it does not contain it, and nothing the page renders ever does. Observed by setting a known value and asserting it appears nowhere in what core returns.",
+        "A setting the plugin never declared is refused rather than passed to its command line.",
+        "The key file is written 0600, and a value with whitespace in it is refused as a probable mis-paste rather than stored."
+      ],
+      "passes": false,
+      "dependencies": [
+        232
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The instructions and config halves of the service facet, the worker's plugin-instructions and plugin-configure routes, the MCP initialize merge, and the jev plugin's instructions.md and configure subcommand.",
+      "external_references": [],
+      "evidence": [
+        "Rust side built 2026-09-18: 11 unit tests in red_project::plugins covering the teach/off cycle, both caps, the escape refusal and the undeclared-setting refusal; the jev plugin's configure round trip verified at 0600 with the key absent from the answer, and a whitespace paste refused. The real plugin contributes 2,898 characters of instructions.",
+        "NOT DONE: the Plugins page does not yet render the declared config fields - the editor half is outstanding, and the route it will call exists and is tested."
+      ]
     }
   ]
 }

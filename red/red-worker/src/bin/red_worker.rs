@@ -494,6 +494,32 @@ fn plugin_tools(worker: &Worker, head: &Head) -> Result<serde_json::Value, Strin
     Ok(serde_json::json!({ "tools": tools, "refusals": refusals }))
 }
 
+/* What the switched-on plugins want every agent to know. This is how an agent learns that a
+   capability exists without anybody installing a skill to tell it: the MCP surface returns these at
+   initialize, so a pane knows on connection and forgets when the plugin is switched off. */
+fn plugin_instructions(worker: &Worker, head: &Head) -> Result<serde_json::Value, String> {
+    let state_directory = host_state_directory(worker)?;
+    let root = plugin_root(worker, &head.query("rootId").unwrap_or_default())?;
+    let (text, refusals) = red_project::plugins::instructions(&root, &state_directory);
+    Ok(serde_json::json!({ "instructions": text, "refusals": refusals }))
+}
+
+/* Settings a person typed in the Plugins page, handed to the plugin. Core does not keep them and is
+   never told what a secret is; the plugin answers with its own description of itself afterwards. */
+fn plugin_configure(worker: &Worker, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let name = data.get("name").and_then(serde_json::Value::as_str).unwrap_or_default();
+    let values = data.get("values").cloned().unwrap_or(serde_json::Value::Null);
+    let state_directory = host_state_directory(worker)?;
+    let root_id = data.get("rootId").and_then(serde_json::Value::as_str).unwrap_or_default();
+    let root = plugin_root(worker, root_id)?;
+    let manifest = red_project::plugins::declared(&root).into_iter().find(|m| m.name == name)
+        .ok_or_else(|| format!("404|There is no plugin named {name:?} in this project."))?;
+    red_project::plugins::configure(&manifest, &values, &root, &state_directory)
+        .map_err(|error| format!("409|{error}"))?;
+    Ok(red_project::plugins::page(&root, &state_directory))
+}
+
 /* One call to a switched-on plugin's tool. The namespace is what routes it; core neither knows nor
    cares what the plugin does with it, and a plugin that is off is simply not routable. */
 fn plugin_call(worker: &Worker, body: &str) -> Result<serde_json::Value, String> {
@@ -1534,6 +1560,8 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
         ("POST", "/api/extension-toggle") => answered_or_faulted(extension_toggle(worker, body)),
         ("POST", "/api/plugin-call") => answered_or_faulted(plugin_call(worker, body)),
         ("GET", "/api/plugin-tools") => answered_or_faulted(plugin_tools(worker, head)),
+        ("GET", "/api/plugin-instructions") => answered_or_faulted(plugin_instructions(worker, head)),
+        ("POST", "/api/plugin-configure") => answered_or_faulted(plugin_configure(worker, body)),
         /* Everything a PROJECT declares about itself and leaves behind, answered here and never
            forwarded — the host beneath may predate these routes, and forwarding would answer from a
            host that never had them (spec 065, KI-043). The answer is `red_project::serve`'s, which
