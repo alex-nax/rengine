@@ -22,6 +22,10 @@ use std::path::{Path, PathBuf};
 
 pub mod record;
 pub mod capability;
+pub mod gates;
+pub mod runs;
+pub mod flows;
+pub mod registry;
 
 /// The version that answers, pinned rather than the moving `jev-latest` alias (spec 151 decision 7):
 /// thresholds tuned against one model must not be moved by someone else's release.

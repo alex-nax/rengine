@@ -4695,6 +4695,123 @@
         "The routes moved from the worker to red_project::serve, the module BOTH servers call (spec 152 decision 13). They had been answerable only at the worker: the door, which is the whole workspace when nothing is behind it, answered 'Unknown workspace endpoint.' and the Plugins page loaded empty - observed twice before the move and green after it. tests/native-front-door, native-devices and native-dashboard confirm the door's other project routes are unchanged.",
         "Defect found by the owner on the delivered page and fixed 2026-09-18: the field could not be PASTED into. re_ui_textbox_ex had no clipboard path - the code editor and the terminal each read the clipboard themselves and the owned controls never had one - so the one field meant for a pasted credential was the one a credential could not reach. An owned one-frame paste offer is fed from the event loop on the platform's paste chord, which only sees it when no editor or terminal claimed the event; it is not routed through microui's 32-byte input_text, which would have cut a key to a third. tests/native-extensions.spec.mjs now pastes a 99-character key through the window's own clipboard and a real Cmd/Ctrl+V rather than typing a short one; sabotaged by disabling the paste branch and rebuilt, it failed exactly as the owner did, with extension-setting-save still reading disabled. The mask buffer grew 64 -> 512 so the drawn run is a real key's real length."
       ]
+    },
+    {
+      "id": 236,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "A plugin's flows are declared per project and its tool list is computed from them. `plugins/jev/flows.json` names the flows THIS project enables and the sources each reads; a path that leaves the project root is refused, and a flow with no declared source is not enabled rather than guessing where a project keeps its lessons. A flow declares its surface - `tool` for a per-item judgement an agent calls, `action` for a corpus sweep the owner starts - and the manifest's `service.tools` may be a SUBCOMMAND NAME instead of an array, so core asks the plugin what it offers rather than keeping a second list that must agree with the first (spec 153 decisions 2, 3, 6, 7). The shared routing gates live in one module, each carrying where its threshold came from (decisions 8, 9).",
+      "acceptance_criteria": [
+        "A project enabling a subset gets exactly that subset offered to an agent, and a second project in the same workspace with a different subset gets its own.",
+        "A flow whose declared source is missing, or names a path outside the project root, is refused by name rather than enabled with a guess.",
+        "A tool list computed by the service is namespaced and capped exactly as a declared one, and a project enabling more agent-callable flows than the cap allows is refused by name.",
+        "An action-surface flow is not offered to an agent as a tool.",
+        "Every gate is applied from the one module, and its threshold reports whether it was measured here or taken from a cookbook unvalidated."
+      ],
+      "passes": true,
+      "dependencies": [
+        235
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "flows.json and its reader, the computed tool list in red_project::plugins, the surface split, and the gates module with its measured and unvalidated thresholds distinguished.",
+      "external_references": [],
+      "evidence": [
+        "Built 2026-09-19. 15 new unit tests in the jev plugin (gates 5, flows 6, registry 4) and 1 in red_project::plugins; 393/393 Rust.",
+        "Criterion 1 - flows::tests::a_project_gets_exactly_the_subset_it_declared, plus the same path driven end to end: a fixture project declaring find, prior-art and ki-sweep gets exactly those three from `red-jev flows`, and rEngine's own checkout declaring only `triage` computes exactly one tool. The declaration is read relative to the working directory, which core sets to the project root, so two projects in one workspace read their own.",
+        "Criterion 2 - flows::tests::a_source_is_declared_rather_than_guessed and ::a_source_that_leaves_the_project_is_refused_by_name: a missing source key is refused naming the flow and the key; `..` and an absolute path are refused as not inside the project; a path inside the project that does not exist is refused as unreadable, because a flow enabled against a file nobody wrote fails at the moment somebody relies on it. canonicalize() is used so a symlink out of the tree is caught before it is followed.",
+        "Criterion 3 - red_project::plugins::tests::a_plugin_may_compute_its_tool_list_instead_of_listing_it: a service answering a `catalogue` subcommand has its tools namespaced demo.first/demo.second exactly as a declared list, and the same service answering with five tools is refused by name against the four-per-plugin cap. Observed failing for its own reason by disabling the string arm of the match: the run failed on 'a computed list is namespaced exactly like a declared one' with an empty list and on nothing earlier.",
+        "Criterion 4 - flows::tests::a_sweep_cannot_be_turned_into_an_agent_tool: a project asking for surface tool on ki-sweep is refused and told what it costs; the reverse (a tool made into an action) is allowed and the flow stops being offered as a tool. registry::tests::the_expensive_flows_are_actions_rather_than_tools pins ki-sweep, assert-check and featurize as actions.",
+        "Criterion 5 - gates::tests, five of them: the band's edges belong to unsure; an abstention returns None so it cannot be read as a quiet answer; back_off names the broader level; escalates uses max and the test asserts the mean would have buried the same flag; and every threshold reports whether it was measured here or taken from a cookbook unvalidated, with all nine reachable through gates::all() so none can hide inside a flow.",
+        "NOT DONE and recorded as such: 17 of the 18 flows are declared in the registry with their sources and surfaces enforced, and have no runner yet. Running one says so plainly, and registry::tests::every_flow_is_built_or_is_counted asserts the count so it can only go down through a deliberate edit. F237-F240 are those runners."
+      ]
+    },
+    {
+      "id": 237,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "The retrieval and judgement primitives as flows: `align` (entity_alignment's three-level Score whose levels are the outcomes), `find` (semantic_find's Choice over a corpus with an independent presence Noul), `rerank` (one Noul per candidate, sorted), `evidence-check` (citation_check: does the cited evidence support the claim) and `passage-triage` (classifying_rag_passages: keep, flag or drop, with the injection question asked first and answered outright rather than averaged in). Spec 153.",
+      "acceptance_criteria": [
+        "Each flow returns the full distribution and the margin, never a bare winner.",
+        "`find` reports presence independently of the Choice, so an absent answer is not dressed up as a hit - observed with a query the corpus cannot answer.",
+        "`passage-triage` reports an injection attempt outright rather than averaging it against the other judgements.",
+        "Every one of the five exits 0 with an explanation when the key or the service is absent."
+      ],
+      "passes": false,
+      "dependencies": [
+        236
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "Five flows in the jev plugin's service, each with its sources declared and its state built by reading them.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 238,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "The routing flows: `classify` (hierarchical_classification's beam search, K=3, edges scored by geometric mean so a shallow leaf and a deep one compare fairly), `skill-pick` (skill_suggestion's two stages - rank the whole roster with a gate on whether a skill is wanted at all, then read the top three properly and allow rejecting all of them) and `action-intent` (function_calling: a sentence to one declared dashboard action and its closed-set arguments, with confidence the WEAKEST argument rather than the product). Spec 153.",
+      "acceptance_criteria": [
+        "`classify` walks to a leaf or the declared depth and reports the path with its per-edge probabilities, and a single-child branch costs no request.",
+        "`skill-pick` suggests nothing when its gate says no skill is wanted, and nothing when no candidate fits - both observed.",
+        "`action-intent` never invents an argument value outside the declared set, and reports the weakest argument as the confidence.",
+        "All three exit 0 with an explanation when the key or the service is absent."
+      ],
+      "passes": false,
+      "dependencies": [
+        236
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "Three flows over declarations this workspace already has: a declared taxonomy, the skills roster, and the dashboard's own action list.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 239,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "The reading flows: `reformat` (autoformat's two passes - stitch hard-wrapped lines, then classify every block with companion questions read only when they apply - with the Markdown assembled in code so no word is generated), `extract` (pre_parsed_value_extraction: a regex finds candidates, a Choice picks one span, and the value comes back copied unchanged), `dates` (date_extraction's seven Choices with every calendar calculation in code, and a review below 0.60), `hazards` (llm_guardrails' four Nouls and severity Score, ADVISORY and named for what it does) and `featurize` (autoresearch's questions-to-columns half; no regressor, because the labelled target and the gradient-boosting dependency are both absent - spec 153 decision 10). Spec 153.",
+      "acceptance_criteria": [
+        "`reformat` output contains no word that was not in its input.",
+        "`extract` returns a span the regex found, byte for byte, and cannot return anything else.",
+        "`dates` does no calendar arithmetic in a question, and refuses an impossible date rather than resolving it.",
+        "`hazards` is declared as advisory where a person reads it, and nothing in the workspace gates on it.",
+        "`featurize` emits the numeric matrix and fits nothing.",
+        "All five exit 0 with an explanation when the key or the service is absent."
+      ],
+      "passes": false,
+      "dependencies": [
+        236
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "Five flows, each reading a declared source and none of them generating text.",
+      "external_references": [],
+      "evidence": []
+    },
+    {
+      "id": 240,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "The composites NOLF proved, rebuilt from the flows rather than beside them: `prior-art` (chunked sweep with an explicit no-match option, every candidate above the floor kept rather than the argmax alone, then `align` per candidate, plus the report's own three judgements asked in parallel over the same state), `prior-findings` (`find` over a project's lessons and antipatterns), `assert-check` (`evidence-check` swept over a tests tree, surface `action`) and `ki-sweep` (`prior-art` over known-issues rows, surface `action`). Spec 153.",
+      "acceptance_criteria": [
+        "`prior-art` keeps every candidate above the floor rather than one per chunk, which is the change NOLF measured as the difference between two surfaced features and three.",
+        "The two sweeps are actions and are not offered to an agent as tools.",
+        "A composite reuses the flows rather than reimplementing their questions - observed by changing a gate once and seeing every composite follow.",
+        "All four exit 0 with an explanation when the key or the service is absent."
+      ],
+      "passes": false,
+      "dependencies": [
+        236,
+        237
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "Four composite flows, and the two sweeps declared as actions rather than agent tools.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

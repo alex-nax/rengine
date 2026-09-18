@@ -19,30 +19,7 @@
       }
     ],
     "state": "jev",
-    "tools": [
-      {
-        "name": "triage",
-        "command": "triage",
-        "description": "Ask whether a recorded test failure is better explained by the environment than by the change under test. The parameters are IDENTIFIERS, never text: `output` names a run this workspace already recorded and `test` names the failing test. The state is built by reading that file inside the plugin and scrubbing home directories and private hosts out of it, so this cannot be used to send arbitrary content. The answer is RECORDED AND NOT ACTED ON - it carries the probability, the full distribution, and the margin between the top two outcomes, which is what you would gate on rather than the service's own confidence scalar.",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "output": {
-              "type": "string",
-              "description": "A run recorded under the workspace state directory, named relative to it."
-            },
-            "test": {
-              "type": "string",
-              "description": "The failing test's name, as the run reported it."
-            }
-          },
-          "required": [
-            "output",
-            "test"
-          ]
-        }
-      }
-    ]
+    "tools": "flows"
   },
   "plugin": {
     "module": "plugins/jev/ui/jev_view.dylib",

@@ -1,3 +1,52 @@
+## Session 178 (opus-5) — 2026-09-19 — A plugin becomes a library of flows a project enables a subset of
+
+Owner's goal: the standalone Jev integration in `~/nolf-improved` and the 18 cookbooks its
+`docs/jev-cookbooks.md` judges, all implemented, so a project can enable its own subset. Spec 153
+records the design; F236 lands the foundation and F237–F240 are the flows themselves.
+
+**A cookbook is a technique; a flow is a task.** The 18 do not map onto 18 runners —
+`parallel_questions` is how every flow batches, and three more are routing rules. So spec 153 carries
+a table mapping every cookbook to either a flow or a named gate, which is what makes "all 18
+implemented" checkable one at a time instead of a claim about a total. `registry.rs` holds 18 flow
+entries, each naming the cookbook it realises and what one run costs, and a test asserts every
+cookbook in the spec's table has something pointing at it.
+
+**What a project declares.** `plugins/jev/flows.json`, read relative to the working directory that
+core sets to the project root — so two projects in one workspace read their own. A flow names the
+sources it needs and the project says where they are, because the corpus is the part that is not
+shared: one project keeps antipatterns in a document of its own and has 1,394 features, another has
+neither. A source is **declared, never discovered**: a flow with no declared source is refused rather
+than guessing where a project keeps its lessons, since a guess that is right four times in five
+answers confidently about the wrong file on the fifth. A declared path is canonicalised and must stay
+inside the project, so a symlink out of the tree is caught before it is followed.
+
+**Surfaces, and the cap.** A flow declares `tool` or `action`. A project may turn a tool into an
+action and deliberately not the reverse — `ki-sweep` is 2,477 requests and $0.95 a run, and that is
+not a project's call to reverse. The four-tools-per-plugin cap binds the subset rather than being
+routed around: collapsing N flows behind one dispatcher would defeat what the cap bounds, which is
+the description text an agent reads, not the number of entries.
+
+**The tool list is computed.** `service.tools` may be a subcommand NAME instead of an array, and core
+then asks the plugin — because `flows.json` and `plugin.json` as two lists that must agree will not.
+A computed list is namespaced and capped exactly as a declared one; where the text came from is not
+why the cap exists. rEngine's own manifest now uses it and declares one flow.
+
+**Gates in one module, each carrying its provenance.** The routing rules are the part most likely to
+be quietly reimplemented per flow with a different constant, and two flows disagreeing about what
+"confident" means looks exactly like two flows disagreeing about the question. NOLF's file separates
+the numbers it measured (`CONFIDENT = 0.60`, from a 339-row sweep run twice) from the ones lifted
+from a cookbook unchecked (`AUTO_ACCEPT = 0.80`), and that distinction now travels with the value:
+`Threshold::provenance` is reported, so a person reading a judgement can see which kind they have.
+
+Evidence: 15 new plugin unit tests and 1 in `red_project::plugins`; 393/393 Rust; `red-mcp` 3/3 and
+`native-extensions` green with the real manifest switched over. The computed-list claim was observed
+failing for its own reason by disabling the string arm — the run failed on the namespacing assertion
+with an empty list and on nothing earlier.
+
+**Left undone, and counted rather than described:** 17 of 18 flows have no runner. They are declared
+with their sources and surfaces enforced, running one says so plainly, and a test pins the number so
+it can only go down through a deliberate edit.
+
 ## Session 177 (opus-5) — 2026-09-18 — A plugin's settings are typed into the page, and the door can answer for them
 
 F232 and F235 close. The Plugins page now renders the settings a plugin declares, and the routes

@@ -83,9 +83,27 @@ impl Manifest {
 
     /// The tools this plugin offers, namespaced and capped. Refused BY NAME over the cap rather than
     /// truncated: a plugin whose fourth tool silently vanished would be a bug nobody could see.
-    pub fn tools(&self) -> Result<Vec<Value>, String> {
+    /// A plugin whose tool list depends on the PROJECT computes it, rather than keeping a second
+    /// list beside the one that decides. `service.tools` is normally an array; when it is a string
+    /// it names a subcommand, and the plugin is asked. Everything after that is identical — the cap
+    /// and the namespace apply to a computed list exactly as to a declared one, because the reason
+    /// for both is what an agent reads, not where the text came from.
+    pub fn tools(&self, project_root: &str, state_directory: &str) -> Result<Vec<Value>, String> {
         let Some(service) = &self.service else { return Ok(Vec::new()) };
-        let declared = service.get("tools").and_then(Value::as_array).cloned().unwrap_or_default();
+        let declared = match service.get("tools") {
+            Some(Value::String(subcommand)) => {
+                let program = service.get("command").and_then(Value::as_array)
+                    .map(|parts| parts.iter().filter_map(|p| p.as_str().map(str::to_string)).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                if program.is_empty() {
+                    return Err(format!("{} names a tool subcommand but no command to run", self.name));
+                }
+                let answer = invoke(&program, subcommand, &[], project_root, state_directory, &self.name)?;
+                answer.get("tools").and_then(Value::as_array).cloned().ok_or_else(|| format!(
+                    "the {} plugin's {subcommand} did not answer with a `tools` list", self.name))?
+            }
+            other => other.and_then(Value::as_array).cloned().unwrap_or_default(),
+        };
         if declared.len() > TOOLS_PER_PLUGIN {
             return Err(format!(
                 "the plugin {} declares {} tools and a plugin may declare at most {}. \
@@ -187,7 +205,7 @@ pub fn page(project_root: &str, state_directory: &str) -> Value {
             "description": manifest.description,
             "enabled": on,
             "hasService": manifest.service.is_some(),
-            "tools": manifest.tools().map(|tools| tools.len()).unwrap_or(0),
+            "tools": manifest.tools(project_root, state_directory).map(|tools| tools.len()).unwrap_or(0),
             "config": manifest.config(),
             "teaches": manifest.instructions().map(|text| text.is_some()).unwrap_or(false),
         });
@@ -293,7 +311,7 @@ pub fn tools(project_root: &str, state_directory: &str) -> (Vec<Value>, Vec<Stri
     let mut refusals = Vec::new();
     for manifest in declared(project_root) {
         if !enabled(state_directory, &manifest.name) { continue; }
-        match manifest.tools() {
+        match manifest.tools(project_root, state_directory) {
             Ok(tools) => {
                 if offered.len() + tools.len() > TOOLS_IN_TOTAL {
                     refusals.push(format!(
@@ -530,6 +548,44 @@ mod tests {
         assert!(error.contains("declares no setting"), "{error}");
         // And an empty change is refused rather than invoking the service for nothing.
         assert!(configure(&manifest, &json!({ "key": "" }), &root, &state).is_err());
+    }
+
+    #[test]
+    fn a_plugin_may_compute_its_tool_list_instead_of_listing_it() {
+        let (root, state) = workspace("computed");
+        let demo = Path::new(&root).join("plugins").join("demo");
+        // A service that answers `catalogue` with a list that depends on the project it is run in.
+        let service = demo.join("service.sh");
+        std::fs::write(&service, "#!/bin/sh\n\
+            [ \"$1\" = catalogue ] || { echo 'no' >&2; exit 2; }\n\
+            printf '{\"tools\":[{\"name\":\"first\",\"command\":\"first\",\"description\":\"d\",\
+\"inputSchema\":{\"type\":\"object\"}},{\"name\":\"second\",\"command\":\"second\",\
+\"description\":\"d\",\"inputSchema\":{\"type\":\"object\"}}]}\\n'\n").expect("service");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&service, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+        }
+        std::fs::write(demo.join("plugin.json"), json!({
+            "name": "demo",
+            "service": { "command": ["plugins/demo/service.sh"], "tools": "catalogue" }
+        }).to_string()).expect("manifest");
+        set_enabled(&state, "demo", true).expect("on");
+
+        let (offered, refusals) = tools(&root, &state);
+        assert!(refusals.is_empty(), "{refusals:?}");
+        assert_eq!(offered.iter().map(|t| t["name"].as_str().unwrap_or_default()).collect::<Vec<_>>(),
+                   ["demo.first", "demo.second"],
+                   "a computed list is namespaced exactly like a declared one");
+
+        // And capped exactly like one: where the text came from is not why the cap exists.
+        let many: Vec<String> = (0..TOOLS_PER_PLUGIN + 1).map(|i| format!(
+            "{{\"name\":\"t{i}\",\"command\":\"x\",\"description\":\"d\",\"inputSchema\":{{\"type\":\"object\"}}}}")).collect();
+        std::fs::write(&service, format!("#!/bin/sh\nprintf '{{\"tools\":[{}]}}\\n'\n", many.join(","))).expect("service");
+        let (offered, refusals) = tools(&root, &state);
+        assert!(offered.is_empty());
+        assert_eq!(refusals.len(), 1);
+        assert!(refusals[0].contains("at most"), "{}", refusals[0]);
     }
 
     #[test]
