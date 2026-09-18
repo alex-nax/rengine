@@ -48,6 +48,27 @@ anchors repaired and stamped, with a new `secret-mask` rationale in `editor/ui/u
 second provider (OpenRouter was named) still costs nothing to add: another declared field here or
 another plugin, and neither needs any of this to change.
 
+**Afterwards, from the owner trying it: the field could not be pasted into.** `re_ui_textbox_ex`
+had no clipboard path at all — the code editor and the terminal each read the clipboard themselves,
+and the owned controls were simply never given one, which made the field meant for a pasted
+credential the only field a credential could not be pasted into. It does NOT go through microui's
+`input_text`: that buffer is 32 bytes, so a key would have arrived cut to a third. There is now an
+owned one-frame paste offer (`re_ui_offer_paste`, wiped when taken and again at frame end), fed from
+the event loop on Cmd/Ctrl+V — which only sees the chord when no editor or terminal claimed it, so
+the terminal's own paste is untouched. The mask buffer grew from 64 to 512 so the dots are a real
+key's real length. The spec now PASTES a 99-character key rather than typing a short one; sabotaged
+by disabling the paste branch, rebuilt, it failed exactly as the owner did, with the Save button
+still reading disabled.
+
+**A flake, diagnosed rather than shrugged at.** `npm test` failed once on "a CLI that takes no
+prompt on its command line is typed into instead" with `Unexpected end of JSON input`. Not a
+desktop test at all: `task-fixtures.mjs`'s `read()` `JSON.parse`s a record the fake CLI is still
+writing, and a torn read threw out of an `until` poll. A torn read is retried now. The first fix
+attempted — defaulting to `{}` — was wrong and caught by running the file alone four times: a
+caller that asserts on a FIELD then reads `undefined` for a value that is really there, and that
+test went from intermittent to failing every run. Two full suites after the real fix: 380/380, 0
+cancelled, output captured both times.
+
 **Housekeeping from my own previous commit.** `a9ed26b` had swept up the first draft of the
 explorer regression and a stray `.bak`; the backup is amended out of it, and Session 176's commit
 carries the finished check with its fix.

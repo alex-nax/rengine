@@ -147,5 +147,20 @@ process.stdin.on('data', async chunk => {
 setTimeout(() => {}, 120000);
 `);
   await chmod(executable, 0o755);
-  return { executable, recordFile, read: async () => JSON.parse(await readFile(recordFile, 'utf8')) };
+  /* The fake CLI writes this record while the test reads it, so a TORN read is retried rather than
+     thrown. `JSON.parse` on a file caught mid-write raises `Unexpected end of JSON input`, and that
+     escaping a poll is the flake that surfaced as a different test each run. Retried rather than
+     defaulted to an empty object, because a caller that asserts on a FIELD would then read
+     `undefined` for a value that is really there and fail on the wrong thing. A file that stays
+     unparsable still throws, so a genuinely malformed record is not hidden. */
+  const read = async () => {
+    for (let attempt = 0; ; attempt++) {
+      try { return JSON.parse(await readFile(recordFile, 'utf8')); }
+      catch (error) {
+        if (attempt >= 20) throw error;
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    }
+  };
+  return { executable, recordFile, read };
 }

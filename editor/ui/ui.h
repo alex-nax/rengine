@@ -37,6 +37,14 @@ enum {                          /* opt flags; microui's MU_OPT_* still apply whe
   RE_UI_SECRET = 1 << 16,       /* a textbox that edits its buffer and draws dots: a pasted credential */
 };
 
+/* A clipboard paste offered to whichever owned textbox has focus, consumed on the next frame and
+ * wiped after it. The editor and the terminal each read the clipboard themselves; the fields the
+ * workspace draws had no paste at all until this, which made a field meant for a pasted credential
+ * the one field you could not paste into. It does not go through microui's `input_text`: that
+ * buffer is 32 bytes, so a key would arrive silently cut to a third. */
+#define RE_UI_PASTE_BYTES 2048
+void re_ui_offer_paste(const char *text);
+
 void re_ui_begin(ReDraw *draw, double seconds);  /* once per frame, before any control */
 /* The one overlay layer (spec 066, spec 080 decision 5). Controls drawn between begin and end are
    recorded rather than emitted, so the flush can place them above microui's replayed commands. */

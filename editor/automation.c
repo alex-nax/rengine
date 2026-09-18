@@ -136,6 +136,10 @@ void re_automation_command(ReApp *app, SDL_Window *window, const cJSON *j) {
       }
       e.text.text[count] = 0; SDL_PushEvent(&e);
     }
+  } else if (!strcmp(op, "clipboard")) {
+    /* The window's own clipboard, so a spec can drive a real paste: the key event that follows takes
+       the same path a person's does, through the event loop's own handler. */
+    SDL_SetClipboardText(re_string(j, "text"));
   } else if (!strcmp(op, "key")) {
     e.type = cJSON_IsFalse(cJSON_GetObjectItemCaseSensitive(j, "down")) ? SDL_KEYUP : SDL_KEYDOWN;
     e.key.keysym.sym = SDL_GetKeyFromName(re_string(j, "key")); e.key.keysym.scancode = SDL_GetScancodeFromKey(e.key.keysym.sym);

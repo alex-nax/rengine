@@ -19,6 +19,13 @@ static void ui_event(mu_Context *ui, const SDL_Event *e) {
     mu_input_scroll(ui, re_wheel_steps(&wheel_x, &e->wheel, true, 30), -re_wheel_steps(&wheel_y, &e->wheel, false, 30));
   }
   if (e->type == SDL_TEXTINPUT && strlen(ui->input_text) + strlen(e->text.text) < sizeof(ui->input_text)) mu_input_text(ui, e->text.text);
+  /* Paste into an owned field. The editor and the terminal read the clipboard themselves and have
+     already had their chance at this event, so reaching here means no text surface claimed it — and
+     a plain Ctrl+V is paste everywhere but a terminal, where it is a literal. */
+  if (e->type == SDL_KEYDOWN && e->key.keysym.sym == SDLK_v && (e->key.keysym.mod & (KMOD_GUI | KMOD_CTRL))) {
+    char *text = SDL_GetClipboardText();
+    if (text) { re_ui_offer_paste(text); SDL_free(text); }
+  }
   if (e->type == SDL_KEYDOWN || e->type == SDL_KEYUP) {
     int key = 0;
     switch (e->key.keysym.sym) {

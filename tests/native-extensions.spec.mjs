@@ -17,7 +17,11 @@ import { startServer } from './red-host-fixture.mjs';
 import { nativeClient } from './native-client.mjs';
 
 const RE_EXTENSIONS = 10;
-const SECRET = 'sk-fixture-4f1c9a2b7e0d';
+/* KMOD_GUI on macOS, KMOD_CTRL elsewhere: the paste chord a person actually presses. */
+const PLATFORM_MODIFIER = process.platform === 'darwin' ? 0x0c00 : 0x00c0;
+/* Deliberately long — 99 characters, the shape of a real service key. A short one would have
+   passed through microui's 32-byte text buffer and hidden the defect this spec exists for. */
+const SECRET = `sk-fixture-${'4f1c9a2b7e0d'.repeat(7)}-end`;
 const REPLACEMENT = 'sk-fixture-replaced-9c3e';
 
 /* Answers `status` from whether its key file is there and writes one on `configure`: the smallest
@@ -82,7 +86,7 @@ async function until(condition, label) {
 const extensionsOf = state => state.tabs.find(t => t?.type === RE_EXTENSIONS)?.extensions?.extensions ?? [];
 const drawn = runs => runs.map(r => r.text);
 
-test('a declared setting is typed into the page, reaches the plugin, and is never read back',
+test('a declared setting is pasted into the page, reaches the plugin, and is never read back',
      { timeout: 120000 }, async () => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'rengine-native-extensions-')));
   const stateDir = path.join(directory, 'state');
@@ -125,9 +129,14 @@ test('a declared setting is typed into the page, reaches the plugin, and is neve
     assert.equal(save.disabled, true, 'and saving nothing is not offered');
 
     await gui.control('extension-setting-field', 'fixture/key');
-    await gui.command({ op: 'text', text: SECRET });
+    /* PASTED, not typed. A key is far too long to type and is always on a clipboard, so this is the
+       gesture the field exists for — and it is the one that did not work: the owned textbox had no
+       paste path at all, and microui's own text buffer is 32 bytes, a third of a key. */
+    await gui.command({ op: 'clipboard', text: SECRET });
+    await gui.command({ op: 'key', key: 'V', mod: PLATFORM_MODIFIER });
+    await gui.command({ op: 'key', key: 'V', mod: PLATFORM_MODIFIER, down: false });
     state = await gui.until(s => !s.controls.find(c => c.role === 'extension-setting-save')?.disabled,
-                            'typing makes the save available');
+                            'the pasted key makes the save available');
 
     /* The mask. `text-runs` is every string the last frame actually drew, so this is the assertion
        that a screenshot — or a spec's own snapshot — cannot carry the key out of the field. */
@@ -153,6 +162,7 @@ test('a declared setting is typed into the page, reaches the plugin, and is neve
     const reopened = await gui.command({ op: 'text-runs' });
     assert.ok(!drawn(reopened).some(text => text.startsWith('*')), 'reopening a secret shows no dots: it is empty');
     await gui.control('extension-setting-field', 'fixture/key');
+    /* Typed rather than pasted this time, so both ways into the field stay covered. */
     await gui.command({ op: 'text', text: REPLACEMENT });
     await gui.control('extension-setting-save', 'fixture/key');
     /* `set` was already true, so the answer cannot be waited for on the page: what changed is inside

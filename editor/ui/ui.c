@@ -28,7 +28,16 @@ typedef struct {
 
 static struct { ReDraw *draw; double seconds; bool animating, recording; int count;
                 mu_Rect scissor, applied; bool scissor_on, applied_on, clipped;
-                OverlayCommand commands[RE_UI_OVERLAY_COMMANDS]; Transition slots[RE_UI_TRANSITIONS]; } ui;
+                OverlayCommand commands[RE_UI_OVERLAY_COMMANDS]; Transition slots[RE_UI_TRANSITIONS];
+                /* One pending paste. It may be a credential, so it is wiped the moment it is taken
+                   and again at the end of every frame — an offer nobody accepted does not linger. */
+                char paste[RE_UI_PASTE_BYTES]; bool paste_offered; } ui;
+
+void re_ui_offer_paste(const char *text) {
+  if (!text) return;
+  snprintf(ui.paste, sizeof(ui.paste), "%s", text);
+  ui.paste_offered = true;
+}
 
 static OverlayCommand *record(uint8_t kind, mu_Rect rect, mu_Color color) {
   if (ui.count >= RE_UI_OVERLAY_COMMANDS) return NULL;
@@ -227,7 +236,12 @@ void re_ui_panel(ReDraw *draw, mu_Rect rect, mu_Color fill) {
 }
 /* A view that draws directly rather than through controls takes its container's clip with this. */
 void re_ui_clip(mu_Context *ctx) { ui_scissor(ctx); apply_scissor(); }
-void re_ui_end(ReDraw *draw) { ui.scissor_on = false; ui.applied_on = false; re_draw_clip(draw, NULL); }
+void re_ui_end(ReDraw *draw) {
+  ui.scissor_on = false; ui.applied_on = false; re_draw_clip(draw, NULL);
+  /* An offer no field took is dropped rather than kept for the next one: a paste belongs to the
+     frame it was made in, and a value left here would land in whatever gained focus later. */
+  memset(ui.paste, 0, sizeof(ui.paste)); ui.paste_offered = false;
+}
 
 void re_ui_popover(mu_Rect rect) {
   /* The ground and its shadow reach past the container, so the surface starts with no scissor; the
@@ -342,6 +356,19 @@ int re_ui_textbox_ex(mu_Context *ctx, char *buffer, int size, int icon, const ch
       if (typed > room) typed = room;
       memcpy(buffer + length, ctx->input_text, (size_t)typed); length += typed; buffer[length] = 0; res |= MU_RES_CHANGE;
     }
+    /* The clipboard, offered by the event loop. Appended like typed text and bounded by the same
+       room, so a paste larger than the field fills it rather than overrunning it. */
+    if (ui.paste_offered && room > 0) {
+      int pasted = (int)strlen(ui.paste);
+      if (pasted > room) pasted = room;
+      /* Never split a character: back off to the start of the last whole one. */
+      while (pasted > 0 && (ui.paste[pasted] & 0xc0) == 0x80) pasted--;
+      if (pasted > 0) {
+        memcpy(buffer + length, ui.paste, (size_t)pasted); length += pasted; buffer[length] = 0;
+        res |= MU_RES_CHANGE;
+      }
+      memset(ui.paste, 0, sizeof(ui.paste)); ui.paste_offered = false;
+    }
     if ((ctx->key_pressed & MU_KEY_BACKSPACE) && length > 0) {
       while (length > 0 && (buffer[--length] & 0xc0) == 0x80) {}
       buffer[length] = 0; res |= MU_RES_CHANGE;
@@ -361,11 +388,14 @@ int re_ui_textbox_ex(mu_Context *ctx, char *buffer, int size, int icon, const ch
   /* A secret is EDITED in full and DRAWN as dots: the buffer above is untouched, so backspace and
      the caret still count real characters, and what is on the screen — and in any screenshot, and in
      the snapshot a spec writes — is a length rather than a credential. */
-  char masked[64];
+  /* Big enough for any field this flag is used on — a service key is around a hundred characters —
+     so the run drawn is the value's real length rather than a cap that understates it. A value
+     longer than this still masks, just at this many dots; the box clips long before either. */
+  char masked[512];
   const char *shown = buffer;
   if ((opt & RE_UI_SECRET) && *buffer) {
     int dots = 0;
-    for (const char *c = buffer; *c && dots < (int)sizeof(masked) - 4; c++) {
+    for (const char *c = buffer; *c && dots < (int)sizeof(masked) - 1; c++) {
       if ((*c & 0xc0) != 0x80) masked[dots++] = '*';   /* one per character, not per byte */
     }
     masked[dots] = 0;
