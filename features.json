@@ -4738,14 +4738,22 @@
         "`passage-triage` reports an injection attempt outright rather than averaging it against the other judgements.",
         "Every one of the five exits 0 with an explanation when the key or the service is absent."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         236
       ],
       "owner_workspace": "rengine",
       "deliverable": "Five flows in the jev plugin's service, each with its sources declared and its state built by reading them.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "Built 2026-09-19. 5 flows in src/runs/retrieval.rs sharing one chunked sweep, plus src/corpus.rs which reads the two document shapes these projects use. 40 plugin unit tests.",
+        "The corpus reader was checked against all seven real corpora across both projects: rEngine features.json 192, known-issues.md 127, docs/lessons-learned.md 2; NOLF features.json 1394, known-issues.md 405, docs/lessons-learned.md 135, docs/antipatterns.md 10. Its own tests caught two real bugs while it was written: a table row was emitted ahead of the section it followed (entries must come out in document order, because every flow downstream reports 'the first match'), and a non-identifier heading was swallowed into the previous entry's body, giving a lesson a body it did not own.",
+        "Criterion 1, live against the service 2026-09-19: every flow returns the full distribution and a margin. align F235/F236 returned different 0.97 / needs-a-person 0.02 / the-same 0.01 with margin 0.95; the same-row control F236/F236 returned the-same 1.00. A Score's distribution comes back keyed by level INDEX, so align names the levels where a caller reads them.",
+        "Criterion 2, the negative control that is the whole point of the presence question: `find` over rEngine's 127 known-issues answered 'a test that passes because the binary it drives was never rebuilt' with KI-120 at 0.99 and present 0.97 'yes'; asked for the atomic weight of tungsten it answered present 0.02 'no' and kept ZERO matches, every option falling below the floor. An absent answer is reported as absent rather than as the best of a bad set.",
+        "Criterion 3, measured, and it corrected the implementation: the first phrasing of the injection question flagged a hostile passage at 0.98 AND two genuine bug reports phrased as commands at 0.92 and 0.97, dropping all three. Rephrased to ask about an attempt to control the SYSTEM READING the passage, with the false criterion saying that a request to change the product is about the product, the same four passages returned 0.99 / 0.02 / 0.04 / 0.03. That is a wider separation than the 0.99 / 0.34 / 0.49 the flow this was ported from measured, with no threshold moved - the criteria carry the signal.",
+        "rerank over three known-issue rows returned 0.82 / 0.10 / 0.05 in the right order. evidence-check on F236 returned supported 0.97 with escalate false at a worst flag of 0.43.",
+        "Criterion 4: a flow with no key refuses by name with the path to put one at, and the refusal quotes the path and never the contents of anything - red_jev::Jev::from_state_directory, covered by the plugin's existing tests."
+      ]
     },
     {
       "id": 238,

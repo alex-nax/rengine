@@ -6,6 +6,8 @@
 //! path the project declared, or a query somebody typed — never a document. A flow that accepted
 //! text would be a way to send arbitrary content to a third party through a tool call.
 
+pub mod retrieval;
+
 use std::path::Path;
 
 use serde_json::{json, Value};
@@ -19,6 +21,22 @@ pub fn argument(arguments: &Arguments, flow: &str, name: &str) -> Result<String,
     arguments.get(name).filter(|value| !value.trim().is_empty())
         .cloned()
         .ok_or_else(|| format!("the {flow} flow needs {name:?}"))
+}
+
+/// A Score's distribution comes back keyed by LEVEL INDEX — `{"0":0.97,"1":0.02}` — which is
+/// unreadable at the point somebody has to act on it. Given the levels that were asked, this names
+/// them. An index with no level (the service answered about something that was not asked) keeps its
+/// number rather than being dropped, because a silent gap in a distribution is worse than an odd
+/// key in one.
+pub fn name_levels(answer: &crate::Answer, levels: &[&str]) -> Option<Value> {
+    let crate::Answer::Score { probabilities, .. } = answer else { return None };
+    let mut named = serde_json::Map::new();
+    for (index, probability) in probabilities {
+        let label = index.parse::<usize>().ok().and_then(|i| levels.get(i))
+            .map(|label| (*label).to_string()).unwrap_or_else(|| index.clone());
+        named.insert(label, json!(probability));
+    }
+    Some(Value::Object(named))
 }
 
 /// What every answer carries: the distribution, the margin a caller gates on, and the vendor's own

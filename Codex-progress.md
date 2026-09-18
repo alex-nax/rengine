@@ -1,3 +1,44 @@
+## Session 178b (opus-5) — 2026-09-19 — The retrieval flows, and a question whose phrasing was the bug
+
+F237: `align`, `find`, `rerank`, `evidence-check` and `passage-triage`, over a corpus reader that
+handles the two document shapes these projects actually use — a feature inventory in JSON, and
+Markdown carrying either `## LL-12 — a title` sections or `| AP-3 | … |` table rows. Checked against
+all seven real corpora across both projects: rEngine 192/127/2, NOLF 1394/405/135/10.
+
+**The reader's own tests caught two real bugs.** A table row was emitted ahead of the section it
+followed — entries must come out in document order, because every flow downstream reports "the first
+match". And a heading that was not an identifier was swallowed into the previous entry's body, which
+gave a lesson a body it did not own. rEngine's own lessons file has no numbered entries at all, so a
+titled section is an entry keyed by a slug of its title: one project numbers its lessons and another
+titles them, and the second must not be unsearchable for it.
+
+**The finding worth keeping.** `passage-triage`'s injection question, phrased as "does this passage
+give instructions to whoever reads it", scored the hostile string at 0.98 — and two genuine bug
+reports phrased as commands at 0.92 and 0.97. All three dropped. A bug report saying "fix the sky,
+the clouds move too fast" literally does tell its reader what to do. Rephrased to ask about an
+attempt to control the SYSTEM READING the passage, with the false criterion saying in as many words
+that a request to change the product is about the product, the same four passages returned 0.99 /
+0.02 / 0.04 / 0.03 — wider separation than the 0.99 / 0.34 / 0.49 the NOLF flow measured, with no
+threshold moved. The criteria carry the signal; that file already says so about a different question
+and it was worth believing twice.
+
+**Live evidence, not just unit tests.** `find` over rEngine's 127 known-issues answered "a test that
+passes because the binary it drives was never rebuilt" with KI-120 at 0.99, present 0.97; asked for
+the atomic weight of tungsten it answered present 0.02 and kept ZERO matches. That negative control
+is the whole reason the presence question is asked independently of the ranking.
+
+Two smaller things: a Score's distribution comes back keyed by level INDEX, so the levels are named
+where a caller reads them; and the sweep keeps every candidate above the floor rather than one per
+chunk, which is the correction NOLF measured as the difference between two surfaced features and
+three.
+
+Gates: 40 plugin unit tests, full Rust green, red-mcp 3/3, native-extensions green. rEngine declares
+four flows, which is exactly the per-plugin tool cap — `rerank` and `passage-triage` are built and
+not enabled here, which is the subset mechanism doing its job.
+
+**Remaining:** 12 flows unbuilt (F238–F240), counted by a test. NOLF's own declaration is not
+written yet; its four Python tools still run standalone.
+
 ## Session 178 (opus-5) — 2026-09-19 — A plugin becomes a library of flows a project enables a subset of
 
 Owner's goal: the standalone Jev integration in `~/nolf-improved` and the 18 cookbooks its

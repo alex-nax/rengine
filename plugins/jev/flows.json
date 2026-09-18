@@ -2,6 +2,24 @@
   "flows": [
     {
       "name": "triage"
+    },
+    {
+      "name": "find",
+      "sources": {
+        "corpus": "known-issues.md"
+      }
+    },
+    {
+      "name": "align",
+      "sources": {
+        "corpus": "features.json"
+      }
+    },
+    {
+      "name": "evidence-check",
+      "sources": {
+        "corpus": "features.json"
+      }
     }
   ]
 }

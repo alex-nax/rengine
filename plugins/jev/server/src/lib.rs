@@ -22,6 +22,7 @@ use std::path::{Path, PathBuf};
 
 pub mod record;
 pub mod capability;
+pub mod corpus;
 pub mod gates;
 pub mod runs;
 pub mod flows;

@@ -113,7 +113,7 @@ pub const FLOWS: &[Entry] = &[
                       person, the same - so there is no threshold to fit, and reports which \
                       dimension disagrees when the answer is the middle one.",
         cost: "1 request, about $0.0003",
-        schema: align_schema, runner: None,
+        schema: align_schema, runner: Some(crate::runs::retrieval::align),
     },
     Entry {
         name: "find", cookbook: "semantic_find", surface: Surface::Tool,
@@ -123,7 +123,7 @@ pub const FLOWS: &[Entry] = &[
                       whether the corpus answers the query at all, so an absent answer is reported \
                       as absent rather than dressed up as the best of a bad set.",
         cost: "1 request, about $0.0007",
-        schema: query_schema, runner: None,
+        schema: query_schema, runner: Some(crate::runs::retrieval::find),
     },
     Entry {
         name: "rerank", cookbook: "rerank_typesafe", surface: Surface::Tool,
@@ -132,7 +132,7 @@ pub const FLOWS: &[Entry] = &[
                       candidate. Use it when something cheap has already narrowed the field; it does \
                       not search, and a candidate the shortlist missed cannot be recovered here.",
         cost: "1 request per candidate, about $0.0003 each",
-        schema: rerank_schema, runner: None,
+        schema: rerank_schema, runner: Some(crate::runs::retrieval::rerank),
     },
     Entry {
         name: "evidence-check", cookbook: "citation_check", surface: Surface::Tool,
@@ -141,7 +141,7 @@ pub const FLOWS: &[Entry] = &[
                       its cited evidence out of this project's corpus and decides between supported, \
                       unsupported, and needs a person.",
         cost: "1 request, about $0.0003",
-        schema: evidence_schema, runner: None,
+        schema: evidence_schema, runner: Some(crate::runs::retrieval::evidence_check),
     },
     Entry {
         name: "passage-triage", cookbook: "classifying_rag_passages", surface: Surface::Tool,
@@ -151,7 +151,7 @@ pub const FLOWS: &[Entry] = &[
                       than averaging it against the other judgements - a passage trying to direct \
                       its reader is reported before anything else about it.",
         cost: "1 request, about $0.0004",
-        schema: evidence_schema, runner: None,
+        schema: evidence_schema, runner: Some(crate::runs::retrieval::passage_triage),
     },
     Entry {
         name: "classify", cookbook: "hierarchical_classification", surface: Surface::Tool,
@@ -303,7 +303,7 @@ mod tests {
         // appears without a decision behind it should be a failing test rather than a surprise.
         // This number goes DOWN, one feature row at a time, and never up without one.
         let unbuilt: Vec<&str> = FLOWS.iter().filter(|e| e.runner.is_none()).map(|e| e.name).collect();
-        assert_eq!(unbuilt.len(), 17, "flows still to build: {unbuilt:?}");
+        assert_eq!(unbuilt.len(), 12, "flows still to build: {unbuilt:?}");
         assert_eq!(FLOWS.len(), 18);
     }
 
@@ -338,7 +338,9 @@ mod tests {
 
     #[test]
     fn a_declared_but_unbuilt_flow_says_so_rather_than_failing_obscurely() {
-        let flow = Flow { name: "align".into(), surface: Surface::Tool,
+        // A flow that is declared and has no runner yet. When this one gains a runner, point the
+        // test at another - or delete it, on the day the count above reaches zero.
+        let flow = Flow { name: "classify".into(), surface: Surface::Tool,
                           sources: BTreeMap::new(), settings: json!({}) };
         let jev = Jev::from_key("x".repeat(40).as_str()).expect("key");
         let error = run(&jev, &flow, &Arguments::new(), Path::new(".")).expect_err("not built");
