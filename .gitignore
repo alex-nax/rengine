@@ -30,3 +30,7 @@ Testing/
 /apps/companion/app/build/
 /apps/companion/app/.cxx/
 /apps/companion/local.properties
+
+# Credentials a person drops in the checkout. The key is per-machine and never committed;
+# the declaration that uses it names the FILE, never the value.
+.jev

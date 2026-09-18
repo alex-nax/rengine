@@ -4489,6 +4489,103 @@
       "evidence": [
         "Not started. The QAT/Q4_0 figures are recorded in spec 150 with their source; they are the reason this row exists rather than a schema preference."
       ]
+    },
+    {
+      "id": 228,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "red-jev: the Rust client for the Jev judgement API over the EXISTING red_core::tls::request - the same outbound HTTPS path red-project already uses to reach Linear, so no new dependency and no new category of network access. Typed primitives that encode the shape trap (choice takes a criteria MAP, score takes an ordered LIST), the key read from the state directory and never logged, the model pinned by version rather than the moving alias, retries that honour retry-after, and a recorded call log carrying the versioned model id that answered (charter D74, spec 151).",
+      "acceptance_criteria": [
+        "A choice, a score and a noul question are asked in one call and the answers come back keyed by the ids the caller chose, with probabilities and, for choice and score, confidence; noul carries none and the type says so.",
+        "Sending a map where score wants a list is impossible in the types rather than a 422 discovered at a call site, asserted by a compile-fail or a constructor that cannot express it.",
+        "The key is read from the state directory; a missing key is refused by name with where to put it, and the key never appears in a log line, an error, or the call record, observed by grepping a run's whole output for it.",
+        "A 429 is retried with backoff honouring retry-after, and a retry budget that runs out is refused by name rather than retried forever.",
+        "Every call appends a record with capability, question ids, answers, probabilities, confidence, input tokens and the versioned model id - not the alias.",
+        "The service is reachable only from Rust: nothing in editor/ gains a network call, asserted by the existing guard over the desktop's sources."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "The red-jev crate, its typed primitives, the state-directory key, the retry policy and the call record.",
+      "external_references": [],
+      "evidence": [
+        "Not started. Measured 2026-09-18 against the live API: 0.56-0.70 s round trip, 425-474 input tokens for a realistic call, $42 per billion input tokens with output free, 1200 req/min, 64k context. red_core::tls::request already exists and red-project/src/tracker_remote.rs already uses it for a third-party API."
+      ]
+    },
+    {
+      "id": 229,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "Three named, closed capabilities over red-jev - test-failure triage, feature-row readiness, and known-issue de-duplication - each owning its question set and a state builder that may read ONLY the sources it declares. There is deliberately no generic ask tool: a generic tool would let any agent send anything and defeat the boundary. v1 sends only content this project already writes down; source and diffs are out of scope. Confidence gates behaviour in three bands per capability, and nothing runs on a timer (charter D74, spec 151).",
+      "acceptance_criteria": [
+        "Each capability sends only the sources it declares, observed by pointing a capability at a state builder that tries to read an undeclared path and seeing it refused by name before any request is made.",
+        "No tool, MCP or otherwise, accepts free-form state from a caller: asked for one, the surface refuses by name.",
+        "A low-confidence answer is not acted on - it is recorded and reported as undecided - observed by forcing a flat distribution through a fixture.",
+        "Triage is scored against at least ten failures whose true cause is already known, and the score is recorded before any claim that it works.",
+        "A per-session call ceiling is declared and enforced, and the count is visible; the ceiling refuses by name rather than silently dropping a call.",
+        "No capability fires on a timer or a keystroke: each runs from a named trigger, and the triggers are listed in the spec."
+      ],
+      "passes": false,
+      "dependencies": [
+        228
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The three capabilities, their question sets and state builders, the confidence bands, the ceiling and the triage score.",
+      "external_references": [],
+      "evidence": [
+        "Not started. Jev's own answer on scope, asked twice under different framings, put everything_including_source at 0.00 both times and these three text-only uses at 0.86 and 0.82."
+      ]
+    },
+    {
+      "id": 230,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "The judgement view: the desktop shows what the capabilities produced, over the channel that already exists (editor/net.c -> /api/*, the path tracker rows already travel) and with ZERO plugin ABI movement. This replaces the first draft's plugin ABI v3 data channel, which was wrong by spec 106's own rule - `size` on every struct exists so \"a later ABI that only adds members can keep its number\" - and whose exact-match rule would have made a bump a flag day refusing every existing plugin, for an experiment designed to be discardable. A generic host-hands-the-frame document would also have been the first host-table entry that is a data pipe rather than a capability, laundering D38's \"the struct is the grant\" (charter D74, specs 106 and 151).",
+      "acceptance_criteria": [
+        "The view shows the latest judgement for what the person is looking at, including the probability DISTRIBUTION and not only the winning answer, so a close call reads as close.",
+        "RE_PLUGIN_ABI_VERSION is unchanged and every existing plugin still loads, asserted by the F108 fixture modules passing untouched.",
+        "A judgement the service could not obtain shows as unavailable with its reason; a stale answer is never shown as current.",
+        "The desktop makes no network call of its own and holds no key: the view reads what the host serves, asserted by the existing guard over the desktop's sources.",
+        "The desktop's recorded budgets are unchanged by the view."
+      ],
+      "passes": false,
+      "dependencies": [
+        229
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The judgement view in the desktop, served over the existing host channel, with no ABI movement.",
+      "external_references": [],
+      "evidence": [
+        "Not started. REVERSED from the first draft's ABI v3 proposal by kimi's read-only architectural review, 2026-09-18, finding 2: verified against docs/specs/106-plugin-abi.md line 80 (`size` exists so additive changes keep the number) and its decision 1 (the desktop accepts a plugin only when its ABI version is EQUAL to its own)."
+      ]
+    },
+    {
+      "id": 231,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "The adoption decision, made on measured outcomes rather than impressions: the recorded judgements are scored against what actually happened, against a metric registered BEFORE the first call, and the decision to adopt at top level or to drop the capabilities is recorded either way. It also answers the question the experiment is really for - whether the LOCAL model (charter D68/D73) could do these classifications - because adopting a cloud judge at top level cuts across this project's committed local direction (charter D74, spec 151).",
+      "acceptance_criteria": [
+        "A metric is registered before the first recorded call - a threshold on high-band reversal rate over a stated N - and the decision is taken against that metric, not against a reading of the log afterwards.",
+        "Every judgement in the record carries an outcome: accepted, overridden, confirmed by an isolation run, or later reverted. A judgement with no outcome is counted as undecided and reported, never dropped.",
+        "The cases it got WRONG are written into the evidence document by name, not summarised as a rate.",
+        "The same classifications are attempted with the local model of spec 139/150 and the measured quality of both is recorded, so the decision answers whether a cloud exception is warranted rather than only whether Jev works.",
+        "The owner's decision is recorded either way, and a decision to drop removes the capabilities rather than leaving them running."
+      ],
+      "passes": false,
+      "dependencies": [
+        229,
+        230
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The pre-registered metric, the scored record with its wrong answers named, the local-model comparison, and the recorded adoption decision.",
+      "external_references": [],
+      "evidence": [
+        "Not started. Blocked on F229 and F230. The pre-registered metric and the outcome field both come from kimi's review finding 1, which showed the first draft recorded usage rather than accuracy and so could not have decided anything."
+      ]
     }
   ]
 }

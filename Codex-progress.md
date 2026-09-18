@@ -1,3 +1,63 @@
+## Session 174 (opus-5) — 2026-09-18 — Jev planned, measured, and cut down by its own review
+
+Design only; nothing implemented. Spec **151**, charter **D74**, rows **F228–F231**.
+
+**First, a key that was one `git add -A` from being published.** `.jev` arrived at the repository
+root ungitignored, 108 characters, while this session had been running `git add -A` all day. It never
+reached a commit — checked against every commit and the index — and it is ignored now. The spec puts
+the key in the **state directory** beside `trackers/oauth.json`, which is where this project already
+keeps a third-party credential, rather than in a git working tree.
+
+**The codebase removed most of the work before any was done.** `red_core::tls::request` already
+exists — rustls, native certs, blocking — and `red-project/src/tracker_remote.rs` already uses it to
+reach Linear. **Jev is not a new category of network access here and needs no new dependency.** That
+single read turned "build an HTTP client in Rust" into "add a caller".
+
+**Measured rather than read**, live, with the owner's key: 0.56–0.70 s round trip (the docs advertise
+150 ms; the rest is distance), 425–474 input tokens a call, **$42 per billion input tokens** with
+output free — about $0.00002 a call, 36 cents for fifty calls a day for a year. **Cost is not the
+constraint; latency is**, and it rules out anything on a keystroke or a frame. One trap found by
+hitting it: `choice` takes its criteria as a **map**, `score` as an **ordered list**, and the wrong
+one is a 422.
+
+**It answered our own triage correctly.** Given only the failure text of yesterday's `red-worker`
+socket test, it returned `flaky 0.91` and `treat_as_flake` at 0.74 — the conclusion that had cost
+three isolation runs by hand.
+
+**Then the part worth carrying.** Asked to judge its own integration, Jev was asked **twice**, the
+second time with the leading clauses stripped out. Two answers moved: "may a plugin open its own
+sockets" went **0.19 → 0.61**, and the route recommendation's confidence collapsed **0.69 → 0.29**.
+Those were my framing reflected back, and they are cited nowhere in the spec. Two held under both
+framings — scope at 0.86/0.82 and source-sending at **0.00 twice** — and those are cited. *A
+judgement model asked about a decision you have already framed will often return your framing; the
+way to find out is to ask again with it removed.*
+
+**And then the review took the design apart.** kimi, read-only, returned CHANGES REQUESTED with
+eleven findings. The three that mattered:
+
+- **The experiment could not decide anything.** The record held question, answer, confidence and
+  tokens — and no outcome. It measured usage, not accuracy, and F231 proposed to decide adoption from
+  it. Every judgement now carries what actually happened, and the metric is registered *before* the
+  first call.
+- **ABI v3 was wrong by spec 106's own rule.** `size` on every struct exists so "a later ABI that
+  only *adds* members can keep its number" — verified at `106-plugin-abi.md:80` — and the exact-match
+  rule would have made a bump a flag day refusing every existing plugin, for an experiment designed
+  to be discardable. Decision 8 is **reversed**: the view is served over `editor/net.c` → `/api/*`,
+  the path tracker rows already travel, with zero ABI movement.
+- **I built the gate on a signal I had just proven unstable.** Confidence collapsing 0.69 → 0.29 was
+  in my own spec, three paragraphs above a decision that gated automation on that scalar. Shadow mode
+  until calibrated; gate on the distribution margin; `noul` gates on repeat agreement, because
+  distance from 0.5 measures decisiveness and not trust.
+
+Also accepted: "already written down" is not "safe to send" — **this repository proves it**, since
+`pr0fe@192.168.31.217` sits in the charter, in `features.json` three times and in spec 147 — so a
+scrub runs before anything leaves. Free-text capability parameters were a hole the size of the whole
+boundary. A gate that blocks 30 s on a third party must fail open, loudly. And F231 must try the same
+classifications on the **local** model, because adopting a cloud judge at top level cuts across
+D68/D73.
+
+Gates: `./init.sh`, `design.py check`, `agent_names.py check`, `features.py validate` (183) — green.
+No code changed.
 ## Session 173 (opus-5) — 2026-09-17 — A crash diagnosed, and the explorer's path bar
 
 **The editor crashed while the owner was using it, and the cause is not today's work.** Symbolicated
