@@ -1,3 +1,37 @@
+## Session 178c (opus-5) — 2026-09-19 — The routing flows, and a beam that reported every leaf twice
+
+F238: `classify`, `skill-pick` and `action-intent`. What the three share is that **the answer set is
+a declaration, not a generation** — every option comes out of a file this project wrote, so none of
+them can name a category, a skill or an action that does not exist. All three can answer "none",
+because a router that must pick something will, and a forced pick reads exactly like a confident one.
+
+**The live run was the argument for the design and the bug report at once.** `classify` placed F236
+at `surfaces/plugins`: `surfaces` scored 0.24 at the root against `services` at 0.59, and its child
+scored 0.99 — so a greedy walk takes `services` and never reaches the right leaf, which is precisely
+what the beam is for. The same answer showed the leaf reported TWICE: every path reaching a leaf is
+pushed to `finished`, and the beam still holding those paths was added again at the end. The walk is
+now separated from the asking so both halves are testable without a network, and the regression was
+observed failing for its own reason by restoring the unconditional extend.
+
+**`skill-pick` is allowed to say no, and does.** "Interview me about this design before I build it"
+suggested `grill-me` at 0.98 with the wanted gate at 0.41. "What does the word idempotent mean"
+suggested nothing at 0.083 — below the gate, so it never reached the second stage, and a turn that
+wants no skill costs one request rather than two. The gate counts prose INVERTED: prose being enough
+is a reason not to load a skill, and a test pins that, because counting it the same way round as the
+other two scores an explain-this turn as wanting one.
+
+**`action-intent`** over rEngine's own 12 declared actions: "run the harness gate please" →
+`harness-gate`, "check the design tokens havent drifted" → `design-guards`, "what is the capital of
+France" → no call. Confidence is the weakest judgement in the call rather than the product: one
+wrong argument spoils it, and a product of several good probabilities understates a call whose parts
+were all fine.
+
+rEngine keeps four flows enabled, which is the per-plugin tool cap — `classify`, `skill-pick` and
+`action-intent` are built and not enabled here. `plugins/jev/taxonomy.json` declares its own areas
+for whenever `classify` is switched on.
+
+43 plugin unit tests. **Remaining: 9 flows (F239, F240).**
+
 ## Session 178b (opus-5) — 2026-09-19 — The retrieval flows, and a question whose phrasing was the bug
 
 F237: `align`, `find`, `rerank`, `evidence-check` and `passage-triage`, over a corpus reader that

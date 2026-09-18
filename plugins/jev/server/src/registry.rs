@@ -160,7 +160,7 @@ pub const FLOWS: &[Entry] = &[
                       paths and scoring each by the geometric mean of its edges so a shallow leaf and \
                       a deep one compare fairly. A branch with one child costs no request.",
         cost: "about 1 request per level per kept path",
-        schema: taxonomy_schema, runner: None,
+        schema: taxonomy_schema, runner: Some(crate::runs::routing::classify),
     },
     Entry {
         name: "skill-pick", cookbook: "skill_suggestion", surface: Surface::Tool,
@@ -169,7 +169,7 @@ pub const FLOWS: &[Entry] = &[
                       just made. Asks first whether the turn wants a skill AT ALL, and can reject \
                       every candidate - suggesting nothing is a normal answer, not a failure.",
         cost: "2 requests, about $0.0012",
-        schema: turn_schema, runner: None,
+        schema: turn_schema, runner: Some(crate::runs::routing::skill_pick),
     },
     Entry {
         name: "action-intent", cookbook: "function_calling", surface: Surface::Tool,
@@ -179,7 +179,7 @@ pub const FLOWS: &[Entry] = &[
                       invented, and the confidence reported is the WEAKEST argument rather than the \
                       product - one wrong argument spoils the call.",
         cost: "1 request, about $0.0004",
-        schema: turn_schema, runner: None,
+        schema: turn_schema, runner: Some(crate::runs::routing::action_intent),
     },
     Entry {
         name: "reformat", cookbook: "autoformat", surface: Surface::Tool,
@@ -303,7 +303,7 @@ mod tests {
         // appears without a decision behind it should be a failing test rather than a surprise.
         // This number goes DOWN, one feature row at a time, and never up without one.
         let unbuilt: Vec<&str> = FLOWS.iter().filter(|e| e.runner.is_none()).map(|e| e.name).collect();
-        assert_eq!(unbuilt.len(), 12, "flows still to build: {unbuilt:?}");
+        assert_eq!(unbuilt.len(), 9, "flows still to build: {unbuilt:?}");
         assert_eq!(FLOWS.len(), 18);
     }
 
@@ -340,7 +340,7 @@ mod tests {
     fn a_declared_but_unbuilt_flow_says_so_rather_than_failing_obscurely() {
         // A flow that is declared and has no runner yet. When this one gains a runner, point the
         // test at another - or delete it, on the day the count above reaches zero.
-        let flow = Flow { name: "classify".into(), surface: Surface::Tool,
+        let flow = Flow { name: "reformat".into(), surface: Surface::Tool,
                           sources: BTreeMap::new(), settings: json!({}) };
         let jev = Jev::from_key("x".repeat(40).as_str()).expect("key");
         let error = run(&jev, &flow, &Arguments::new(), Path::new(".")).expect_err("not built");

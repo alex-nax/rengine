@@ -1,0 +1,25 @@
+{
+  "workspace": {
+    "sessions": "Retained terminals, agent panes, the session host and what survives a restart.",
+    "layout": "Panes, tabs, splits and what a window reopens on.",
+    "explorer": "The project tree: listing, expanding, drilling in.",
+    "editor": "Editing a file: buffers, drafts, saving, diagnostics.",
+    "terminal": "A shell inside a pane: input, scrollback, mouse."
+  },
+  "surfaces": {
+    "rendering": "The draw list and the graphics-API adapters beneath it.",
+    "design": "Tokens, theme, typography and the generated design sources.",
+    "plugins": "Modules the editor loads, and the packs that declare them."
+  },
+  "services": {
+    "host": "The front door and the routes it answers.",
+    "worker": "The workspace worker and what it forwards.",
+    "agents": "Agent CLIs, their recipes and how a brief reaches one.",
+    "devices": "Declared machines, their probes and what runs where."
+  },
+  "harness": {
+    "tests": "Specs, fixtures and the suite that runs them.",
+    "inventory": "features.json, known-issues and the evidence attached to them.",
+    "build": "cmkr, CMake, the toolchain and what a build produces."
+  }
+}

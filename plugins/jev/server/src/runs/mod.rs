@@ -7,6 +7,7 @@
 //! text would be a way to send arbitrary content to a third party through a tool call.
 
 pub mod retrieval;
+pub mod routing;
 
 use std::path::Path;
 

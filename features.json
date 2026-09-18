@@ -4767,14 +4767,21 @@
         "`action-intent` never invents an argument value outside the declared set, and reports the weakest argument as the confidence.",
         "All three exit 0 with an explanation when the key or the service is absent."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         236
       ],
       "owner_workspace": "rengine",
       "deliverable": "Three flows over declarations this workspace already has: a declared taxonomy, the skills roster, and the dashboard's own action list.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "Built 2026-09-19 in src/runs/routing.rs. 43 plugin unit tests. Every option in all three flows comes out of a file the project wrote, so none of them can name a category, a skill or an action that does not exist.",
+        "Criterion 1, live: `classify` placed F236 at surfaces/plugins, score 0.487, from a taxonomy declared at plugins/jev/taxonomy.json. The run is the argument for a beam rather than a greedy walk - `surfaces` scored only 0.24 at the root against `services` at 0.59, and its child scored 0.99, so a greedy walk would have taken `services` and never reached the right leaf. A branch with one child costs no request and is not counted as a decision.",
+        "Criterion 1, and a real bug the live run exposed: the first version reported the same leaf TWICE, because every path that reached a leaf was pushed to `finished` and the beam holding those same paths was added again at the end. The walk is now separated from the asking so it can be tested without a network; routing::tests::a_leaf_is_reported_once_and_a_one_child_branch_costs_no_question covers both halves and was observed failing for its own reason by restoring the unconditional extend - it failed listing every leaf twice and on nothing earlier. A second test pins the beam's whole purpose with the measured shape of that live answer.",
+        "Criterion 2, live: 'interview me about this design before I build it, walk the decision tree' suggested grill-me at 0.98 with the wanted gate at 0.41; 'what does the word idempotent mean' suggested NOTHING at 0.083, below the gate, and never reached the second stage at all - so a turn that wants no skill costs one request rather than two. routing::tests::the_gate_counts_prose_the_other_way_round pins the inversion that makes that work: prose being sufficient is a reason NOT to load a skill, and counting it the same way round as the other two would have scored an explain-this turn as wanting one.",
+        "Criterion 3, live over rEngine's own 12 declared actions: 'run the harness gate please' returned harness-gate, 'check the design tokens havent drifted' returned design-guards, and 'what is the capital of France' returned NO call. The reported confidence is the weakest judgement in the call rather than the product, because one wrong argument is enough to spoil it and a product of several good probabilities understates a call whose parts were all fine.",
+        "Criterion 4: all three read their key through Jev::from_state_directory, which refuses by name with the path to put one at and quotes the path rather than the contents of anything."
+      ]
     },
     {
       "id": 239,
