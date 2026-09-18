@@ -56,6 +56,15 @@ boundary. A gate that blocks 30 s on a third party must fail open, loudly. And F
 classifications on the **local** model, because adopting a cloud judge at top level cuts across
 D68/D73.
 
+**The local side of that comparison is named**: **Gemma 4 E2B QAT**, the pilot model of spec 150
+decision 7, driven through `re_model`'s **GBNF grammar** — which the pack's ABI already carries, so
+the comparison needs no capability that does not exist. Two conditions keep it honest. It is decided
+on **decision quality against outcomes**, never by comparing the two confidence numbers: Jev returns
+calibrated probabilities and a grammar-constrained general model returns a token, and those are not
+the same object. And E2B is the **floor** chosen to fit a phone, not the best local option — a loss
+there is re-run at E4B, the escalation spec 150 already names, before anyone reads it as "local
+cannot do this".
+
 Gates: `./init.sh`, `design.py check`, `agent_names.py check`, `features.py validate` (183) — green.
 No code changed.
 ## Session 173 (opus-5) — 2026-09-17 — A crash diagnosed, and the explorer's path bar

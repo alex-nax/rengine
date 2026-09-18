@@ -4567,13 +4567,15 @@
       "milestone": "O1",
       "category": "orchestrator",
       "priority": "medium",
-      "description": "The adoption decision, made on measured outcomes rather than impressions: the recorded judgements are scored against what actually happened, against a metric registered BEFORE the first call, and the decision to adopt at top level or to drop the capabilities is recorded either way. It also answers the question the experiment is really for - whether the LOCAL model (charter D68/D73) could do these classifications - because adopting a cloud judge at top level cuts across this project's committed local direction (charter D74, spec 151).",
+      "description": "The adoption decision, made on measured outcomes rather than impressions: the recorded judgements are scored against what actually happened, against a metric registered BEFORE the first call, and the decision to adopt at top level or to drop the capabilities is recorded either way. It also answers the question the experiment is really for - whether the pilot LOCAL model can do these classifications - because adopting a cloud judge at top level cuts across this project's committed local direction. The local side is Gemma 4 E2B QAT through re_model's grammar path, which is the pilot model spec 150 decision 7 names and needs no capability the pack does not already have (charter D68/D73/D74, specs 150 and 151).",
       "acceptance_criteria": [
         "A metric is registered before the first recorded call - a threshold on high-band reversal rate over a stated N - and the decision is taken against that metric, not against a reading of the log afterwards.",
         "Every judgement in the record carries an outcome: accepted, overridden, confirmed by an isolation run, or later reverted. A judgement with no outcome is counted as undecided and reported, never dropped.",
         "The cases it got WRONG are written into the evidence document by name, not summarised as a rate.",
-        "The same classifications are attempted with the local model of spec 139/150 and the measured quality of both is recorded, so the decision answers whether a cloud exception is warranted rather than only whether Jev works.",
-        "The owner's decision is recorded either way, and a decision to drop removes the capabilities rather than leaving them running."
+        "The same classifications are attempted locally with **Gemma 4 E2B QAT** - the pilot model of spec 150 decision 7 - driven through re_model's GBNF grammar so the answer is structured rather than parsed out of prose, and both sides' quality is recorded.",
+        "The owner's decision is recorded either way, and a decision to drop removes the capabilities rather than leaving them running.",
+        "The comparison is made on DECISION QUALITY against recorded outcomes, never by comparing the two confidence numbers: Jev returns calibrated probabilities natively while a grammar-constrained general model returns a token, and those are not the same object.",
+        "The record names which local model answered. E2B is the FLOOR chosen for a phone, not the best local option, so a loss at E2B is reported as a floor result and re-run at E4B - the escalation spec 150 already names - before it is read as \"local cannot do this\"."
       ],
       "passes": false,
       "dependencies": [
