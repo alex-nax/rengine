@@ -4495,7 +4495,7 @@
       "milestone": "O1",
       "category": "orchestrator",
       "priority": "medium",
-      "description": "red-jev: the Rust client for the Jev judgement API over the EXISTING red_core::tls::request - the same outbound HTTPS path red-project already uses to reach Linear, so no new dependency and no new category of network access. Typed primitives that encode the shape trap (choice takes a criteria MAP, score takes an ordered LIST), the key read from the state directory and never logged, the model pinned by version rather than the moving alias, retries that honour retry-after, and a recorded call log carrying the versioned model id that answered (charter D74, spec 151).",
+      "description": "The jev plugin's service: the Rust client for the Jev judgement API over the EXISTING red_core::tls::request - the same outbound HTTPS path red-project already uses to reach Linear, so no new dependency and no new category of network access. Typed primitives that encode the shape trap (choice takes a criteria MAP, score takes an ordered LIST), the key read from the state directory and never logged, the model pinned by version rather than the moving alias, retries that honour retry-after, and a recorded call log carrying the versioned model id that answered (charter D74, spec 151).",
       "acceptance_criteria": [
         "A choice, a score and a noul question are asked in one call and the answers come back keyed by the ids the caller chose, with probabilities and, for choice and score, confidence; noul carries none and the type says so.",
         "Sending a map where score wants a list is impossible in the types rather than a 422 discovered at a call site, asserted by a compile-fail or a constructor that cannot express it.",
@@ -4510,7 +4510,8 @@
       "deliverable": "The red-jev crate, its typed primitives, the state-directory key, the retry policy and the call record.",
       "external_references": [],
       "evidence": [
-        "Not started. Measured 2026-09-18 against the live API: 0.56-0.70 s round trip, 425-474 input tokens for a realistic call, $42 per billion input tokens with output free, 1200 req/min, 64k context. red_core::tls::request already exists and red-project/src/tracker_remote.rs already uses it for a third-party API."
+        "Not started. Measured 2026-09-18 against the live API: 0.56-0.70 s round trip, 425-474 input tokens for a realistic call, $42 per billion input tokens with output free, 1200 req/min, 64k context. red_core::tls::request already exists and red-project/src/tracker_remote.rs already uses it for a third-party API.",
+        "PLACEMENT CORRECTED 2026-09-18, owner-decided mid-implementation: this was first built as a crate in the core cargo workspace with its route in red_worker.rs and its tool appended to red-mcp's CAPTURED tools.json, which made it a core feature with a switch on it rather than a plugin. All of that is reverted - red/ is byte-identical to what it was - and it lives at plugins/jev/server with its own workspace, reached through the service facet of charter D75 and spec 152."
       ]
     },
     {
@@ -4535,7 +4536,8 @@
       "deliverable": "The three capabilities, their question sets and state builders, the confidence bands, the ceiling and the triage score.",
       "external_references": [],
       "evidence": [
-        "Not started. Jev's own answer on scope, asked twice under different framings, put everything_including_source at 0.00 both times and these three text-only uses at 0.86 and 0.82."
+        "Not started. Jev's own answer on scope, asked twice under different framings, put everything_including_source at 0.00 both times and these three text-only uses at 0.86 and 0.82.",
+        "PLACEMENT CORRECTED 2026-09-18, owner-decided mid-implementation: this was first built as a crate in the core cargo workspace with its route in red_worker.rs and its tool appended to red-mcp's CAPTURED tools.json, which made it a core feature with a switch on it rather than a plugin. All of that is reverted - red/ is byte-identical to what it was - and it lives at plugins/jev/server with its own workspace, reached through the service facet of charter D75 and spec 152."
       ]
     },
     {
@@ -4587,6 +4589,77 @@
       "external_references": [],
       "evidence": [
         "Not started. Blocked on F229 and F230. The pre-registered metric and the outcome field both come from kimi's review finding 1, which showed the first draft recorded usage rather than accuracy and so could not have decided anything."
+      ]
+    },
+    {
+      "id": 232,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "The plugin service facet in core: a pack may declare an executable the workspace invokes per call, declare its own tools, and have them merged into the agent's tool list only while it is switched on - namespaced by plugin and capped at 4 per plugin and 16 in total, refused by name over the cap. A plugin owns <state>/plugins/<name>/ and core reads exactly one file in it. Nothing in core names a plugin (charter D75, spec 152).",
+      "acceptance_criteria": [
+        "A declared plugin is off until a person turns it on, and a switched-off plugin offers no tools at all.",
+        "Its tools appear in an agent's tools/list while it is on and vanish when it is off, and the CAPTURED tools.json is unchanged - the guard on its count still passes.",
+        "A plugin over its tool cap is refused BY NAME and offers nothing, rather than having its extra tools trimmed away.",
+        "A tool is namespaced by its plugin, so an agent can see which plugin offers what and two plugins cannot collide.",
+        "A plugin name that could escape a directory or a namespace is not read as a plugin at all.",
+        "A broken manifest is skipped rather than emptying the page, and a service that is not built says so where a person reads it.",
+        "A service is invoked with its own state directory, the project root as its working directory, and no inherited environment beyond what it was declared with."
+      ],
+      "passes": false,
+      "dependencies": [],
+      "owner_workspace": "rengine",
+      "deliverable": "red_project::plugins, the worker's extensions/toggle/plugin-call/plugin-tools routes, and the MCP merge.",
+      "external_references": [],
+      "evidence": [
+        "Built 2026-09-18. 7 unit tests in red_project::plugins; 387/387 Rust; the captured declaration untouched. The whole path was exercised against the real jev plugin: declared -> page -> toggle -> jev.triage offered -> invoked as a subprocess -> live API -> recorded judgement."
+      ]
+    },
+    {
+      "id": 233,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "The Plugins page in the desktop: a view listing what this workspace can switch on, with a toggle per plugin, the plugin's own sentence about whether it can work, and what it has cost so far. Switched ON and able to WORK are shown as different answers, because a switch that hid \"I have no key\" behind \"on\" would be a switch that lies (charter D75, spec 152).",
+      "acceptance_criteria": [
+        "The page lists every declared plugin and toggling one is reflected by the service's own answer rather than by the click, so a refused toggle leaves the switch reading off.",
+        "A plugin that is on but cannot work shows the plugin's own reason, and a plugin that is off is not asked at all.",
+        "The page never renders a credential, asserted against a state directory holding a key.",
+        "The tab is persisted and restored like any other view, and its type number was APPENDED so a saved layout does not reopen as the wrong view."
+      ],
+      "passes": false,
+      "dependencies": [
+        232
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "The RE_EXTENSIONS view, editor/extensions.c, and its place in the view switcher.",
+      "external_references": [],
+      "evidence": [
+        "Built 2026-09-18, not yet driven by a desktop spec: the page renders from the same route the registry tests cover, and a native spec for the toggle is the remaining evidence."
+      ]
+    },
+    {
+      "id": 234,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "medium",
+      "description": "The jev plugin's UI facet: a tab module under plugins/jev/ui/ built against editor/plugin_abi.h that draws the recorded judgements. It needs NO ABI movement - a plugin tab already receives subject(), the absolute path of what it was opened for, which is how plugins/scene knows its .obj, so the tab is opened on the plugin's own record file and reads it (charter D75, spec 152 decision 7).",
+      "acceptance_criteria": [
+        "The tab draws the recorded judgements for this workspace, showing each answer's distribution and not only the winning outcome, so a close call reads as close.",
+        "RE_PLUGIN_ABI_VERSION is unchanged and every existing plugin still loads, asserted by the F108 fixtures passing untouched.",
+        "The module reads only the record file it was given through subject(); it reaches no store, session or host state.",
+        "With the plugin switched off the tab is not registered, and a record that does not exist yet draws as empty rather than as an error."
+      ],
+      "passes": false,
+      "dependencies": [
+        232,
+        233
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "plugins/jev/ui/ and its module, loaded through the declared plugin facet.",
+      "external_references": [],
+      "evidence": [
+        "Not started. The owner chose a native tab module over a page-only plugin when asked, 2026-09-18."
       ]
     }
   ]

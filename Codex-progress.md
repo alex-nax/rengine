@@ -1,3 +1,52 @@
+## Session 175 (opus-5) — 2026-09-18 — JEV built as a plugin, after being stopped for building it as core
+
+**The owner stopped this mid-implementation and was right.** I had put a `red-jev` crate in the core
+cargo workspace, a JEV route in `red_worker.rs`, and a `jev_triage` entry in red-mcp's **captured**
+`tools.json`. That is a core feature with a switch on it. Their words: *"Looks like we are violating
+plugins architecture by wiring in our core tools. JEV is a plugin and should be placed into
+`<root>/plugins` - we need some better plugin structure if there are both UI and server features."*
+
+All of it is reverted. **`red/` is byte-identical to what it was**, the captured declaration
+included — and the thing that caught the violation first was the repository's own guard: a test
+asserting the captured tool count, whose comment says *"a tool that appears without a decision behind
+it is a failing test rather than a surprise"*. I was about to edit that number.
+
+**Charter D75 and spec 152: a plugin may bring a capability that runs outside the window.** A pack's
+`plugin` facet is a module the desktop draws; the new **`service` facet** declares an executable the
+workspace invokes per call over JSON on stdio — the shape declared dashboard actions already have, so
+no lifecycle, no port, no long-lived process. Core's whole knowledge of a plugin is one file
+(`red_project::plugins`) and **nothing in it names one**.
+
+**The owner's concern answered structurally rather than by restraint.** They liked dynamic tool
+merging but said *"I have a concern that we might have too many tools defined one day"*. So the merge
+is **capped — 4 tools per plugin, 16 in total — and refused BY NAME over the cap rather than
+trimmed**, because a tool that silently vanished is a bug nobody can see. Tools are namespaced
+(`jev.triage`), and they reach an agent **only while the plugin is on**, which is what makes the
+toggle mean something to an agent and not only to a page.
+
+**And the UI facet needs no ABI movement**, which is what a review told us two sessions ago. A plugin
+tab already receives one string: `subject()`, the absolute path of what it was opened for — it is how
+`plugins/scene` knows which `.obj` to draw. JEV's tab is opened on its own record file. The host-to-
+plugin data channel proposed as ABI v3, and killed by that review, is not needed and is not built.
+
+**The whole path was exercised against the real plugin**: declared → the page → toggled on →
+`jev.triage` offered → invoked as a subprocess → a live API call → a recorded judgement. Off, the
+plugin is not even asked to describe itself; on without a key, it says so **in its own words**, which
+is the split spec 152 decision 6 draws — core owns *switched on*, the plugin owns *able to work*.
+
+One thing worth keeping from the live runs: the capability's own state produced `rerun_isolated` at
+0.90 where my earlier hand-written demo state had produced `treat_as_flake` at 0.82. The difference
+is that my demo told it the test had passed in isolation and that the change touched no sockets. Given
+only the raw failure the model asks for the isolation run instead — **a weaker answer from thinner
+evidence, recommending the action that would settle it.** That is the system working, and it is also
+a caution about demos built from states written by the person hoping for an answer.
+
+Gates: `./init.sh`, `design.py check`, `features.py validate` (186) — green. **387/387 Rust, 17/17 in
+the plugin, 378/379 JS** — `external-declaration`'s legacy-host test cancelled once under full-suite
+load and passes in isolation, the same concurrency flakiness this suite has shown all week.
+
+Not built: the jev tab module (F234), which the owner chose when asked. The page, the toggle and the
+agent's use of it are done.
 ## Session 174 (opus-5) — 2026-09-18 — Jev planned, measured, and cut down by its own review
 
 Design only; nothing implemented. Spec **151**, charter **D74**, rows **F228–F231**.

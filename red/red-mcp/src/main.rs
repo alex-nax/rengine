@@ -136,10 +136,33 @@ fn answer(method: &str, params: &Value, surface: &Value, workspace: &mut Workspa
             "serverInfo": surface.get("server").cloned().unwrap_or_else(|| json!({ "name": "rengine-workspace", "version": "1.0.0" })),
             "instructions": surface.get("instructions").cloned().unwrap_or(Value::Null),
         })),
-        "tools/list" => Ok(json!({ "tools": surface.get("tools").cloned().unwrap_or_else(|| json!([])) })),
+        /* The captured surface, plus whatever the plugins that are switched ON offer right now
+           (charter D75, spec 152). The captured entries are evidence and are never regenerated; a
+           plugin's are appended here and vanish the moment it is switched off, which is what makes
+           the Plugins toggle mean something to an AGENT and not only to a page. */
+        "tools/list" => {
+            let mut tools = surface.get("tools").and_then(Value::as_array).cloned().unwrap_or_default();
+            if let Ok(offered) = workspace.get(&format!("plugin-tools?rootId={}", workspace.binding.root_id)) {
+                if let Some(extra) = offered.get("tools").and_then(Value::as_array) {
+                    tools.extend(extra.iter().cloned());
+                }
+            }
+            Ok(json!({ "tools": tools }))
+        }
         "ping" => Ok(json!({})),
         "tools/call" => {
             let name = params.get("name").and_then(Value::as_str).unwrap_or_default().to_string();
+            /* A namespaced name belongs to a plugin, and whether it is offered is the workspace's
+               answer rather than this list's: a plugin that is off is simply not routable there. */
+            if name.contains('.') {
+                let result = workspace.post("plugin-call", json!({
+                    "rootId": workspace.binding.root_id, "tool": name, "arguments":
+                        params.get("arguments").cloned().unwrap_or(Value::Null) }));
+                return Ok(match result {
+                    Ok(value) => json!({ "content": [{ "type": "text", "text": value.to_string() }] }),
+                    Err(error) => refused(&error, ""),
+                });
+            }
             if !tools::names().contains(&name.as_str()) {
                 /* A RESULT, not a JSON-RPC error, and in the SDK's own words: that is what the JS
                    server answers, and `mcp.mjs` recognises exactly this text to tell a pane its

@@ -327,6 +327,32 @@ int re_app_devices(ReApp *a, const char *root) {
   if (!*root) return -1;
   return re_app_tab(a, RE_DEVICES, root, "", "", "Devices");
 }
+/* The Plugins page. Like devices and tasks it is fetched when the view opens or Refresh is pressed
+   and never on a timer: it reports whether an extension is switched on, which does not change by
+   itself. */
+int re_app_extensions(ReApp *a, const char *root) {
+  if (!*root) return -1;
+  return re_app_tab(a, RE_EXTENSIONS, root, "", "", "Plugins");
+}
+static void extensions_request(ReApp *a, int tab) {
+  ReTab *t = &a->tabs[tab];
+  char *route = re_net_query("extensions", t->root, "");
+  if (!route) return;
+  request(a, OP_LOAD, tab, route, NULL);
+  free(route);
+}
+void re_app_extensions_refresh(ReApp *a, int tab) { extensions_request(a, tab); }
+/* Switching one on or off is a POST that answers with the new list, so the page shows what the
+   service decided rather than what the click assumed — a toggle refused for want of a key must not
+   leave a switch looking on. */
+void re_app_extension_toggle(ReApp *a, int tab, const char *name, bool on) {
+  cJSON *body = cJSON_CreateObject();
+  cJSON_AddStringToObject(body, "rootId", a->tabs[tab].root);
+  cJSON_AddStringToObject(body, "name", name);
+  cJSON_AddBoolToObject(body, "enabled", on);
+  request(a, OP_LOAD, tab, "extension-toggle", body);
+  cJSON_Delete(body);
+}
 int re_app_dashboard(ReApp *a, const char *root) {
   if (!*root) return -1;
   if (!listed(a->dashboards_opened, root)) cJSON_AddItemToArray(a->dashboards_opened, cJSON_CreateString(root));
@@ -387,6 +413,7 @@ void re_app_load(ReApp *a, int tab) {
   if (t->type == RE_DASHBOARD) { char *route = re_net_query("dashboard", t->root, ""); if (route) request(a, OP_LOAD, tab, route, NULL); free(route); return; }
   if (t->type == RE_TRACKER) { tracker_request(a, tab, false); return; }
   if (t->type == RE_DEVICES) { devices_request(a, tab, false); return; }
+  if (t->type == RE_EXTENSIONS) { extensions_request(a, tab); return; }
   if (t->type != RE_EDITOR) return;
   if (re_image_path(t->path)) {
     if (!t->image) t->image = re_image_open();
@@ -473,7 +500,7 @@ static int current_view(const ReApp *a, int pane) {
   return p->used && !p->axis && p->count ? a->tabs[p->tabs[p->selected]].type : 0;
 }
 bool re_app_navigator_view(int type) {
-  return type == RE_TREE || type == RE_SESSIONS || type == RE_DASHBOARD || type == RE_DEVICES || type == RE_TRACKER;
+  return type == RE_TREE || type == RE_SESSIONS || type == RE_DASHBOARD || type == RE_DEVICES || type == RE_TRACKER || type == RE_EXTENSIONS;
 }
 /* The pane this view belongs in (spec 130). A document chosen from a browser goes to the pane being
    worked in, because the browser's own pane is the one place it is certainly in the way -- the person
@@ -1157,6 +1184,7 @@ cJSON *re_app_inspect(ReApp *a) {
     if (t->data && t->type == RE_TREE) cJSON_AddItemToObject(tab, "tree", cJSON_Duplicate(t->data, 1));
     if (t->data && t->type == RE_DASHBOARD) cJSON_AddItemToObject(tab, "dashboard", cJSON_Duplicate(t->data, 1));
     if (t->data && t->type == RE_DEVICES) cJSON_AddItemToObject(tab, "devices", cJSON_Duplicate(t->data, 1));
+    if (t->data && t->type == RE_EXTENSIONS) cJSON_AddItemToObject(tab, "extensions", cJSON_Duplicate(t->data, 1));
     if (t->data && t->type == RE_TRACKER) cJSON_AddItemToObject(tab, "tracker", cJSON_Duplicate(t->data, 1));
     if (t->format) re_format_inspect(t->format, tab);
   }

@@ -8,7 +8,16 @@ Jev (typesafe.ai) answers typed questions about supplied state and returns **pro
 than prose. Their own use-case map names *Harness Engineering* — "model routing, guardrails,
 reasoning-trace classification" — as a category, which is this project's daily work.
 
-Status: **design; nothing implemented.** Rows F228–F231. Charter **D74**.
+Status: **the service and its first capability are built; the plugin's UI facet is not.** Rows
+F228–F231. Charter **D74**.
+
+> **Placement corrected 2026-09-18, mid-implementation.** This was first built as a crate in the core
+> cargo workspace, with a route in `red_worker.rs` and its tool appended to red-mcp's **captured**
+> `tools.json` — a core feature with a switch on it, not a plugin. The owner stopped it. All of it is
+> reverted and `red/` is byte-identical to what it was; JEV lives at `plugins/jev/` and reaches the
+> workspace through the **service facet** of **charter D75 / spec 152**, which that correction
+> created. Decision 1 below still holds — the call is made by Rust, over `red_core::tls` — but the
+> Rust is the plugin's, not core's.
 
 ## What was measured, not read
 

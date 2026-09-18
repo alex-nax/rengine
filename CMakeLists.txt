@@ -430,6 +430,7 @@ set(rengine_desktop_core_SOURCES
 	"editor/dashboard.c"
 	"editor/devices.c"
 	"editor/editor.c"
+	"editor/extensions.c"
 	"editor/filelink.c"
 	"editor/formatview.c"
 	"editor/game.c"

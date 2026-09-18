@@ -9,7 +9,10 @@
 #include "token.h"
 #include "plugin.h"
 #include "imageview.h"
-enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, RE_DEVICES, RE_TRACKER, RE_PLUGIN };
+/* Appended, never inserted: a layout persists a tab by this number, so reordering would
+   reopen a restored window's tabs as the wrong views. RE_EXTENSIONS is the Plugins PAGE;
+   RE_PLUGIN above it is a tab a loaded plugin registered, which is a different thing. */
+enum { RE_TREE = 1, RE_EDITOR, RE_TERMINAL, RE_SESSIONS, RE_GAME, RE_DASHBOARD, RE_DEVICES, RE_TRACKER, RE_PLUGIN, RE_EXTENSIONS };
 #define RE_DEVICES_TIMEOUT_MS 45000L /* a devices load runs every declared probe; see sidecar: devices-route */
 /* The toolbar's agent select offers what the workspace has; the registry ships a handful, and a
    list that outgrows this is a registry change rather than a workspace one (spec 134 D7). */
@@ -181,6 +184,10 @@ void re_app_dashboard_run(ReApp *app, int tab, const char *action, bool capture)
 void re_app_reveal(ReApp *app, const char *root, const char *artifact);
 void re_dashboard_ui(ReApp *app, mu_Context *ui, int tab);
 int  re_app_devices(ReApp *app, const char *root);
+int  re_app_extensions(ReApp *app, const char *root);   /* the Plugins page */
+void re_app_extensions_refresh(ReApp *app, int tab);
+void re_app_extension_toggle(ReApp *app, int tab, const char *name, bool on);
+void re_extensions_ui(ReApp *app, mu_Context *ui, int tab);
 void re_app_devices_refresh(ReApp *app, int tab);
 int re_app_tracker(ReApp *app, const char *root);       /* the project's task list (spec 083) */
 void re_app_tracker_refresh(ReApp *app, int tab);

@@ -439,6 +439,76 @@ fn state(worker: &Worker) -> Result<serde_json::Value, String> {
 /// The host's preference store allowlists its keys and drops the ones it does not know, so the token
 /// window is kept beside the LEDGER and the rest is forwarded unchanged. A worker that passed the
 /// whole body on would have the window silently dropped and the person's setting never take.
+/* The HOST's state directory, for the same reason the message grants use it: a worker's own
+   --state is generated runtime state a supervisor made, and a person's settings and credentials
+   outlive a worker replacement. */
+fn host_state_directory(worker: &Worker) -> Result<String, String> {
+    ask_host(worker, "GET", "/api/state", "")?
+        .get("stateDir")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| "409|This session host does not say where its state directory is.".to_string())
+}
+
+/* The project root a plugin is declared in and invoked from. */
+fn plugin_root(worker: &Worker, root_id: &str) -> Result<String, String> {
+    let state = ask_host(worker, "GET", "/api/state", "")?;
+    state.get("roots").and_then(serde_json::Value::as_array)
+        .and_then(|roots| roots.iter().find(|root|
+            root.get("id").and_then(serde_json::Value::as_str) == Some(root_id)))
+        .and_then(|root| root.get("path").and_then(serde_json::Value::as_str))
+        .map(str::to_string)
+        .ok_or_else(|| "404|That project is not in this workspace.".to_string())
+}
+
+/* The Plugins page. Core knows which plugins are declared and which are switched on; what each one
+   IS, and whether it can work, is the plugin's own answer (spec 152). Nothing here names one. */
+fn extensions(worker: &Worker, head: &Head) -> Result<serde_json::Value, String> {
+    let state_directory = host_state_directory(worker)?;
+    let root = plugin_root(worker, &head.query("rootId").unwrap_or_default())?;
+    Ok(red_project::plugins::page(&root, &state_directory))
+}
+
+fn extension_toggle(worker: &Worker, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let name = data.get("name").and_then(serde_json::Value::as_str).unwrap_or_default();
+    let enabled = data.get("enabled").and_then(serde_json::Value::as_bool)
+        .ok_or_else(|| "400|A toggle needs `enabled` to be true or false.".to_string())?;
+    let state_directory = host_state_directory(worker)?;
+    let root_id = data.get("rootId").and_then(serde_json::Value::as_str).unwrap_or_default();
+    let root = plugin_root(worker, root_id)?;
+    if !red_project::plugins::declared(&root).iter().any(|m| m.name == name) {
+        return Err(format!("404|There is no plugin named {name:?} in this project."));
+    }
+    red_project::plugins::set_enabled(&state_directory, name, enabled).map_err(|e| format!("409|{e}"))?;
+    Ok(red_project::plugins::page(&root, &state_directory))
+}
+
+/* The tools the switched-on plugins offer, for an agent's tool list. Capped in total, and a plugin
+   over its own cap is reported as a refusal rather than quietly dropped, so a tool that is missing
+   is a thing somebody can read about. */
+fn plugin_tools(worker: &Worker, head: &Head) -> Result<serde_json::Value, String> {
+    let state_directory = host_state_directory(worker)?;
+    let root = plugin_root(worker, &head.query("rootId").unwrap_or_default())?;
+    let (tools, refusals) = red_project::plugins::tools(&root, &state_directory);
+    Ok(serde_json::json!({ "tools": tools, "refusals": refusals }))
+}
+
+/* One call to a switched-on plugin's tool. The namespace is what routes it; core neither knows nor
+   cares what the plugin does with it, and a plugin that is off is simply not routable. */
+fn plugin_call(worker: &Worker, body: &str) -> Result<serde_json::Value, String> {
+    let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
+    let tool = data.get("tool").and_then(serde_json::Value::as_str).unwrap_or_default();
+    let arguments = data.get("arguments").cloned().unwrap_or(serde_json::Value::Null);
+    let state_directory = host_state_directory(worker)?;
+    let root_id = data.get("rootId").and_then(serde_json::Value::as_str).unwrap_or_default();
+    let root = plugin_root(worker, root_id)?;
+    let (manifest, short) = red_project::plugins::route(&root, &state_directory, tool)
+        .ok_or_else(|| format!("404|{tool} is not offered: either no plugin declares it, or the one that does is switched off in Plugins."))?;
+    red_project::plugins::call(&manifest, &short, &arguments, &root, &state_directory)
+        .map_err(|error| format!("409|{error}"))
+}
+
 fn preferences(worker: &Worker, body: &str) -> Result<serde_json::Value, String> {
     let data: serde_json::Value = serde_json::from_str(body).unwrap_or(serde_json::Value::Null);
     let mut rest = data.as_object().cloned().unwrap_or_default();
@@ -1460,6 +1530,10 @@ fn answer_own(worker: &Worker, head: &Head, body: &str) -> String {
         ("POST", "/api/desktop-action") => answered_or_faulted(desktop_action(worker, head, body)),
         ("POST", "/api/session-view") => answered_or_faulted(session_view(worker, body)),
         ("GET", "/api/diagnostics") => answered_or_faulted(diagnostics(worker, head)),
+        ("GET", "/api/extensions") => answered_or_faulted(extensions(worker, head)),
+        ("POST", "/api/extension-toggle") => answered_or_faulted(extension_toggle(worker, body)),
+        ("POST", "/api/plugin-call") => answered_or_faulted(plugin_call(worker, body)),
+        ("GET", "/api/plugin-tools") => answered_or_faulted(plugin_tools(worker, head)),
         /* Everything a PROJECT declares about itself and leaves behind, answered here and never
            forwarded — the host beneath may predate these routes, and forwarding would answer from a
            host that never had them (spec 065, KI-043). The answer is `red_project::serve`'s, which

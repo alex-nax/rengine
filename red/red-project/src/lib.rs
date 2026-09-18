@@ -13,6 +13,7 @@ pub mod declaration;
 pub mod devices;
 pub mod external;
 pub mod games;
+pub mod plugins;
 pub mod preview;
 pub mod recipes;
 pub mod recordings;

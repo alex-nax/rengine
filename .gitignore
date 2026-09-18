@@ -31,6 +31,11 @@ Testing/
 /apps/companion/app/.cxx/
 /apps/companion/local.properties
 
+# A plugin's own build output, the way red/target is ignored: a plugin with a service facet
+# builds its own executable and that is generated state.
+plugins/*/server/target/
+plugins/*/ui/build/
+
 # Credentials a person drops in the checkout. The key is per-machine and never committed;
 # the declaration that uses it names the FILE, never the value.
 .jev

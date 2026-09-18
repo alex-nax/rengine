@@ -267,6 +267,7 @@ sources = [
   "editor/workspace.c", "editor/overlays.c", "editor/game.c", "editor/scroll.c",
   "editor/scene.c", "editor/hexview.c", "editor/formatview.c",
   "editor/dashboard.c", "editor/tracker.c", "editor/recording.c", "editor/devices.c",
+  "editor/extensions.c",
   "editor/token.c",
   "editor/plugin.c", "editor/pluginview.c",
 ]

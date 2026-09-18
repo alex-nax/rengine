@@ -1,0 +1,20 @@
+[package]
+name = "red-jev"
+version = "0.1.0"
+edition = "2021"
+description = "The Jev plugin's service (charter D74/D75, specs 151 and 152): typed questions over red_core::tls, a key inside the directory core hands it, and a record every call is written to"
+
+# Its OWN workspace: this is a plugin, not part of the core cargo workspace. It was briefly in red/
+# and that was the violation — a plugin core has to compile is not a plugin.
+[workspace]
+
+# red-core by path for its TLS, rather than a second HTTPS stack in the tree. That is a dependency on
+# a first-party library, which is what a first-party plugin is allowed; it is not core depending on
+# the plugin, which is the direction that was wrong.
+[dependencies]
+red-core = { path = "../../../red/red-core" }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[[bin]]
+name = "red-jev"
+path = "src/bin/red_jev.rs"
