@@ -28,7 +28,11 @@ pub fn status(state_directory: &str) -> serde_json::Value {
         "detail": if has_key {
             "Ready. Every judgement is recorded here and nothing is acted on.".to_string()
         } else {
-            format!("No key. Put one line at {} to use this.", crate::key_path(state_directory).display())
+            // The page has a field for this now, so the sentence names the gesture rather than
+            // the file. The path is still worth saying: a person should be able to see where a
+            // credential they hand over is going to live.
+            format!("No key yet. Set one in the field below; it is written to {}.",
+                    crate::key_path(state_directory).display())
         },
         "usage": {
             "calls": counts.get("calls").copied().unwrap_or(0),
