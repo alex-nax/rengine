@@ -56,6 +56,18 @@ fn query_schema() -> Value {
         "description": "The question, in the words somebody would actually ask it." } }), &["query"])
 }
 
+/// The two sweeps. Neither is offered to an agent, so this is what a PERSON passes on the command
+/// line: how much of the corpus, or one row of it by name.
+fn sweep_schema() -> Value {
+    object(json!({
+        "row": { "type": "string",
+            "description": "One row to sweep, by its id — which is what a promotion decision \
+                            actually asks, and a hundredth of the cost of asking the whole list." },
+        "limit": { "type": "string",
+            "description": "How many rows to sweep when no single row is named." },
+    }), &[])
+}
+
 fn report_schema() -> Value {
     object(json!({ "report": { "type": "string",
         "description": "The text of the report, as it was filed." } }), &["report"])
@@ -256,7 +268,7 @@ pub const FLOWS: &[Entry] = &[
         description: "Sweep a tests tree for tests whose assertions do not evidence the claim their \
                       NAME makes. A sweep, not a question: it is started and watched, not called.",
         cost: "about 130 requests, $0.007 on a 3,263-test tree",
-        schema: query_schema, runner: Some(crate::runs::composite::assert_check),
+        schema: sweep_schema, runner: Some(crate::runs::composite::assert_check),
     },
     Entry {
         name: "ki-sweep", cookbook: "entity_alignment + classification_using_confidence",
@@ -265,7 +277,7 @@ pub const FLOWS: &[Entry] = &[
                       one that already covers it. The most expensive thing here by an order of \
                       magnitude, which is why it is an action.",
         cost: "2,477 requests, $0.95 on a 339-row list",
-        schema: query_schema, runner: Some(crate::runs::composite::ki_sweep),
+        schema: sweep_schema, runner: Some(crate::runs::composite::ki_sweep),
     },
     Entry {
         name: "triage", cookbook: "sde_cascade", surface: Surface::Tool,

@@ -428,8 +428,14 @@ pub fn ki_sweep(jev: &Jev, flow: &Flow, arguments: &Arguments, root: &Path) -> R
     let limit: usize = arguments.get("limit").and_then(|l| l.parse().ok()).unwrap_or(10);
     let only = flow.setting("only").and_then(Value::as_str);
     let named = flow.source("issues")?.display().to_string();
-    let rows = rows_to_sweep(&issues, only, limit)
-        .map_err(|error| format!("{error} ({named})"))?;
+    // One row by name is the other half of this flow, and the commoner half: a promotion decision
+    // is about ONE issue, and asking the whole list to answer it costs a hundred times as much.
+    // A named row is swept whatever its status, because somebody asking about it by name has
+    // already decided it is the row they mean.
+    let rows = match arguments.get("row").map(String::as_str).filter(|row| !row.is_empty()) {
+        Some(row) => vec![corpus::find(&issues, row)?],
+        None => rows_to_sweep(&issues, only, limit).map_err(|error| format!("{error} ({named})"))?,
+    };
 
     let mut swept = Vec::new();
     let mut tokens = 0u64;
@@ -523,6 +529,11 @@ mod tests {
 
         // Undeclared means every row, which is what a project with no such word gets.
         assert_eq!(rows_to_sweep(&issues, None, 10).expect("all").len(), 2);
+
+        // And one row BY NAME is swept whatever its status, because a promotion decision is about
+        // one issue and asking the whole list to answer it costs a hundred times as much.
+        assert_eq!(corpus::find(&issues, "KI-1").expect("the closed row, by name").id, "KI-1");
+        assert!(corpus::find(&issues, "KI-9").expect_err("refused").contains("not in this corpus"));
     }
 
     #[test]
