@@ -1,3 +1,19 @@
+## Session 178f (opus-5) — 2026-09-19 — The subset, verified where an agent actually stands
+
+The claim the whole goal rests on, checked through the real path rather than a fixture: an agent
+connecting to this project over `red-mcp` with the plugin OFF sees 39 tools; ON it sees 43, and the
+four added are exactly `jev.triage`, `jev.find`, `jev.prior-art` and `jev.prior-findings` — the ones
+this project's `flows.json` declares. The two action-surface flows are absent, which is what an
+action means. Instructions grew by 3,732 characters.
+
+**NOLF is prepared rather than taken.** Its declaration is written out in spec 153, ready to copy,
+and F241 tracks the adoption. It is blocked on something this task should not decide: its
+`third_party/rengine` is pinned at `71a243bc`, which predates this plugin — that checkout has only
+`plugins/scene` — so the service its manifest would name is not there. Bumping a submodule in a
+workspace whose broader development is paused is the owner's call, and the two subsets differ in a
+way worth seeing when it happens: NOLF declares `antipatterns`, which rEngine has no document for,
+and `passage-triage`, which it needs because its reports come from strangers at release.
+
 ## Session 178e (opus-5) — 2026-09-19 — The composites, and all 18 cookbooks accounted for
 
 F240: `prior-art`, `prior-findings`, `assert-check` and `ki-sweep`, built OUT OF the other flows

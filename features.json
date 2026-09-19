@@ -4843,7 +4843,30 @@
         "Criterion 3, the back-off: `ki-sweep` over three rows returned 0 confident matches and named what to LOOK AT for two of them (F55, F61) rather than naming a feature it was not sure of. A wrong merge costs more than a missed one. composite::tests::a_sweep_verdict_backs_off_rather_than_naming_a_feature_it_is_unsure_of pins the rule.",
         "`assert-check` over 8 of this repo's own tests flagged none, with unevidenced probabilities 0.26-0.54, all below the escalate threshold. Its test finder is covered by composite::tests::tests_are_found_by_the_shapes_these_projects_write_them_in - three test shapes across a tree, with node_modules not swept and an underscored Rust name read as the sentence it is.",
         "Criterion 4: all four read the key through Jev::from_state_directory, which refuses by name with the path to put one at.",
-        "The agent-facing instructions were updated for this: they now say the visible tool list IS the project's subset, so an agent does not reason from what Jev could do in general, and the obsolete paragraph about composing requests by hand was removed - agents call flows, which carry the measured question shapes themselves. 3,730 characters against the 4,000 cap."
+        "The agent-facing instructions were updated for this: they now say the visible tool list IS the project's subset, so an agent does not reason from what Jev could do in general, and the obsolete paragraph about composing requests by hand was removed - agents call flows, which carry the measured question shapes themselves. 3,730 characters against the 4,000 cap.",
+        "End to end through the real consumer path 2026-09-19: an agent connecting to this project over red-mcp with the plugin switched OFF sees 39 tools; switched ON it sees 43, and the four added are exactly jev.triage, jev.find, jev.prior-art and jev.prior-findings - the tools this project declared. The two action-surface flows are correctly absent from an agent tool list. The instructions grew by 3,732 characters and carry the sentence telling an agent that its visible tool list IS the subset."
+      ]
+    },
+    {
+      "id": 241,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "low",
+      "description": "The NOLF workspace adopts the flow library in place of its four standalone Python tools. Its declaration is written in spec 153 and its prerequisite is a submodule bump: third_party/rengine is pinned at a revision that predates this plugin, so the service its manifest would name is not in that checkout. The subset differs from rEngine's - it declares `antipatterns`, which rEngine has no document for, and `passage-triage`, which it needs because its reports come from strangers at release.",
+      "acceptance_criteria": [
+        "NOLF's pinned rEngine carries the jev plugin and its built service.",
+        "NOLF declares its own flows.json and gets exactly that subset, different from rEngine's, offered to an agent.",
+        "The four Python tools are either retired or recorded as kept, with a reason either way - two implementations of one judgement is two answers to it."
+      ],
+      "passes": false,
+      "dependencies": [
+        240
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "A submodule bump in the NOLF workspace, its plugins/jev declaration, and a decision recorded about the Python tools.",
+      "external_references": [],
+      "evidence": [
+        "NOT STARTED. Blocked on an owner decision: bumping a pinned submodule in a workspace whose broader development is paused is not a change this task may make on its own. The declaration it needs is written out in spec 153 so applying it is a copy rather than a design."
       ]
     }
   ]

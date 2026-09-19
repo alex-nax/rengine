@@ -6,7 +6,8 @@ Owner, 2026-09-19:
 > docs/jev-cookbooks.md there are some other examples of integration — we would like to have them
 > all implemented, so that projects can have their own subset of flows enabled"*
 
-Status: **design, with the jev plugin as its only consumer.** Builds on spec 151 (the typed
+Status: **built.** All 18 cookbooks are accounted for by the table below, every flow in the
+registry has a runner, and rEngine runs six of them. F236–F240. Builds on spec 151 (the typed
 judgement) and spec 152 (the service facet). Charter D74/D75 unchanged.
 
 ## What exists to draw on
@@ -84,6 +85,51 @@ plugins/jev/
   instructions.md   what every agent is told while the plugin is on
   server/           one binary, shared by every project that pins this checkout
 ```
+
+## Two projects, two subsets
+
+rEngine's own declaration, which is what it runs on:
+
+```json
+{ "flows": [
+  { "name": "triage" },
+  { "name": "find",           "sources": { "corpus": "known-issues.md" } },
+  { "name": "prior-art",      "sources": { "features": "features.json" } },
+  { "name": "prior-findings", "sources": { "corpus": "docs/lessons-learned.md" } },
+  { "name": "assert-check",   "sources": { "tests": "tests" } },
+  { "name": "ki-sweep",       "sources": { "issues": "known-issues.md",
+                                           "features": "features.json" } }
+] }
+```
+
+Four tools and two actions. An action does not count against the tool cap, because it is never
+offered to an agent.
+
+**NOLF's would be a different subset over a bigger corpus**, and is written here rather than in that
+repo because it has a prerequisite this one cannot satisfy: its `third_party/rengine` is pinned at a
+revision that predates this plugin, so the service it names is not in its checkout yet. Bumping that
+pin is a change to a paused project and the owner's to make. With it bumped, this is the file:
+
+```json
+{ "flows": [
+  { "name": "prior-art",      "sources": { "features": "features.json" } },
+  { "name": "prior-findings", "sources": { "corpus": "docs/lessons-learned.md",
+                                           "antipatterns": "docs/antipatterns.md" } },
+  { "name": "passage-triage", "sources": { "corpus": "known-issues.md" } },
+  { "name": "assert-check",   "sources": { "tests": "tests" } },
+  { "name": "ki-sweep",       "sources": { "issues": "known-issues.md",
+                                           "features": "features.json" } }
+] }
+```
+
+beside a manifest whose `service.command` is
+`["third_party/rengine/plugins/jev/server/target/debug/red-jev"]` — one binary, shared by every
+project that pins this checkout, rather than a second copy of it.
+
+The difference between the two files is the whole point: NOLF declares `antipatterns`, which rEngine
+does not have, and `passage-triage`, which it needs because its reports come from strangers at
+release. rEngine declares `find` over its known-issues, which NOLF covers with `ki-sweep` instead.
+Neither list is the plugin's idea of what a project should want.
 
 ## What this does not do
 
