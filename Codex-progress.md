@@ -1,3 +1,38 @@
+## Session 178e (opus-5) — 2026-09-19 — The composites, and all 18 cookbooks accounted for
+
+F240: `prior-art`, `prior-findings`, `assert-check` and `ki-sweep`, built OUT OF the other flows
+rather than beside them. Four copies of "what counts as confident" is four numbers that drift, and
+the drift looks exactly like the model disagreeing with itself — so the composites call the same
+`sweep`, the same `align_each` and the same gates.
+
+**Every one of the 18 flows now has a runner.** The count guard that tracked the unbuilt ones
+reached zero and was replaced by a test asserting there are none; the refusal it covered is still in
+`run`, waiting for whatever flow is added next.
+
+**Live, against this repo's own corpora.** `prior-art` on "a page that lists plugins and switches
+them on and off" swept all 192 features, kept one candidate at 0.99 and aligned it at the-same 0.88:
+F233, which is exactly that feature. On the paste defect it swept 192 and kept NOTHING — the right
+answer, because no feature row describes it. `prior-findings` answered "is it safe to keep a second
+copy of a route table in the server that calls it" with the antipattern written into this repo
+earlier the same day, at 0.99 with presence 0.93. `ki-sweep` over three rows named no feature at all
+and reported what to LOOK AT for two of them, which is the back-off working: a wrong merge costs more
+than a missed one.
+
+**The subset is now visible in one place.** rEngine declares four tools — triage, find, prior-art,
+prior-findings — and two actions, assert-check and ki-sweep. Actions do not count against the tool
+cap, because they are never offered to an agent. The other twelve flows are built and not enabled
+here.
+
+**The agent-facing instructions were rewritten for this.** They now say the visible tool list IS the
+project's subset, so an agent does not reason from what Jev could do in general; and the paragraph
+telling an agent how to compose a request by hand is gone, because agents call flows now and the
+flows carry the measured question shapes themselves. 3,730 characters against the 4,000 cap.
+
+50 plugin unit tests, full Rust green, npm 380/380 on a clean run.
+
+**Remaining:** NOLF has no declaration of its own yet — its four Python tools still run standalone,
+and pointing it at this binary is the other half of "projects have their own subset".
+
 ## Session 178d (opus-5) — 2026-09-19 — The reading flows, and a candidate set that was the bug
 
 F239: `reformat`, `extract`, `dates`, `hazards` and `featurize`.

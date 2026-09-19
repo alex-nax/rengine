@@ -29,6 +29,9 @@ pub struct Entry {
     pub surface: Surface,
     /// The source keys a project must declare for this flow.
     pub sources: &'static [&'static str],
+    /// Keys it will use if declared and works without. One project keeps its antipatterns in a
+    /// document of their own and another has none, and neither should be a refusal.
+    pub optional: &'static [&'static str],
     pub description: &'static str,
     /// What one run costs, said out loud where a surface decision depends on it.
     pub cost: &'static str,
@@ -107,7 +110,7 @@ fn extract_schema() -> Value {
 pub const FLOWS: &[Entry] = &[
     Entry {
         name: "align", cookbook: "entity_alignment", surface: Surface::Tool,
-        sources: &["corpus"],
+        sources: &["corpus"], optional: &[],
         description: "Decide whether two records in this project's corpus describe the same thing. \
                       Answers on three ordered levels that ARE the outcomes - different, needs a \
                       person, the same - so there is no threshold to fit, and reports which \
@@ -117,7 +120,7 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "find", cookbook: "semantic_find", surface: Surface::Tool,
-        sources: &["corpus"],
+        sources: &["corpus"], optional: &[],
         description: "Search this project's declared corpus for what already answers a question. \
                       Ranks every entry by the full probability distribution and asks INDEPENDENTLY \
                       whether the corpus answers the query at all, so an absent answer is reported \
@@ -127,7 +130,7 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "rerank", cookbook: "rerank_typesafe", surface: Surface::Tool,
-        sources: &["corpus"],
+        sources: &["corpus"], optional: &[],
         description: "Order a shortlist of candidates against a query, one independent judgement per \
                       candidate. Use it when something cheap has already narrowed the field; it does \
                       not search, and a candidate the shortlist missed cannot be recovered here.",
@@ -136,7 +139,7 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "evidence-check", cookbook: "citation_check", surface: Surface::Tool,
-        sources: &["corpus"],
+        sources: &["corpus"], optional: &[],
         description: "Does the evidence cited for a claim actually support it? Reads the claim and \
                       its cited evidence out of this project's corpus and decides between supported, \
                       unsupported, and needs a person.",
@@ -145,7 +148,7 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "passage-triage", cookbook: "classifying_rag_passages", surface: Surface::Tool,
-        sources: &["corpus"],
+        sources: &["corpus"], optional: &[],
         description: "Judge a retrieved passage before it reaches an answering model: keep, flag or \
                       drop. Asks about a hidden instruction FIRST and reports it outright rather \
                       than averaging it against the other judgements - a passage trying to direct \
@@ -155,7 +158,7 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "classify", cookbook: "hierarchical_classification", surface: Surface::Tool,
-        sources: &["corpus", "taxonomy"],
+        sources: &["corpus", "taxonomy"], optional: &[],
         description: "Place a subject in a declared taxonomy by walking it, keeping three candidate \
                       paths and scoring each by the geometric mean of its edges so a shallow leaf and \
                       a deep one compare fairly. A branch with one child costs no request.",
@@ -164,7 +167,7 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "skill-pick", cookbook: "skill_suggestion", surface: Surface::Tool,
-        sources: &["skills"],
+        sources: &["skills"], optional: &[],
         description: "Suggest at most one skill from this project's roster for the request a person \
                       just made. Asks first whether the turn wants a skill AT ALL, and can reject \
                       every candidate - suggesting nothing is a normal answer, not a failure.",
@@ -173,7 +176,7 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "action-intent", cookbook: "function_calling", surface: Surface::Tool,
-        sources: &["actions"],
+        sources: &["actions"], optional: &[],
         description: "Map a sentence to one of this project's DECLARED actions and its arguments. \
                       Every argument comes from a closed set, so a value it never saw cannot be \
                       invented, and the confidence reported is the WEAKEST argument rather than the \
@@ -183,7 +186,7 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "reformat", cookbook: "autoformat", surface: Surface::Tool,
-        sources: &["documents"],
+        sources: &["documents"], optional: &[],
         description: "Recover Markdown structure from plain text that lost it: one pass stitches \
                       hard-wrapped lines, one classifies every block. The Markdown is assembled in \
                       code and no word is generated - every word in the output was in the input.",
@@ -192,7 +195,7 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "extract", cookbook: "pre_parsed_value_extraction", surface: Surface::Tool,
-        sources: &["documents"],
+        sources: &["documents"], optional: &[],
         description: "Pull one exact value out of a document. A pattern finds the candidates and the \
                       judgement only CHOOSES among them, so what comes back is a span copied \
                       unchanged - it cannot invent a value or transpose a digit.",
@@ -201,7 +204,7 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "dates", cookbook: "date_extraction", surface: Surface::Tool,
-        sources: &["documents"],
+        sources: &["documents"], optional: &[],
         description: "Read the date a document states. The model names the parts and every calendar \
                       calculation happens in code, because reading dates as ordered quantities is a \
                       documented weakness; an impossible date is refused rather than resolved.",
@@ -210,7 +213,7 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "hazards", cookbook: "llm_guardrails", surface: Surface::Tool,
-        sources: &["documents"],
+        sources: &["documents"], optional: &[],
         description: "Flag hazards in a document for A PERSON to read, with a severity beside them. \
                       ADVISORY and not a security control: the vendor's own page says an attacker \
                       can talk a screening model past, so nothing in this workspace gates on it.",
@@ -219,7 +222,7 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "featurize", cookbook: "autoresearch_feature_discovery", surface: Surface::Action,
-        sources: &["corpus"],
+        sources: &["corpus"], optional: &[],
         description: "Turn a corpus of free text into a numeric matrix: each declared question \
                       becomes columns, a Score becoming its mean level and spread and a Noul its \
                       probability. It emits the matrix and fits NOTHING - the regressor needs a \
@@ -229,44 +232,44 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "prior-art", cookbook: "entity_alignment + semantic_find", surface: Surface::Tool,
-        sources: &["features"],
+        sources: &["features"], optional: &[],
         description: "Before a report is minted as a feature, ask whether one already covers it. \
                       Sweeps the WHOLE feature corpus in chunks with an explicit no-match option, \
                       keeps every candidate above the floor rather than one per chunk, aligns each \
                       properly, and judges the report itself - whether it bundles two defects, what \
                       area it is really about, and whether it says where and how.",
         cost: "8-9 requests, about $0.0028",
-        schema: report_schema, runner: None,
+        schema: report_schema, runner: Some(crate::runs::composite::prior_art),
     },
     Entry {
         name: "prior-findings", cookbook: "semantic_find", surface: Surface::Tool,
-        sources: &["corpus"],
+        sources: &["corpus"], optional: &["antipatterns"],
         description: "Has this project already tried this and decided against it? Searches the \
                       lessons and antipatterns it records, which exist so a dead end is walked once \
                       and are otherwise read only when somebody remembers they exist.",
         cost: "1 request, about $0.0007",
-        schema: query_schema, runner: None,
+        schema: query_schema, runner: Some(crate::runs::composite::prior_findings),
     },
     Entry {
         name: "assert-check", cookbook: "citation_check", surface: Surface::Action,
-        sources: &["tests"],
+        sources: &["tests"], optional: &[],
         description: "Sweep a tests tree for tests whose assertions do not evidence the claim their \
                       NAME makes. A sweep, not a question: it is started and watched, not called.",
         cost: "about 130 requests, $0.007 on a 3,263-test tree",
-        schema: query_schema, runner: None,
+        schema: query_schema, runner: Some(crate::runs::composite::assert_check),
     },
     Entry {
         name: "ki-sweep", cookbook: "entity_alignment + classification_using_confidence",
-        surface: Surface::Action, sources: &["issues", "features"],
+        surface: Surface::Action, sources: &["issues", "features"], optional: &[],
         description: "Sweep every open known-issue row against the feature corpus, looking for the \
                       one that already covers it. The most expensive thing here by an order of \
                       magnitude, which is why it is an action.",
         cost: "2,477 requests, $0.95 on a 339-row list",
-        schema: query_schema, runner: None,
+        schema: query_schema, runner: Some(crate::runs::composite::ki_sweep),
     },
     Entry {
         name: "triage", cookbook: "sde_cascade", surface: Surface::Tool,
-        sources: &[],
+        sources: &[], optional: &[],
         description: "Ask whether a recorded test failure is better explained by the environment than \
                       by the change under test. The parameters are IDENTIFIERS, never text: `output` \
                       names a run this workspace already recorded and `test` names the failing test. \
@@ -303,7 +306,7 @@ mod tests {
         // appears without a decision behind it should be a failing test rather than a surprise.
         // This number goes DOWN, one feature row at a time, and never up without one.
         let unbuilt: Vec<&str> = FLOWS.iter().filter(|e| e.runner.is_none()).map(|e| e.name).collect();
-        assert_eq!(unbuilt.len(), 4, "flows still to build: {unbuilt:?}");
+        assert_eq!(unbuilt.len(), 0, "flows still to build: {unbuilt:?}");
         assert_eq!(FLOWS.len(), 18);
     }
 
@@ -337,13 +340,12 @@ mod tests {
     }
 
     #[test]
-    fn a_declared_but_unbuilt_flow_says_so_rather_than_failing_obscurely() {
-        // A flow that is declared and has no runner yet. When this one gains a runner, point the
-        // test at another - or delete it, on the day the count above reaches zero.
-        let flow = Flow { name: "prior-art".into(), surface: Surface::Tool,
-                          sources: BTreeMap::new(), settings: json!({}) };
-        let jev = Jev::from_key("x".repeat(40).as_str()).expect("key");
-        let error = run(&jev, &flow, &Arguments::new(), Path::new(".")).expect_err("not built");
-        assert!(error.contains("not built yet"), "{error}");
+    fn every_flow_in_the_table_can_actually_be_run() {
+        // This replaced `a_declared_but_unbuilt_flow_says_so_rather_than_failing_obscurely` on the
+        // day the count above reached zero. The refusal it covered is still in `run` — it is what
+        // the NEXT flow added to this table will hit before its runner exists.
+        for entry in FLOWS {
+            assert!(entry.runner.is_some(), "{} is in the table with no runner", entry.name);
+        }
     }
 }

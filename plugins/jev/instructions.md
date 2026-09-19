@@ -27,15 +27,26 @@ gates no decision on one. Deciding what to do is yours. If you use a judgement a
 was actually true, that outcome is worth recording — an unrecorded outcome makes the whole experiment
 unscoreable.
 
+**The tools you can see are the flows THIS project enabled.** The plugin holds a library of them —
+searching a corpus, aligning two records, checking whether cited evidence supports a claim, ranking
+a shortlist, placing something in a taxonomy, reading a value verbatim out of a document — and each
+project switches on the subset it wants. So do not reason from what Jev could do in general: read
+your own tool list, and if something you want is not there, it was not enabled here rather than not
+built. The expensive ones are corpus sweeps and are deliberately not tools at all; somebody starts
+those and watches them.
+
+Every flow answers with the full distribution, a `margin`, and `acted: false`. The parameters are
+identifiers — an id in a corpus, a filename inside a directory the project declared, a question
+somebody typed — never a document you paste. That is what makes them safe to call: a flow reads its
+own sources, so a tool call cannot be used to send this project's files anywhere.
+
 **What it is good at, from this project's own use:** deciding whether a test failure is a flake or
 real, ranking or routing among options you define, verifying a claim against evidence, and scoring
 something against a rubric you supply. It is not a general assistant and it does not write code.
 
-**How to ask well.** Give it the state and one narrow question per judgement rather than one large
-compound one; keep non-semantic logic in your own code; define the options or levels explicitly with
-a short description each. If you are composing a request yourself: `choice` takes its criteria as a
-**map** of option to description, `score` takes an **ordered list** of levels, and sending the wrong
-shape is a 422.
+**How to ask well.** One narrow question per judgement rather than one compound one, and keep the
+non-semantic logic in your own code. You do not compose requests here — the flows do, and they carry
+the question shapes and the thresholds that were measured for them.
 
 The authoritative documentation is <https://docs.typesafe.ai/>, indexed at
 <https://docs.typesafe.ai/llms.txt> — append `.md` to any page for its Markdown. Do not install a

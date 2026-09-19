@@ -181,8 +181,14 @@ pub fn declared(project_root: &Path) -> Result<Vec<Flow>, String> {
                  until it is confidently wrong."))?;
             sources.insert((*key).to_string(), declared_path(project_root, &name, key, named)?);
         }
+        for key in known.optional {
+            // Declared or not, both fine — but a declared one is still checked.
+            if let Some(named) = given.get(*key).and_then(Value::as_str) {
+                sources.insert((*key).to_string(), declared_path(project_root, &name, key, named)?);
+            }
+        }
         for key in given.keys() {
-            if !known.sources.contains(&key.as_str()) {
+            if !known.sources.contains(&key.as_str()) && !known.optional.contains(&key.as_str()) {
                 return Err(format!("the {name} flow reads no {key:?} source"));
             }
         }

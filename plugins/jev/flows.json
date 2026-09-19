@@ -10,15 +10,28 @@
       }
     },
     {
-      "name": "align",
+      "name": "prior-art",
       "sources": {
-        "corpus": "features.json"
+        "features": "features.json"
       }
     },
     {
-      "name": "evidence-check",
+      "name": "prior-findings",
       "sources": {
-        "corpus": "features.json"
+        "corpus": "docs/lessons-learned.md"
+      }
+    },
+    {
+      "name": "assert-check",
+      "sources": {
+        "tests": "tests"
+      }
+    },
+    {
+      "name": "ki-sweep",
+      "sources": {
+        "issues": "known-issues.md",
+        "features": "features.json"
       }
     }
   ]

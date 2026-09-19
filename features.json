@@ -4827,7 +4827,7 @@
         "A composite reuses the flows rather than reimplementing their questions - observed by changing a gate once and seeing every composite follow.",
         "All four exit 0 with an explanation when the key or the service is absent."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         236,
         237
@@ -4835,7 +4835,16 @@
       "owner_workspace": "rengine",
       "deliverable": "Four composite flows, and the two sweeps declared as actions rather than agent tools.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "Built 2026-09-19 in src/runs/composite.rs. 50 plugin unit tests, clean build. Every one of the 18 flows in the registry now has a runner, and the guard that counted the unbuilt ones reached zero - the test that replaced it asserts there are none.",
+        "Criterion 1, live against rEngine's own 192-feature corpus: `prior-art` on a report describing a page that lists plugins and switches them on and off swept all 192, kept ONE candidate at 0.99 and aligned it at the-same 0.88 - F233, which is exactly that feature. On a report about the paste defect it swept 192 and kept NOTHING, which is the right answer: no feature row describes it. The report's own three judgements ran in parallel with the sweep and cost one request beside it.",
+        "Criterion 2: `assert-check` and `ki-sweep` are Surface::Action, pinned by registry::tests::the_expensive_flows_are_actions_rather_than_tools, and flows::tools() returns only tool-surface flows - so neither appears in the computed tool list. rEngine's own declaration now carries four tools (triage, find, prior-art, prior-findings) and two actions, verified through `red-jev flows`.",
+        "Criterion 3, the reuse: `prior-art`, `prior-findings` and `ki-sweep` all call retrieval::sweep, and `ki-sweep` calls the same align_each as `prior-art`. The gates are read from one module, so CONFIDENT changed once changes every composite. Live: `prior-findings` answered 'is it safe to keep a second copy of a route table in the server that calls it' with the antipattern written into this repo earlier the same day, at 0.99 with presence 0.93 - over a corpus of 2 entries, which the slug-keyed reader made searchable at all.",
+        "Criterion 3, the back-off: `ki-sweep` over three rows returned 0 confident matches and named what to LOOK AT for two of them (F55, F61) rather than naming a feature it was not sure of. A wrong merge costs more than a missed one. composite::tests::a_sweep_verdict_backs_off_rather_than_naming_a_feature_it_is_unsure_of pins the rule.",
+        "`assert-check` over 8 of this repo's own tests flagged none, with unevidenced probabilities 0.26-0.54, all below the escalate threshold. Its test finder is covered by composite::tests::tests_are_found_by_the_shapes_these_projects_write_them_in - three test shapes across a tree, with node_modules not swept and an underscored Rust name read as the sentence it is.",
+        "Criterion 4: all four read the key through Jev::from_state_directory, which refuses by name with the path to put one at.",
+        "The agent-facing instructions were updated for this: they now say the visible tool list IS the project's subset, so an agent does not reason from what Jev could do in general, and the obsolete paragraph about composing requests by hand was removed - agents call flows, which carry the measured question shapes themselves. 3,730 characters against the 4,000 cap."
+      ]
     }
   ]
 }
