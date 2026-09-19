@@ -9,7 +9,7 @@
     ],
     "describe": "status",
     "configure": "configure",
-    "instructions": "instructions.md",
+    "instructions": "plugins/jev/instructions.md",
     "config": [
       {
         "name": "key",

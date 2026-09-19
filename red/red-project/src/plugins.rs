@@ -89,21 +89,8 @@ impl Manifest {
     /// and the namespace apply to a computed list exactly as to a declared one, because the reason
     /// for both is what an agent reads, not where the text came from.
     pub fn tools(&self, project_root: &str, state_directory: &str) -> Result<Vec<Value>, String> {
-        let Some(service) = &self.service else { return Ok(Vec::new()) };
-        let declared = match service.get("tools") {
-            Some(Value::String(subcommand)) => {
-                let program = service.get("command").and_then(Value::as_array)
-                    .map(|parts| parts.iter().filter_map(|p| p.as_str().map(str::to_string)).collect::<Vec<_>>())
-                    .unwrap_or_default();
-                if program.is_empty() {
-                    return Err(format!("{} names a tool subcommand but no command to run", self.name));
-                }
-                let answer = invoke(&program, subcommand, &[], project_root, state_directory, &self.name)?;
-                answer.get("tools").and_then(Value::as_array).cloned().ok_or_else(|| format!(
-                    "the {} plugin's {subcommand} did not answer with a `tools` list", self.name))?
-            }
-            other => other.and_then(Value::as_array).cloned().unwrap_or_default(),
-        };
+        if self.service.is_none() { return Ok(Vec::new()) }
+        let declared = self.declared_tools(project_root, state_directory)?;
         if declared.len() > TOOLS_PER_PLUGIN {
             return Err(format!(
                 "the plugin {} declares {} tools and a plugin may declare at most {}. \
@@ -123,20 +110,52 @@ impl Manifest {
         Ok(tools)
     }
 
+    /// The list this plugin decides by, with each tool's private `command` still on it.
+    ///
+    /// One reader for both the list an agent is offered and the routing behind it. They were two,
+    /// and for a plugin whose list is COMPUTED they disagreed: the offer asked the plugin and the
+    /// routing read the manifest's `tools`, which for such a plugin is the name of a subcommand
+    /// rather than an array. Every tool it offered answered "has no tool". Listing a tool and
+    /// calling it are different paths, and only one of them had been walked.
+    fn declared_tools(&self, project_root: &str, state_directory: &str) -> Result<Vec<Value>, String> {
+        let Some(service) = &self.service else { return Ok(Vec::new()) };
+        match service.get("tools") {
+            Some(Value::String(subcommand)) => {
+                let program = service.get("command").and_then(Value::as_array)
+                    .map(|parts| parts.iter().filter_map(|p| p.as_str().map(str::to_string)).collect::<Vec<_>>())
+                    .unwrap_or_default();
+                if program.is_empty() {
+                    return Err(format!("{} names a tool subcommand but no command to run", self.name));
+                }
+                let answer = invoke(&program, subcommand, &[], project_root, state_directory, &self.name)?;
+                answer.get("tools").and_then(Value::as_array).cloned().ok_or_else(|| format!(
+                    "the {} plugin's {subcommand} did not answer with a `tools` list", self.name))
+            }
+            other => Ok(other.and_then(Value::as_array).cloned().unwrap_or_default()),
+        }
+    }
+
     /// What this plugin wants every agent to know while it is switched on.
     ///
     /// This is the answer to "an agent should not have to install a skill to find out that a
     /// capability exists". The workspace's MCP surface returns `instructions` at `initialize`, so a
     /// plugin's knowledge reaches every pane on connection, and leaves when the plugin is switched
-    /// off. Declared as a file beside the manifest, so it is prose somebody can edit and review
-    /// rather than a string wedged into JSON.
-    pub fn instructions(&self) -> Result<Option<String>, String> {
+    /// off. Declared as a FILE rather than a string wedged into JSON, so it is prose somebody can
+    /// edit and review.
+    ///
+    /// Named from the project root, the same way `service.command` is, and for the same reason: a
+    /// project that PINS a plugin declares a manifest of its own beside a service that lives in the
+    /// pinned checkout, and the prose belongs with the service rather than copied next to every
+    /// manifest that points at it. Two copies of an instruction is two instructions. `..` and an
+    /// absolute path are still refused, so the file stays inside the project.
+    pub fn instructions(&self, project_root: &str) -> Result<Option<String>, String> {
         let Some(service) = &self.service else { return Ok(None) };
         let Some(named) = service.get("instructions").and_then(Value::as_str) else { return Ok(None) };
         if named.contains("..") || Path::new(named).is_absolute() {
-            return Err(format!("{}'s instructions must sit beside its manifest", self.name));
+            return Err(format!(
+                "{}'s instructions must be a path inside this project, named from its root", self.name));
         }
-        let path = self.root.join(named);
+        let path = Path::new(project_root).join(named);
         let text = std::fs::read_to_string(&path)
             .map_err(|e| format!("cannot read {}'s instructions at {}: {e}", self.name, path.display()))?;
         let text = text.trim().to_string();
@@ -167,12 +186,13 @@ impl Manifest {
         Some((program, service.get("configure")?.as_str()?.to_string()))
     }
 
-    fn command_for(&self, tool: &str) -> Option<(Vec<String>, String)> {
+    fn command_for(&self, tool: &str, project_root: &str, state_directory: &str)
+                   -> Option<(Vec<String>, String)> {
         let service = self.service.as_ref()?;
         let program = service.get("command")?.as_array()?.iter()
             .filter_map(|part| part.as_str().map(str::to_string)).collect::<Vec<_>>();
         if program.is_empty() { return None; }
-        let subcommand = service.get("tools")?.as_array()?.iter()
+        let subcommand = self.declared_tools(project_root, state_directory).ok()?.iter()
             .find(|declared| declared.get("name").and_then(Value::as_str) == Some(tool))?
             .get("command")?.as_str()?.to_string();
         Some((program, subcommand))
@@ -207,7 +227,7 @@ pub fn page(project_root: &str, state_directory: &str) -> Value {
             "hasService": manifest.service.is_some(),
             "tools": manifest.tools(project_root, state_directory).map(|tools| tools.len()).unwrap_or(0),
             "config": manifest.config(),
-            "teaches": manifest.instructions().map(|text| text.is_some()).unwrap_or(false),
+            "teaches": manifest.instructions(project_root).map(|text| text.is_some()).unwrap_or(false),
         });
         // Asking the plugin to describe itself costs a process, so it is asked only when it is on.
         if on {
@@ -256,7 +276,7 @@ pub fn describe(manifest: &Manifest, project_root: &str, state_directory: &str) 
 /// that matched it.
 pub fn call(manifest: &Manifest, tool: &str, arguments: &Value,
             project_root: &str, state_directory: &str) -> Result<Value, String> {
-    let (program, subcommand) = manifest.command_for(tool)
+    let (program, subcommand) = manifest.command_for(tool, project_root, state_directory)
         .ok_or_else(|| format!("{} has no tool {tool}", manifest.name))?;
     let mut flags = Vec::new();
     if let Some(object) = arguments.as_object() {
@@ -337,7 +357,7 @@ pub fn instructions(project_root: &str, state_directory: &str) -> (String, Vec<S
     let mut total = 0usize;
     for manifest in declared(project_root) {
         if !enabled(state_directory, &manifest.name) { continue; }
-        match manifest.instructions() {
+        match manifest.instructions(project_root) {
             Ok(None) => {}
             Ok(Some(text)) => {
                 if total + text.len() > INSTRUCTIONS_IN_TOTAL {
@@ -388,7 +408,7 @@ pub fn route(project_root: &str, state_directory: &str, namespaced: &str)
     let (plugin, tool) = namespaced.split_once('.')?;
     let manifest = declared(project_root).into_iter().find(|m| m.name == plugin)?;
     if !enabled(state_directory, &manifest.name) { return None; }
-    manifest.command_for(tool)?;
+    manifest.command_for(tool, project_root, state_directory)?;
     Some((manifest, tool.to_string()))
 }
 
@@ -492,7 +512,8 @@ mod tests {
         let demo = Path::new(&root).join("plugins").join("demo");
         std::fs::write(demo.join("say.md"), "Demo is available here. You need install nothing.").expect("write");
         std::fs::write(demo.join("plugin.json"), json!({
-            "name": "demo", "service": { "command": ["bin/demo"], "instructions": "say.md" } }).to_string()).expect("write");
+            "name": "demo", "service": { "command": ["bin/demo"],
+                                         "instructions": "plugins/demo/say.md" } }).to_string()).expect("write");
 
         let (text, refusals) = instructions(&root, &state);
         assert!(text.is_empty(), "a switched-off plugin teaches nothing");
@@ -513,7 +534,8 @@ mod tests {
         let demo = Path::new(&root).join("plugins").join("demo");
         std::fs::write(demo.join("say.md"), "x".repeat(INSTRUCTIONS_PER_PLUGIN + 1)).expect("write");
         std::fs::write(demo.join("plugin.json"), json!({
-            "name": "demo", "service": { "command": ["bin/demo"], "instructions": "say.md" } }).to_string()).expect("write");
+            "name": "demo", "service": { "command": ["bin/demo"],
+                                         "instructions": "plugins/demo/say.md" } }).to_string()).expect("write");
         set_enabled(&state, "demo", true).expect("on");
 
         let (text, refusals) = instructions(&root, &state);
@@ -522,15 +544,31 @@ mod tests {
         assert!(refusals[0].contains("demo") && refusals[0].contains("at most"), "{}", refusals[0]);
     }
 
+    /// Named from the project root, so a project that pins a plugin can point at the prose in the
+    /// pinned checkout rather than keeping a second copy of it — and still cannot leave the tree.
     #[test]
-    fn instructions_cannot_be_read_from_outside_the_plugins_own_directory() {
+    fn instructions_are_named_from_the_project_root_and_cannot_leave_it() {
         let (root, state) = workspace("teachescape");
-        std::fs::write(Path::new(&root).join("plugins/demo/plugin.json"), json!({
-            "name": "demo", "service": { "command": ["bin/demo"], "instructions": "../../../etc/passwd" } }).to_string()).expect("write");
         set_enabled(&state, "demo", true).expect("on");
-        let (_, refusals) = instructions(&root, &state);
-        assert_eq!(refusals.len(), 1);
-        assert!(refusals[0].contains("beside its manifest"), "{}", refusals[0]);
+        for escape in ["../../../etc/passwd", "/etc/passwd"] {
+            std::fs::write(Path::new(&root).join("plugins/demo/plugin.json"), json!({
+                "name": "demo", "service": { "command": ["bin/demo"], "instructions": escape },
+            }).to_string()).expect("write");
+            let (_, refusals) = instructions(&root, &state);
+            assert_eq!(refusals.len(), 1, "{escape} must be refused");
+            assert!(refusals[0].contains("inside this project"), "{}", refusals[0]);
+        }
+
+        // A path somewhere else in the tree — where a PINNED plugin's prose lives — is read.
+        let pinned = Path::new(&root).join("third_party/pinned/plugins/demo");
+        std::fs::create_dir_all(&pinned).expect("dir");
+        std::fs::write(pinned.join("say.md"), "Read from the pinned checkout.").expect("write");
+        std::fs::write(Path::new(&root).join("plugins/demo/plugin.json"), json!({
+            "name": "demo", "service": { "command": ["bin/demo"],
+                "instructions": "third_party/pinned/plugins/demo/say.md" } }).to_string()).expect("write");
+        let (text, refusals) = instructions(&root, &state);
+        assert!(refusals.is_empty(), "{refusals:?}");
+        assert!(text.contains("pinned checkout"), "{text}");
     }
 
     #[test]
@@ -586,6 +624,43 @@ mod tests {
         assert!(offered.is_empty());
         assert_eq!(refusals.len(), 1);
         assert!(refusals[0].contains("at most"), "{}", refusals[0]);
+    }
+
+    /// Offered is not the same as callable. A computed list was namespaced, capped and put in
+    /// front of an agent, and the routing behind it read the manifest's own `tools` — which for
+    /// this plugin is the NAME of a subcommand, not an array. So every tool it offered answered
+    /// "has no tool". Listing them is what the earlier check did; calling one is what it did not.
+    #[test]
+    fn a_computed_tool_is_callable_and_not_only_listed() {
+        let (root, state) = workspace("computed-call");
+        let demo = Path::new(&root).join("plugins").join("demo");
+        let service = demo.join("service.sh");
+        std::fs::write(&service, "#!/bin/sh\n\
+            case \"$1\" in\n\
+            catalogue) printf '{\"tools\":[{\"name\":\"first\",\"command\":\"first\",\
+\"description\":\"d\",\"inputSchema\":{\"type\":\"object\"}}]}\\n' ;;\n\
+            first) printf '{\"ran\":\"first\"}\\n' ;;\n\
+            *) echo 'no' >&2; exit 2 ;;\n\
+            esac\n").expect("service");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&service, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+        }
+        std::fs::write(demo.join("plugin.json"), json!({
+            "name": "demo",
+            "service": { "command": ["plugins/demo/service.sh"], "tools": "catalogue" }
+        }).to_string()).expect("manifest");
+        set_enabled(&state, "demo", true).expect("on");
+
+        let (offered, refusals) = tools(&root, &state);
+        assert!(refusals.is_empty(), "{refusals:?}");
+        assert_eq!(offered[0]["name"], "demo.first", "it is offered");
+
+        let (manifest, short) = route(&root, &state, "demo.first")
+            .expect("a tool an agent is offered is a tool it can reach");
+        let answer = call(&manifest, &short, &json!({}), &root, &state).expect("call");
+        assert_eq!(answer["ran"], "first", "and the call reaches the subcommand the list named");
     }
 
     #[test]
