@@ -1,3 +1,43 @@
+## Session 178d (opus-5) — 2026-09-19 — The reading flows, and a candidate set that was the bug
+
+F239: `reformat`, `extract`, `dates`, `hazards` and `featurize`.
+
+**A security boundary came out of building them,** and is now spec 153 decision 11. These flows take
+a FILENAME from whoever calls them, and a flow that read whatever it was told to would read any file
+in the project — the API key lives in a file in a project. So a project declares a DIRECTORY per
+flow, the caller names something inside it, and `../.jev` is refused by name like everything else
+that resolves outside.
+
+**`extract`'s candidate set was the bug, not the model.** Asked which tool disambiguated the
+symbols, it answered `workspace.c` at 0.82 — because the pattern kept only tokens carrying a dot, a
+dash or a digit, so `nm` and `atos` were never candidates at all. A confidence says nothing about a
+set that never contained the answer. Offering every distinct token minus the words that carry no
+information, ranked by rarity, the same three questions returned workspace.c 1.00, nm 0.96 and
+MallocScribble 0.99 — from 58 candidates instead of 4. The answer is also checked against the spans
+that went in, so a value that was not in the document cannot come back.
+
+**`reformat` generates nothing.** 16 lines of raw notes became a title, a paragraph stitched back
+out of three hard-wrapped lines, a section heading, a three-item ordered list, a fenced command, a
+callout and a closing paragraph — every word of it from the input. One bug found in the same run: a
+list ran straight into the next block with no blank line, which every Markdown reader swallows into
+the last item.
+
+**`dates` does no arithmetic.** It read 2026-09-18 out of a document that also names March 3 2027,
+at confidence 0.60 — the minimum across the parts used, because a certain month with an unsure day
+is not a certain date. February 30 is refused rather than moved to the nearest real day, and a
+relative date comes back as its anchor: what "today" means is the caller's to know.
+
+**`hazards` is advisory and says so in its own answer.** Clean document: every flag 0.02–0.03,
+severity 0.18. A document carrying an override attempt, a key-shaped string and a named individual:
+overrides 0.98, credential 0.98, personal 0.98, severity 2.16. Nothing in this workspace decides
+anything on it, which is the vendor's own position about screening models.
+
+**`featurize` fits nothing.** Three declared questions over six known-issues rows produced four
+columns — a Noul becoming one and a Score becoming two, its mean level and its spread, because a
+level the model is torn between is a different observation from one it is sure of.
+
+47 plugin unit tests, clean build. **Remaining: 4 composites (F240).**
+
 ## Session 178c (opus-5) — 2026-09-19 — The routing flows, and a beam that reported every leaf twice
 
 F238: `classify`, `skill-pick` and `action-intent`. What the three share is that **the answer set is

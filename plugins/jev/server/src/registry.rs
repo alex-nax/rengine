@@ -183,39 +183,39 @@ pub const FLOWS: &[Entry] = &[
     },
     Entry {
         name: "reformat", cookbook: "autoformat", surface: Surface::Tool,
-        sources: &[],
+        sources: &["documents"],
         description: "Recover Markdown structure from plain text that lost it: one pass stitches \
                       hard-wrapped lines, one classifies every block. The Markdown is assembled in \
                       code and no word is generated - every word in the output was in the input.",
         cost: "2 requests, about $0.001",
-        schema: document_schema, runner: None,
+        schema: document_schema, runner: Some(crate::runs::reading::reformat),
     },
     Entry {
         name: "extract", cookbook: "pre_parsed_value_extraction", surface: Surface::Tool,
-        sources: &[],
+        sources: &["documents"],
         description: "Pull one exact value out of a document. A pattern finds the candidates and the \
                       judgement only CHOOSES among them, so what comes back is a span copied \
                       unchanged - it cannot invent a value or transpose a digit.",
         cost: "1 request, about $0.0003",
-        schema: extract_schema, runner: None,
+        schema: extract_schema, runner: Some(crate::runs::reading::extract),
     },
     Entry {
         name: "dates", cookbook: "date_extraction", surface: Surface::Tool,
-        sources: &[],
+        sources: &["documents"],
         description: "Read the date a document states. The model names the parts and every calendar \
                       calculation happens in code, because reading dates as ordered quantities is a \
                       documented weakness; an impossible date is refused rather than resolved.",
         cost: "1 request, about $0.0005",
-        schema: document_schema, runner: None,
+        schema: document_schema, runner: Some(crate::runs::reading::dates),
     },
     Entry {
         name: "hazards", cookbook: "llm_guardrails", surface: Surface::Tool,
-        sources: &[],
+        sources: &["documents"],
         description: "Flag hazards in a document for A PERSON to read, with a severity beside them. \
                       ADVISORY and not a security control: the vendor's own page says an attacker \
                       can talk a screening model past, so nothing in this workspace gates on it.",
         cost: "1 request, about $0.0005",
-        schema: document_schema, runner: None,
+        schema: document_schema, runner: Some(crate::runs::reading::hazards),
     },
     Entry {
         name: "featurize", cookbook: "autoresearch_feature_discovery", surface: Surface::Action,
@@ -225,7 +225,7 @@ pub const FLOWS: &[Entry] = &[
                       probability. It emits the matrix and fits NOTHING - the regressor needs a \
                       labelled target this workspace does not have.",
         cost: "1 request per row",
-        schema: query_schema, runner: None,
+        schema: query_schema, runner: Some(crate::runs::reading::featurize),
     },
     Entry {
         name: "prior-art", cookbook: "entity_alignment + semantic_find", surface: Surface::Tool,
@@ -303,7 +303,7 @@ mod tests {
         // appears without a decision behind it should be a failing test rather than a surprise.
         // This number goes DOWN, one feature row at a time, and never up without one.
         let unbuilt: Vec<&str> = FLOWS.iter().filter(|e| e.runner.is_none()).map(|e| e.name).collect();
-        assert_eq!(unbuilt.len(), 9, "flows still to build: {unbuilt:?}");
+        assert_eq!(unbuilt.len(), 4, "flows still to build: {unbuilt:?}");
         assert_eq!(FLOWS.len(), 18);
     }
 
@@ -340,7 +340,7 @@ mod tests {
     fn a_declared_but_unbuilt_flow_says_so_rather_than_failing_obscurely() {
         // A flow that is declared and has no runner yet. When this one gains a runner, point the
         // test at another - or delete it, on the day the count above reaches zero.
-        let flow = Flow { name: "reformat".into(), surface: Surface::Tool,
+        let flow = Flow { name: "prior-art".into(), surface: Surface::Tool,
                           sources: BTreeMap::new(), settings: json!({}) };
         let jev = Jev::from_key("x".repeat(40).as_str()).expect("key");
         let error = run(&jev, &flow, &Arguments::new(), Path::new(".")).expect_err("not built");

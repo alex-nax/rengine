@@ -4797,14 +4797,23 @@
         "`featurize` emits the numeric matrix and fits nothing.",
         "All five exit 0 with an explanation when the key or the service is absent."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         236
       ],
       "owner_workspace": "rengine",
       "deliverable": "Five flows, each reading a declared source and none of them generating text.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "Built 2026-09-19 in src/runs/reading.rs. 47 plugin unit tests, clean build with no warnings.",
+        "A security boundary was added while building these and is now spec 153 decision 11: these flows take a FILENAME from their caller, and a flow that read whatever it was told to would read any file in the project - the API key lives in a file in a project. Flow::file_in resolves a caller-named file inside a directory the project declared and refuses anything outside it; flows::tests::a_caller_cannot_name_a_file_outside_the_directory_the_project_declared covers ../.jev, an absolute path, an empty name and a directory.",
+        "Criterion 1, live: `reformat` turned 16 lines of raw notes into 9 blocks - a title, a stitched paragraph (three hard-wrapped lines joined back into one), a section heading, a three-item ordered list, a fenced shell command, a callout and a closing paragraph. Every word in the output was in the input; the flow chose boundaries and types and the Markdown was assembled in code. One formatting bug was found and fixed in the same run: a list running straight into the next block with no blank line, which every Markdown reader swallows into the last item.",
+        "Criterion 2, live, and the candidate set was the bug: asked which tool disambiguated the symbols, the first version answered 'workspace.c' at 0.82 - because its pattern kept only tokens carrying a dot, dash or digit, so `nm` and `atos` were never candidates. A confidence says nothing about a set that never contained the answer. Rebuilt to offer every distinct token minus the words that carry no information, ranked by rarity, the same three questions returned workspace.c 1.00, nm 0.96 and MallocScribble 0.99 from 58 candidates instead of 4. The answer is checked against the offered spans before it is returned, so a value that was not in the document cannot come back.",
+        "Criterion 3, live: `dates` read 2026-09-18 out of a document that also names March 3 2027, returning month 9 day 18 year 2026 at confidence 0.60, which is the minimum across the parts used. Every calendar decision is in code: runs::reading::tests::an_impossible_date_is_not_a_date pins that February 30 is refused rather than moved to the nearest real day, and a relative date is returned as its anchor because what `today` means is the caller's to know.",
+        "Criterion 4, live: `hazards` on a clean document returned every flag at 0.02-0.03 and severity 0.18; on a document carrying an override attempt, a key-shaped string and a named individual it returned overrides 0.98, credential 0.98, personal 0.98 and severity 2.16. It reports `advisory: true` in its own answer and its note says it is not a security control, which is the vendor's own position - nothing in this workspace decides anything on it.",
+        "Criterion 5, live: `featurize` over 6 known-issues rows produced 4 columns from 3 declared questions - a Noul becoming one column and a Score becoming two, its mean level and its spread, because a level the model is torn between is a different observation from one it is sure of and one column cannot say so (runs::reading::tests::a_score_becomes_two_columns...). It emits the matrix and fits nothing: the regressor needs a labelled target this workspace does not have and a gradient-boosting dependency this plugin does not carry.",
+        "Criterion 6: all five read the key through Jev::from_state_directory, which refuses by name with the path to put one at."
+      ]
     },
     {
       "id": 240,

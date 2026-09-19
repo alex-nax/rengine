@@ -6,6 +6,7 @@
 //! path the project declared, or a query somebody typed — never a document. A flow that accepted
 //! text would be a way to send arbitrary content to a third party through a tool call.
 
+pub mod reading;
 pub mod retrieval;
 pub mod routing;
 

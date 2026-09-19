@@ -107,13 +107,6 @@ pub fn classify(jev: &Jev, flow: &Flow, arguments: &Arguments, root: &Path) -> R
         .map_err(|e| format!("cannot read the taxonomy at {}: {e}", taxonomy_path.display()))?)
         .map_err(|e| format!("{} is not JSON: {e}", taxonomy_path.display()))?;
 
-    /// Children of a path, or None at a leaf.
-    fn children<'a>(taxonomy: &'a Value, path: &[String]) -> Option<&'a serde_json::Map<String, Value>> {
-        let mut node = taxonomy;
-        for step in path { node = node.get(step)?; }
-        node.as_object().filter(|map| !map.is_empty())
-    }
-
     let mut tokens = 0u64;
     let finished = walk(&taxonomy, BEAM, MAX_DEPTH, |path, options| {
         let state = json!({

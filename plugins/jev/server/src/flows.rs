@@ -57,6 +57,30 @@ impl Flow {
             .ok_or_else(|| format!("the {} flow declares no {key:?} source", self.name))
     }
 
+    /// A file the CALLER named, resolved inside a directory this project declared for the flow.
+    ///
+    /// This is the difference between "read a declared source" and "read whatever you are told to".
+    /// A flow that took a bare path from its caller would read any file in the project — and the
+    /// API key lives in a file in a project. So the project declares a directory, the caller names
+    /// something inside it, and anything that resolves outside is refused by name.
+    pub fn file_in(&self, key: &str, named: &str, project_root: &Path) -> Result<PathBuf, String> {
+        let directory = project_root.join(self.source(key)?);
+        if named.is_empty() || named.contains("..") || Path::new(named).is_absolute() {
+            return Err(format!(
+                "{named:?} is not a file the {} flow may read: name one inside {}",
+                self.name, self.source(key)?.display()));
+        }
+        let path = directory.join(named);
+        let inside = path.canonicalize()
+            .map_err(|e| format!("the {} flow cannot read {named:?}: {e}", self.name))?;
+        let root = directory.canonicalize()
+            .map_err(|e| format!("cannot resolve {}: {e}", directory.display()))?;
+        if !inside.starts_with(&root) || !inside.is_file() {
+            return Err(format!("{named:?} is not a file inside {}", self.source(key)?.display()));
+        }
+        Ok(inside)
+    }
+
     pub fn setting(&self, key: &str) -> Option<&Value> {
         self.settings.get(key)
     }
@@ -268,6 +292,26 @@ mod tests {
         let flows = declared(&root).expect("read");
         assert_eq!(flows[0].surface, Surface::Action);
         assert!(tools(&root).expect("tools").is_empty(), "and it stops being offered as a tool");
+    }
+
+    #[test]
+    fn a_caller_cannot_name_a_file_outside_the_directory_the_project_declared() {
+        // The hazard this closes: a flow taking a bare path from its caller would read ANY file in
+        // the project, and the API key lives in a file in a project.
+        let root = project("filein", json!({ "flows": [
+            { "name": "reformat", "sources": { "documents": "docs" } }] }));
+        std::fs::write(root.join(".jev"), "sk-the-actual-key").expect("key");
+        std::fs::write(root.join("docs").join("notes.md"), "some notes").expect("notes");
+        let flow = declared(&root).expect("read").remove(0);
+
+        assert!(flow.file_in("documents", "notes.md", &root).is_ok(), "a file inside it is fine");
+        for bad in ["../.jev", "../../etc/passwd", "/etc/passwd", ""] {
+            let error = flow.file_in("documents", bad, &root).expect_err(bad);
+            assert!(error.contains("may read") || error.contains("cannot read")
+                    || error.contains("not a file inside"), "{bad}: {error}");
+        }
+        // And a directory is not a document.
+        assert!(flow.file_in("documents", ".", &root).is_err());
     }
 
     #[test]
