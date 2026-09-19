@@ -50,12 +50,22 @@ fn about_the_report(jev: &Jev, report: &str) -> Result<(Value, u64), String> {
             when_true: Some("Two or more problems that would be fixed separately".to_string()),
             when_false: Some("One problem, however it is described".to_string()),
         }),
+        // The instructions name the person the answer is for, and each level says what the report
+        // would have to contain. Both halves were measured on the presence Noul in `find`: a
+        // question phrased as a category rather than as the thing being asked answers about the
+        // category. Terse levels put this report a whole level away from where the reference
+        // implementation put it.
         ("evidence".to_string(), Question::Score {
-            instructions: "How much does this report give somebody to work with?".to_string(),
+            instructions: "How much does this report give to somebody who now has to reproduce the \
+                           problem on their own machine?".to_string(),
             levels: vec![
-                "Neither where it happens nor how to see it: somebody must ask.".to_string(),
-                "Where it happens, but not how to bring it about.".to_string(),
-                "Where it happens and how to bring it about.".to_string(),
+                "It says neither where the problem happens nor how to see it. Somebody \
+                 reproducing it would have to guess where to start.".to_string(),
+                "It says where the problem happens — it names a place, a screen, a file or an \
+                 object — but not what to do to get there or to make the problem appear."
+                    .to_string(),
+                "It says both where the problem happens and what to do to see it, closely enough \
+                 that somebody could follow it.".to_string(),
             ],
         }),
         ("instructing".to_string(), Question::Noul {
@@ -90,6 +100,13 @@ fn about_the_report(jev: &Jev, report: &str) -> Result<(Value, u64), String> {
 }
 
 /// Align a shortlist properly, each candidate in its own request, in parallel.
+///
+/// The relation alone was not enough, and the reference implementation knew it: a middle answer
+/// that says only "a person should decide" sends the person back to read both records from
+/// scratch. The riders cost nothing — `parallel_questions` puts them in the same request — and they
+/// say WHICH dimension disagrees, which is the difference between "these might be the same" and
+/// "same part of the system, different symptom". Measured on a real report, the pair separated a
+/// candidate the relation scored in the middle into one worth opening and one not.
 fn align_each(jev: &Jev, entries: &[Entry], subject: &str, candidates: &[Candidate])
               -> Result<(Vec<Value>, u64), String> {
     const OUTCOMES: [&str; 3] = ["different", "needs-a-person", "the-same"];
@@ -101,24 +118,48 @@ fn align_each(jev: &Jev, entries: &[Entry], subject: &str, candidates: &[Candida
                     .ok_or_else(|| format!("{} left the corpus mid-sweep", candidate.id))?;
                 let state = json!({ "subject": subject,
                                     "candidate": { "id": entry.id, "says": entry.body } });
-                let questions = BTreeMap::from([("relation".to_string(), Question::Score {
-                    instructions: "How does the candidate relate to the subject? The levels are the \
-                                   three things you can do with the pair.".to_string(),
-                    levels: vec![
-                        "They are different and should stay separate.".to_string(),
-                        "They may be the same and a person should decide.".to_string(),
-                        "They are the same thing.".to_string(),
-                    ],
-                })]);
+                let questions = BTreeMap::from([
+                    ("relation".to_string(), Question::Score {
+                        instructions: "How does the candidate relate to the subject? The levels are \
+                                       the three things you can do with the pair.".to_string(),
+                        levels: vec![
+                            "They are different and should stay separate.".to_string(),
+                            "They may be the same and a person should decide.".to_string(),
+                            "They are the same thing.".to_string(),
+                        ],
+                    }),
+                    ("same_subject".to_string(), Question::Noul {
+                        instructions: "Do the subject and the candidate concern the same part of \
+                                       the system?".to_string(),
+                        when_true: Some("The same component, file or subsystem".to_string()),
+                        when_false: Some("Different parts of the system".to_string()),
+                    }),
+                    ("same_symptom".to_string(), Question::Noul {
+                        instructions: "Do they describe the same observable behaviour, as opposed \
+                                       to two different ones that might share a cause?".to_string(),
+                        when_true: Some("The same thing is seen or heard".to_string()),
+                        when_false: Some("Different observable behaviour".to_string()),
+                    }),
+                ]);
                 let response = jev.ask(&state, &questions)?;
                 let answer = response.answers.get("relation")
                     .ok_or_else(|| "the alignment was not answered".to_string())?;
+                let dimensions: Vec<Value> = ["same_subject", "same_symptom"].iter()
+                    .filter_map(|name| {
+                        let Answer::Noul { probability } = response.answers.get(*name)? else {
+                            return None;
+                        };
+                        Some(json!({ "dimension": name,
+                                     "reads": gates::band(*probability).as_str(),
+                                     "probability": probability }))
+                    }).collect();
                 Ok((json!({
                     "id": entry.id,
                     "says": entry.snippet(160),
                     "swept": candidate.probability,
                     "relation": describe(answer),
                     "outcomes": name_levels(answer, &OUTCOMES),
+                    "dimensions": dimensions,
                 }), response.input_tokens))
             })
         }).collect();
@@ -192,17 +233,7 @@ pub fn prior_findings(jev: &Jev, flow: &Flow, arguments: &Arguments, root: &Path
         "Each option is a lesson or an antipattern this project recorded, given by its summary.",
         "Which of these already addresses the question in `needle`?", &query)?;
 
-    let questions = BTreeMap::from([("present".to_string(), Question::Noul {
-        instructions: "Do these entries contain an answer to the question?".to_string(),
-        when_true: Some("At least one entry states or directly implies the answer".to_string()),
-        when_false: Some("No entry addresses the question, either way".to_string()),
-    })]);
-    let state = json!({ "question": query, "entries": entries.iter()
-        .map(|e| json!({ "id": e.id, "says": e.snippet(160) })).collect::<Vec<_>>() });
-    let response = jev.ask(&state, &questions)?;
-    let Some(Answer::Noul { probability }) = response.answers.get("present") else {
-        return Err("the presence question was not answered".to_string());
-    };
+    let (probability, presence_tokens) = retrieval::presence(jev, &entries, &query, "question")?;
 
     let found: Vec<Value> = candidates.iter().take(5).filter_map(|candidate| {
         let entry = entries.iter().find(|e| e.id == candidate.id)?;
@@ -211,10 +242,10 @@ pub fn prior_findings(jev: &Jev, flow: &Flow, arguments: &Arguments, root: &Path
 
     Ok(json!({
         "flow": "prior-findings", "query": query,
-        "answered": { "reads": gates::band(*probability).as_str(), "probability": probability },
+        "answered": { "reads": gates::band(probability).as_str(), "probability": probability },
         "findings": found,
         "searched": entries.len(),
-        "inputTokens": swept + response.input_tokens, "acted": false,
+        "inputTokens": swept + presence_tokens, "acted": false,
         "note": "When `answered` reads `no`, the findings below are the closest entries in a record \
                  that does not address the question. A lesson nobody retrieves is a lesson nobody \
                  learned, which is why this exists — but a forced hit is worse than none.",
@@ -360,6 +391,31 @@ pub fn assert_check(jev: &Jev, flow: &Flow, arguments: &Arguments, root: &Path) 
     }))
 }
 
+/// Which rows a sweep is about.
+///
+/// "Open" is a word in a project's own document, not a concept this has: one writes
+/// `major (OPEN — …)` in a severity cell and another keeps a status column. So the project
+/// declares the marker in `settings.only` and the library does not guess at it. Without it the
+/// most expensive flow here spends most of $0.95 re-examining issues somebody already closed, and
+/// the symptom is a bill rather than a wrong answer — which is why a marker that matches nothing
+/// is a refusal naming the marker, not a sweep that quietly does nothing.
+fn rows_to_sweep<'a>(issues: &'a [Entry], only: Option<&str>, limit: usize)
+                     -> Result<Vec<&'a Entry>, String> {
+    let rows: Vec<&Entry> = issues.iter()
+        .filter(|issue| only.is_none_or(|marker| issue.body.contains(marker)
+                                              || issue.title.contains(marker)))
+        .take(limit).collect();
+    if rows.is_empty() {
+        return Err(match only {
+            Some(marker) => format!(
+                "no row carries {marker:?}. That marker is this project's own word for an issue \
+                 still open, declared as `settings.only` beside the flow"),
+            None => "there are no rows to sweep".to_string(),
+        });
+    }
+    Ok(rows)
+}
+
 /// `ki-sweep` — which feature already covers each open issue?
 ///
 /// `prior-art` per row, and the most expensive thing here by an order of magnitude — which is why
@@ -370,7 +426,10 @@ pub fn ki_sweep(jev: &Jev, flow: &Flow, arguments: &Arguments, root: &Path) -> R
     let issues = corpus::read(root, flow.source("issues")?)?;
     let features = corpus::read(root, flow.source("features")?)?;
     let limit: usize = arguments.get("limit").and_then(|l| l.parse().ok()).unwrap_or(10);
-    let rows: Vec<&Entry> = issues.iter().take(limit).collect();
+    let only = flow.setting("only").and_then(Value::as_str);
+    let named = flow.source("issues")?.display().to_string();
+    let rows = rows_to_sweep(&issues, only, limit)
+        .map_err(|error| format!("{error} ({named})"))?;
 
     let mut swept = Vec::new();
     let mut tokens = 0u64;
@@ -409,6 +468,7 @@ pub fn ki_sweep(jev: &Jev, flow: &Flow, arguments: &Arguments, root: &Path) -> R
     Ok(json!({
         "flow": "ki-sweep",
         "rows": swept.len(), "matched": matched, "issues": issues.len(), "features": features.len(),
+        "only": only,
         "swept": swept,
         "inputTokens": tokens, "acted": false,
         "thresholds": [gates::CONFIDENT.report(), gates::CANDIDATE_FLOOR.report()],
@@ -432,6 +492,37 @@ mod tests {
 
         arguments.insert("report".to_string(), "a tree draws through a plant".to_string());
         assert!(report_text(&flow, &arguments, "report").is_ok());
+    }
+
+    /// "Open" is a word in a project's own document, so the project declares it. Without the
+    /// filter the sweep spends most of a dollar on issues somebody already closed, and the symptom
+    /// is a bill rather than a wrong answer — which is why this is a refusal with a name in it
+    /// rather than a silent empty run.
+    #[test]
+    fn a_sweep_is_about_the_rows_the_project_declared_it_is_about() {
+        let root = std::env::temp_dir().join(format!("jev-only-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("dir");
+        std::fs::write(root.join("known-issues.md"),
+            "## KI-1 — one that is closed\nmajor (FIXED 2026-01-01)\n\
+             ## KI-2 — one that is open\nmajor (OPEN — today)\n").expect("write");
+        std::fs::write(root.join("features.json"),
+            "{\"features\":[{\"id\":1,\"description\":\"something\"}]}").expect("write");
+
+        let issues = corpus::read(&root, std::path::Path::new("known-issues.md")).expect("read");
+        assert_eq!(issues.len(), 2, "two rows on file");
+
+        let selected = rows_to_sweep(&issues, Some("OPEN"), 10).expect("one row is open");
+        assert_eq!(selected.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(), ["KI-2"],
+                   "a sweep costs one row here, not two");
+
+        // A marker no row carries is a refusal that names the marker, not a sweep that does nothing.
+        let error = rows_to_sweep(&issues, Some("WONTFIX"), 10).expect_err("refused");
+        assert!(error.contains("WONTFIX"), "{error}");
+        assert!(error.contains("settings.only"), "and says where to declare it: {error}");
+
+        // Undeclared means every row, which is what a project with no such word gets.
+        assert_eq!(rows_to_sweep(&issues, None, 10).expect("all").len(), 2);
     }
 
     #[test]

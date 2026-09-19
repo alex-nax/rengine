@@ -18,6 +18,7 @@
 //!      place, and `Jev` has no accessor for it — a `Debug` that could print it is not derived.
 
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::path::{Path, PathBuf};
 
 pub mod record;
@@ -160,6 +161,22 @@ pub fn key_path(state_directory: &str) -> PathBuf {
 pub struct Jev {
     key: String,
     model: String,
+    /// What this client has spent. A flow reports its own token count, but a sweep is a hundred
+    /// requests across a dozen threads and the thing worth knowing is the total — which is the
+    /// number that made these two flows actions rather than tools in the first place. The
+    /// implementation this replaced printed it on every run; a service that is expensive on
+    /// purpose should say what it just cost.
+    requests: AtomicU64,
+    input_tokens: AtomicU64,
+}
+
+/// docs.typesafe.ai/models: output tokens are free.
+const USD_PER_INPUT_TOKEN: f64 = 0.042 / 1_000_000.0;
+
+/// What a token count costs, to the hundredth of a cent — which is the resolution these runs
+/// actually report, and rounding it here rather than at the printer keeps one answer.
+pub fn usd(input_tokens: u64) -> f64 {
+    (input_tokens as f64 * USD_PER_INPUT_TOKEN * 10_000.0).round() / 10_000.0
 }
 
 impl std::fmt::Debug for Jev {
@@ -192,7 +209,8 @@ impl Jev {
         if key.is_empty() {
             return Err("the Jev key file is empty".to_string());
         }
-        Ok(Jev { key: key.to_string(), model: MODEL.to_string() })
+        Ok(Jev { key: key.to_string(), model: MODEL.to_string(),
+                 requests: AtomicU64::new(0), input_tokens: AtomicU64::new(0) })
     }
 
     /// Ask one or more questions about one state. Blocking, like every other client here.
@@ -221,7 +239,12 @@ impl Jev {
         let mut last = String::new();
         for attempt in 0..3u32 {
             match red_core::tls::request("POST", ENDPOINT, &headers, Some(&body)) {
-                Ok(answer) if answer.ok() => return Self::parse(&answer.body),
+                Ok(answer) if answer.ok() => {
+                    let parsed = Self::parse(&answer.body)?;
+                    self.requests.fetch_add(1, Ordering::Relaxed);
+                    self.input_tokens.fetch_add(parsed.input_tokens, Ordering::Relaxed);
+                    return Ok(parsed);
+                }
                 Ok(answer) if answer.status == 429 || answer.status >= 500 => {
                     last = format!("the judge answered {}", answer.status);
                     if attempt < 2 {
@@ -240,6 +263,18 @@ impl Jev {
             }
         }
         Err(format!("the judge could not be reached after three attempts: {last}"))
+    }
+
+    /// What this client has spent so far, measured rather than estimated: every count comes off a
+    /// response the service sent. A run that reached nothing reports zeroes rather than nothing.
+    pub fn spent(&self) -> serde_json::Value {
+        let requests = self.requests.load(Ordering::Relaxed);
+        let input_tokens = self.input_tokens.load(Ordering::Relaxed);
+        serde_json::json!({
+            "requests": requests,
+            "inputTokens": input_tokens,
+            "usd": usd(input_tokens),
+        })
     }
 
     fn parse(body: &str) -> Result<Response, String> {
@@ -322,6 +357,16 @@ mod tests {
             Answer::Score { score, .. } => assert_eq!(*score, 2.0),
             other => panic!("expected a score, got {other:?}"),
         }
+    }
+
+    /// The price is pinned against a run both implementations measured on the same report: one
+    /// prior-art check, nine requests, 66,909 input tokens, $0.0028. A cost line that drifts is
+    /// worse than none, because the numbers it prints are what a person budgets a sweep from.
+    #[test]
+    fn what_a_run_cost_is_measured_and_not_estimated() {
+        assert_eq!(usd(66_909), 0.0028, "one prior-art check, measured 2026-09-18 and again today");
+        assert_eq!(usd(1_000_000), 0.042, "the published rate, per million input tokens");
+        assert_eq!(usd(0), 0.0, "a run that reached nothing spent nothing");
     }
 
     #[test]

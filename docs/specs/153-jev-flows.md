@@ -105,31 +105,36 @@ rEngine's own declaration, which is what it runs on:
 Four tools and two actions. An action does not count against the tool cap, because it is never
 offered to an agent.
 
-**NOLF's would be a different subset over a bigger corpus**, and is written here rather than in that
-repo because it has a prerequisite this one cannot satisfy: its `third_party/rengine` is pinned at a
-revision that predates this plugin, so the service it names is not in its checkout yet. Bumping that
-pin is a change to a paused project and the owner's to make. With it bumped, this is the file:
+**NOLF's is a different subset over a bigger corpus.** It was written here first, as a proposal,
+and then corrected by running it — spec 154 and F241 carry the adoption. What it runs on is:
 
 ```json
 { "flows": [
   { "name": "prior-art",      "sources": { "features": "features.json" } },
   { "name": "prior-findings", "sources": { "corpus": "docs/lessons-learned.md",
                                            "antipatterns": "docs/antipatterns.md" } },
-  { "name": "passage-triage", "sources": { "corpus": "known-issues.md" } },
   { "name": "assert-check",   "sources": { "tests": "tests" } },
   { "name": "ki-sweep",       "sources": { "issues": "known-issues.md",
-                                           "features": "features.json" } }
+                                           "features": "features.json" },
+                              "settings": { "only": "OPEN" } }
 ] }
 ```
 
-beside a manifest whose `service.command` is
+Two corrections the run made to the proposal, both recorded in spec 154. **`passage-triage` is not
+in it**: this spec proposed it because that project's reports come from strangers at release, but
+the flow takes a `claim` that is an id IN a corpus, so it triages a passage already on file rather
+than an incoming report — and the injection question NOLF wanted is inside `prior-art` already. And
+**`ki-sweep` declares `only`**, because "open" is a word in that project's own document rather than
+a concept this plugin has, and a sweep that does not know it spends most of $0.95 on closed rows.
+
+It sits beside a manifest whose `service.command` is
 `["third_party/rengine/plugins/jev/server/target/debug/red-jev"]` — one binary, shared by every
 project that pins this checkout, rather than a second copy of it.
 
-The difference between the two files is the whole point: NOLF declares `antipatterns`, which rEngine
-does not have, and `passage-triage`, which it needs because its reports come from strangers at
-release. rEngine declares `find` over its known-issues, which NOLF covers with `ki-sweep` instead.
-Neither list is the plugin's idea of what a project should want.
+The difference between the two files is the whole point: NOLF declares `antipatterns`, which
+rEngine has no document for, and a marker for which of its issues are open. rEngine declares `find`
+and `triage`, which NOLF has no use for. Neither list is the plugin's idea of what a project should
+want.
 
 ## What this does not do
 

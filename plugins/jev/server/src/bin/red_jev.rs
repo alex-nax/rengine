@@ -51,6 +51,7 @@ fn usage() -> &'static str {
   red-jev settle   --state DIR --id ID --outcome accepted|overridden|confirmed|reverted
   red-jev tally    --state DIR
   red-jev flows    --state DIR
+  red-jev corpus   --state DIR --flow NAME [--source KEY]
   red-jev <flow>   --state DIR [--<argument> VALUE ...]
 
 A flow is one of the judgement tasks this plugin has, and a project enables the subset it wants in
@@ -128,6 +129,43 @@ fn main() -> std::process::ExitCode {
             }))
         })(),
 
+        /* What the reader made of a declared source, before anything is asked about it.
+           The corpus is the part of an adoption that silently differs: the same file read by two
+           implementations came out as 75 entries and as 145, and the only symptom downstream was a
+           verdict that read "unsure". A count is cheap and it contacts nothing. */
+        "corpus" => (|| {
+            let root = project_root();
+            let name = need(&args, "--flow")?;
+            let flow = flows::enabled(&root, &name)?;
+            let key = match flag(&args, "--source") {
+                Some(key) => key,
+                None => flow.sources.keys().next().cloned().ok_or_else(|| format!(
+                    "{name} declares no sources, so there is no corpus to read."))?,
+            };
+            let relative = flow.source(&key)?.to_path_buf();
+            let entries = red_jev::corpus::read(&root, &relative)?;
+            let budget = red_jev::runs::retrieval::budget(&entries);
+            let sample: Vec<serde_json::Value> = entries.iter().take(5).map(|entry| {
+                serde_json::json!({ "id": entry.id, "says": entry.snippet(budget),
+                                    "bodyCharacters": entry.body.chars().count() })
+            }).collect();
+            Ok(serde_json::json!({
+                "flow": name, "source": key, "path": relative.display().to_string(),
+                "entries": entries.len(),
+                "shape": match entries.first().map(|entry| entry.shape) {
+                    Some(red_jev::corpus::Shape::Inventory) => "inventory",
+                    _ => "document",
+                },
+                "optionBudget": budget,
+                // What a sweep over this corpus would cost before anybody starts one.
+                "sweepRequests": entries.len().div_ceil(254),
+                "sample": sample,
+                "note": "Read by SHAPE, not by project. An id names one entry: a document that \
+                         carries an index table and the sections it indexes yields one entry per id, \
+                         and the section wins because an index row summarises it.",
+            }))
+        })(),
+
         /* Any other word is a flow name. It reaches here the same way an agent's tool call does:
            core routes a tool to the subcommand its declaration names, and a flow's subcommand IS
            its name. A flow this project did not enable is refused by name rather than run. */
@@ -136,7 +174,12 @@ fn main() -> std::process::ExitCode {
             let flow = flows::enabled(&root, other)?;
             let jev = red_jev::Jev::from_state_directory(&state)?;
             let arguments = flag_arguments(&args);
-            let answer = red_jev::registry::run(&jev, &flow, &arguments, &root)?;
+            let mut answer = red_jev::registry::run(&jev, &flow, &arguments, &root)?;
+            // What it cost, on the run rather than in a table somebody has to go and find. The
+            // flows that are actions are actions BECAUSE of this number.
+            if let Some(object) = answer.as_object_mut() {
+                object.insert("cost".to_string(), jev.spent());
+            }
             Ok(answer)
         })(),
 

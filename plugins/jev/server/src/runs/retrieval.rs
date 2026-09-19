@@ -16,7 +16,7 @@ use std::path::Path;
 
 use serde_json::{json, Value};
 
-use crate::corpus::{self, Entry};
+use crate::corpus::{self, Entry, Shape};
 use crate::flows::Flow;
 use crate::gates;
 use crate::registry::Arguments;
@@ -25,8 +25,55 @@ use crate::{Answer, Jev, Question};
 
 /// The service takes 255 choices and "none" occupies one of them.
 const CHUNK: usize = 254;
-/// Enough to say what an entry is about inside a full-corpus sweep's state budget.
+/// Enough to say what an entry is about inside a full-corpus sweep's state budget. The two values
+/// are both measured, on the two shapes: 254 feature descriptions of 120 characters is the sweep
+/// this was ported from, and a lesson needs its body, which was measured at 260.
 const SNIPPET: usize = 120;
+const DOCUMENT_SNIPPET: usize = 260;
+
+/// How much of an entry an option carries. A corpus is one shape throughout — it is one file — so
+/// the first entry decides, and an empty corpus never reaches here (`corpus::read` refuses it).
+pub fn budget(entries: &[Entry]) -> usize {
+    if entries.first().is_some_and(|entry| entry.shape == Shape::Document) {
+        DOCUMENT_SNIPPET
+    } else {
+        SNIPPET
+    }
+}
+
+/// The presence question, asked over a whole corpus, and the one place phrasing was measured to
+/// matter more than anything else in this module.
+///
+/// Measured 2026-09-19 against the implementation this replaced, same corpus and same criteria:
+/// naming the query INSIDE the instructions rather than leaving it in the state is worth +0.21 on a
+/// true hit, and keying the entries by id rather than listing `{id, says}` objects a further
+/// +0.07–0.14. The two negative controls sit at 0.01–0.02 under every one of those conditions, so
+/// this is separation and not a thumb on the scale. A generic instruction with the query in the
+/// state answered 0.49 where the reference answered 0.92 — "unsure" against "decided before", on a
+/// query whose answer is the first entry in the file and which both implementations ranked first.
+pub fn presence(jev: &Jev, entries: &[Entry], query: &str, noun: &str)
+                -> Result<(f64, u64), String> {
+    let state = json!({
+        "query": query,
+        "entries": entries.iter()
+            .map(|entry| (entry.id.clone(), json!(entry.snippet(DOCUMENT_SNIPPET))))
+            .collect::<serde_json::Map<String, Value>>(),
+    });
+    let questions = BTreeMap::from([("present".to_string(), Question::Noul {
+        instructions: format!("Does any entry in `entries` address or answer this: {query}"),
+        when_true: Some(
+            "At least one entry states or directly implies the answer, or records a decision, \
+             rejection or finding about this exact thing.".to_string()),
+        when_false: Some(format!(
+            "No entry addresses the {noun}, either way. Entries about neighbouring topics that do \
+             not speak to this question count as false.")),
+    })]);
+    let response = jev.ask(&state, &questions)?;
+    match response.answers.get("present") {
+        Some(Answer::Noul { probability }) => Ok((*probability, response.input_tokens)),
+        _ => Err("the presence question was not answered".to_string()),
+    }
+}
 /// Past the third, NOLF measured the tail at 0.05 and below.
 const PER_CHUNK: usize = 3;
 /// The option that makes a Choice safe to use alone: without it the model must pick something.
@@ -49,8 +96,9 @@ pub fn sweep(jev: &Jev, entries: &[Entry], subject: &str, instructions: &str, ne
     let answers: Vec<Result<(Vec<Candidate>, u64), String>> = std::thread::scope(|scope| {
         let handles: Vec<_> = chunks.iter().map(|chunk| {
             scope.spawn(move || {
+                let spend = budget(chunk);
                 let mut options: BTreeMap<String, String> = chunk.iter()
-                    .map(|entry| (entry.id.clone(), entry.snippet(SNIPPET))).collect();
+                    .map(|entry| (entry.id.clone(), entry.snippet(spend))).collect();
                 options.insert(NONE.to_string(),
                                "None of these is about the same thing.".to_string());
                 let state = json!({ "subject": subject, "needle": needle });
@@ -170,32 +218,20 @@ pub fn find(jev: &Jev, flow: &Flow, arguments: &Arguments, root: &Path) -> Resul
 
     // Presence is asked over the whole corpus in its own request, so it is independent of any one
     // chunk's Choice — which is exactly what makes it able to disagree with the winner.
-    let state = json!({
-        "query": query,
-        "entries": entries.iter().map(|e| json!({ "id": e.id, "says": e.snippet(SNIPPET) }))
-            .collect::<Vec<_>>(),
-    });
-    let questions = BTreeMap::from([("present".to_string(), Question::Noul {
-        instructions: "Do these entries contain an answer to the query?".to_string(),
-        when_true: Some("At least one entry states or directly implies the answer".to_string()),
-        when_false: Some("No entry addresses the query, either way".to_string()),
-    })]);
-    let response = jev.ask(&state, &questions)?;
-    let Some(Answer::Noul { probability }) = response.answers.get("present") else {
-        return Err("the presence question was not answered".to_string());
-    };
+    let (probability, presence_tokens) = presence(jev, &entries, &query, "query")?;
 
+    let spend = budget(&entries);
     let ranked: Vec<Value> = candidates.iter().take(10).filter_map(|candidate| {
         let entry = entries.iter().find(|e| e.id == candidate.id)?;
-        Some(json!({ "id": entry.id, "says": entry.snippet(SNIPPET), "probability": candidate.probability }))
+        Some(json!({ "id": entry.id, "says": entry.snippet(spend), "probability": candidate.probability }))
     }).collect();
 
     Ok(json!({
         "flow": "find", "query": query,
-        "present": { "reads": gates::band(*probability).as_str(), "probability": probability },
+        "present": { "reads": gates::band(probability).as_str(), "probability": probability },
         "matches": ranked,
         "searched": entries.len(),
-        "inputTokens": swept + response.input_tokens, "acted": false,
+        "inputTokens": swept + presence_tokens, "acted": false,
         "note": "`present` is asked independently of the ranking. When it reads `no`, the matches \
                  below are the best of a set that does not answer the question — which is not the \
                  same as an answer.",

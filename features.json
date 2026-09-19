@@ -4868,6 +4868,61 @@
       "evidence": [
         "NOT STARTED. Blocked on an owner decision: bumping a pinned submodule in a workspace whose broader development is paused is not a change this task may make on its own. The declaration it needs is written out in spec 153 so applying it is a copy rather than a design."
       ]
+    },
+    {
+      "id": 242,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "low",
+      "description": "The NOLF migration is measured rather than reviewed: the fixed comparison set of spec 154 runs through the four standalone Python tools and through the library flows that replace them, and every difference is explained before anything is deleted. The defects that measurement finds are fixed in the library, because they are the library's, not NOLF's - a project adopting these flows next would meet the same ones.",
+      "acceptance_criteria": [
+        "The comparison set runs through both implementations and both sets of answers are recorded, negative controls included.",
+        "An id names one entry: a document carrying both an index table and the sections it indexes yields one entry per id, and a regression fails when it yields two.",
+        "A corpus entry's summary carries its body and not only its title, and a regression fails when the body is dropped.",
+        "The presence question names the query in its instructions and keys its entries by id; the measured effect on a true hit and on the negative controls is recorded.",
+        "prior-art aligns a candidate on the dimension riders as well as the relation, so a middle answer says WHICH dimension disagrees.",
+        "`red-jev corpus` prints what the reader made of a declared source, so a project can count its entries before it trusts a verdict.",
+        "Every flow reports what it cost - requests, input tokens and dollars - not input tokens alone."
+      ],
+      "passes": false,
+      "dependencies": [
+        241
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "A recorded before/after comparison in docs/evidence/, the library fixes it justifies, and the regressions that hold them.",
+      "external_references": [],
+      "evidence": [
+        "The comparison set ran through both implementations on 2026-09-19 against the live service; every number is in docs/evidence/jev-migration-2026-09-19.md. The headline: prior-findings on \"rename a build target\" answered 0.92 through the Python and 0.49 through the library - \"decided before\" against \"unsure\" - on a query both rank LL-001 first for. After the fixes, 0.81-0.83. Negative controls sat at 0.01-0.02 before and after, so the change is separation and not a lift.",
+        "An id names one entry: corpus::one_entry_per_id, with an_id_names_one_entry_even_when_a_document_indexes_itself over a document that carries an index table and the sections it indexes. Sabotaged by removing the call - FAILED with left ['LL-1','LL-2','LL-1','LL-2'] against right ['LL-1','LL-2'], and nothing else. NOLF's lessons file read 145 entries before and 83 after.",
+        "A document entry's summary carries its body: Entry::snippet now switches on corpus::Shape, with a_document_entry_summarises_its_body_and_an_inventory_row_does_not. Sabotaged by emptying the Document body - FAILED with the heading alone against heading-plus-lesson. The inventory path is unchanged, which is deliberate: 254 descriptions of 120 characters is the sweep both implementations share and it was measured that way.",
+        "The presence question names the query in its instructions and keys its entries by id (runs::retrieval::presence). Isolated over four conditions on the same corpus and criteria: generic/list 0.63, generic/keyed 0.77, named/list 0.84, named/keyed 0.91, with the control at 0.01-0.02 throughout. Restoring the body to each summary was worth +0.12 and the second sentence of each criterion +0.06-0.17.",
+        "prior-art aligns on the riders as well as the relation: measured on \"tree is visible through plants\", F1294 reads same-subject 0.83 / same-symptom 0.33 and F1121 reads 0.29 / 0.18 - which is what separates the candidate worth opening from the one that is not. Run cost 11 requests and $0.0029 against the Python's 9 and $0.0028.",
+        "`red-jev corpus --flow NAME --source KEY` prints the path, entry count, shape, option budget, the requests a sweep would cost and a sample. It contacts nothing. Run against NOLF's declared lessons: 73 entries, document shape, budget 260.",
+        "Every flow reports `cost` as requests, input tokens and dollars, accumulated on the client from the service's own usage field. what_a_run_cost_is_measured_and_not_estimated pins the rate against a run both implementations measured (66,909 tokens, $0.0028); sabotaged to ten times the rate it FAILED with 0.0281 against 0.0028.",
+        "Gates: 54 plugin unit tests green, the red workspace green, design.py check, agent_names.py check and features.py validate green.",
+        "Held at false until F241 lands: the adoption it depends on is the NOLF-side commit, and a row does not pass ahead of its dependency."
+      ]
+    },
+    {
+      "id": 243,
+      "milestone": "O1",
+      "category": "orchestrator",
+      "priority": "low",
+      "description": "The transferable half: a runbook another project follows to adopt the flow library, and the retirement of NOLF's four Python tools once their replacements are measured. What the Python did and the library does not is tracked as work rather than kept as a second implementation.",
+      "acceptance_criteria": [
+        "A runbook in docs/runbooks/ takes a project from no plugin to a declared subset answering, in steps that name commands rather than describing them.",
+        "The four Python tools and their degrade test are gone from NOLF, and its AGENTS.md, CLAUDE.md and cookbook record point at the flows instead.",
+        "Everything the Python did that the library does not is a tracked row or a known issue, with the measurement behind it - nothing is dropped silently.",
+        "The insights the migration produced are recorded where the next project reads them, not only in this spec."
+      ],
+      "passes": false,
+      "dependencies": [
+        242
+      ],
+      "owner_workspace": "rengine",
+      "deliverable": "docs/runbooks/jev-project-adoption.md, the removal commit in the NOLF workspace, and the follow-up rows for what did not survive.",
+      "external_references": [],
+      "evidence": []
     }
   ]
 }

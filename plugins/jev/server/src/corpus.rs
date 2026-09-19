@@ -10,9 +10,24 @@
 //! refusal naming the file, not an empty corpus: a flow that silently searched nothing would answer
 //! "nothing matches" forever, and that reads exactly like a correct answer.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use serde_json::Value;
+
+/// Where an entry came from, because it decides what a one-line summary of it should say.
+///
+/// An inventory row's description is written to be read alone — it IS the summary, and its body
+/// only adds acceptance criteria underneath. A document section's heading is a LABEL on text that
+/// carries the meaning: "Stale binaries after a rename" says almost nothing without the lesson
+/// under it. Summarising both the same way is what made a Choice over lessons rank headings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Shape {
+    /// A feature inventory: the title is the description.
+    Inventory,
+    /// A Markdown document: the title is a heading over a body.
+    Document,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Entry {
@@ -20,16 +35,58 @@ pub struct Entry {
     pub title: String,
     /// Everything the entry says, for the flows that read one properly rather than ranking it.
     pub body: String,
+    pub shape: Shape,
 }
 
 impl Entry {
     /// A description short enough that a whole corpus fits in one request's state.
+    ///
+    /// The budget is the same for both shapes; what fills it is not. An inventory spends it on the
+    /// description, which is the measured behaviour of the sweep this was ported from — 254 options
+    /// of 120 characters each. A document spends it on the heading and then as much of the body as
+    /// fits, because the heading on its own is a label.
     pub fn snippet(&self, characters: usize) -> String {
-        let text = if self.title.is_empty() { &self.body } else { &self.title };
-        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        let flatten = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+        let title = flatten(&self.title);
+        let text = match self.shape {
+            Shape::Inventory => if title.is_empty() { flatten(&self.body) } else { title },
+            Shape::Document => {
+                let body = flatten(&self.body);
+                match (title.is_empty(), body.is_empty()) {
+                    (true, _) => body,
+                    (false, true) => title,
+                    (false, false) => format!("{title}. {body}"),
+                }
+            }
+        };
         if text.chars().count() <= characters { return text; }
         text.chars().take(characters.saturating_sub(1)).collect::<String>() + "…"
     }
+}
+
+/// An id names ONE entry.
+///
+/// Both shapes live in one document more often than not: a lessons file carries an index table and
+/// then the sections that table indexes, and reading both — which is right — emitted every lesson
+/// twice, once as its one-line index row and once as itself. Measured on a real file that is 75
+/// entries and was read as 145, and the count is not the worst of it. A Choice ranks the two
+/// against each other and splits the mass between them, and every lookup by id finds the index row
+/// first, so the text reported as the evidence is the summary rather than the lesson.
+///
+/// The richest body wins, because an index row summarises a section and never the reverse. The
+/// first position is kept, because entries come out in document order and what reads them reports
+/// the first match.
+fn one_entry_per_id(entries: Vec<Entry>) -> Vec<Entry> {
+    let mut order: Vec<String> = Vec::new();
+    let mut best: BTreeMap<String, Entry> = BTreeMap::new();
+    for entry in entries {
+        match best.get(&entry.id) {
+            None => { order.push(entry.id.clone()); best.insert(entry.id.clone(), entry); }
+            Some(kept) if entry.body.len() > kept.body.len() => { best.insert(entry.id.clone(), entry); }
+            Some(_) => {}
+        }
+    }
+    order.into_iter().filter_map(|id| best.remove(&id)).collect()
 }
 
 /// `## ID — title` sections and `| ID | … |` table rows, both keyed on an identifier that looks
@@ -62,7 +119,8 @@ fn from_markdown(text: &str) -> Vec<Entry> {
     macro_rules! close {
         () => {
             if let Some((id, title, body)) = open.take() {
-                entries.push(Entry { id, title, body: body.join("\n").trim().to_string() });
+                entries.push(Entry { id, title, body: body.join("\n").trim().to_string(),
+                                     shape: Shape::Document });
             }
         };
     }
@@ -101,7 +159,7 @@ fn from_markdown(text: &str) -> Vec<Entry> {
             if let Some(id) = cells.first().and_then(|first| identifier(first)) {
                 close!();
                 let rest = cells[1..].join(" — ");
-                entries.push(Entry { id, title: rest.clone(), body: rest });
+                entries.push(Entry { id, title: rest.clone(), body: rest, shape: Shape::Document });
                 continue;
             }
         }
@@ -131,7 +189,7 @@ fn from_inventory(document: &Value) -> Option<Vec<Entry>> {
                 body.push_str(criterion);
             }
         }
-        entries.push(Entry { id, title, body });
+        entries.push(Entry { id, title, body, shape: Shape::Inventory });
     }
     Some(entries)
 }
@@ -151,6 +209,7 @@ pub fn read(root: &Path, relative: &Path) -> Result<Vec<Entry>, String> {
     } else {
         from_markdown(&text)
     };
+    let entries = one_entry_per_id(entries);
     if entries.is_empty() {
         // Not an empty corpus — a corpus this cannot read. A flow that searched nothing would
         // answer "nothing matches" forever, which reads exactly like a correct answer.
@@ -229,9 +288,56 @@ mod tests {
     #[test]
     fn a_snippet_is_short_enough_to_sweep_a_whole_corpus_with() {
         let entry = Entry { id: "LL-1".into(), title: "a  title\n   with awkward   spacing".into(),
-                            body: String::new() };
+                            body: String::new(), shape: Shape::Document };
         assert_eq!(entry.snippet(100), "a title with awkward spacing", "whitespace is normalised");
         assert_eq!(entry.snippet(10), "a title w…");
         assert_eq!(entry.snippet(10).chars().count(), 10, "the cap counts characters, not bytes");
+    }
+
+    /// The defect: `snippet` returned the title and dropped the body, so a Choice over a lessons
+    /// file ranked HEADINGS. An inventory must keep the old behaviour, because its sweep budget
+    /// was measured on descriptions alone.
+    #[test]
+    fn a_document_entry_summarises_its_body_and_an_inventory_row_does_not() {
+        let lesson = Entry { id: "LL-1".into(), title: "Stale binaries after a rename".into(),
+                             body: "A --target build exiting 0 does not prove it was built."
+                                 .into(), shape: Shape::Document };
+        assert_eq!(lesson.snippet(200),
+                   "Stale binaries after a rename. A --target build exiting 0 does not prove it \
+                    was built.",
+                   "a heading is a label; the lesson is underneath it");
+
+        let feature = Entry { id: "F1".into(), title: "A tree draws through plants".into(),
+                              body: "A tree draws through plants\n- The tree is occluded".into(),
+                              shape: Shape::Inventory };
+        assert_eq!(feature.snippet(200), "A tree draws through plants",
+                   "an inventory description is already the summary, and its criteria are not");
+    }
+
+    /// The defect this found in the field: a lessons file carries an index table and then the
+    /// sections it indexes, and every lesson came back twice — ranked against itself in one
+    /// Choice, and looked up by id as the one-line row rather than the lesson.
+    #[test]
+    fn an_id_names_one_entry_even_when_a_document_indexes_itself() {
+        let directory = std::env::temp_dir().join(format!("jev-dedupe-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).expect("dir");
+        std::fs::write(directory.join("lessons.md"),
+            "# Lessons\n\
+             | id | lesson | rule |\n\
+             | LL-1 | stale binaries | delete build/ |\n\
+             | LL-2 | something else | do the thing |\n\
+             \n\
+             ## LL-1 — Stale binaries after a rename\n\
+             The whole lesson, which is what somebody actually needs to read.\n\
+             ## LL-2 — Something else\n\
+             Its body too.\n").expect("write");
+
+        let entries = read(&directory, Path::new("lessons.md")).expect("read");
+        assert_eq!(entries.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(), ["LL-1", "LL-2"],
+                   "two lessons indexed twice are two entries, not four");
+        assert!(entries[0].body.contains("actually needs to read"),
+                "and the one that survives is the section, not the index row: {:?}", entries[0].body);
+        assert!(find(&entries, "LL-1").expect("LL-1").body.contains("actually needs to read"));
     }
 }
