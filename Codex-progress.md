@@ -1,3 +1,79 @@
+## Session 179 (opus-5) — 2026-09-19 — A port is not a migration until the same inputs agree
+
+The owner asked for the NOLF baseline captured, the standalone integration removed, the flow
+library adopted in its place, the two compared, and the process written down as the recipe for the
+next project. F241, F242, F243; spec 154.
+
+**The comparison is the session.** Eight inputs were fixed before anything moved — three queries,
+three reports, a bounded tests sweep and a bounded issues sweep, two of them negative controls —
+and run through both implementations on the live service. The first query disagreed:
+`prior-findings` on *"rename a build target"* answered **0.92** through NOLF's Python and **0.49**
+through the library. "This has been decided before" against "unsure", on a question whose answer is
+the first lesson in the file and which **both** implementations rank first, at 1.00.
+
+Five defects had compounded, and not one of them is a mistake a reader catches:
+
+| what | cost |
+|---|---|
+| the presence question's instructions were generic, the query only in the state | +0.21 to fix |
+| the options were a list of `{id, says}` rather than a map keyed by id | +0.07–0.14 |
+| each criterion had been cut to its first clause | +0.06–0.17 |
+| an entry's summary was its heading, body dropped — a Choice over documents ranking headings | +0.12 |
+| a document that indexes itself yielded every entry twice: 145 where there are 75 | the `says` was the index row, not the lesson |
+
+The negative controls sat at 0.01–0.02 under every condition, before and after, which is what makes
+this separation rather than a thumb on the scale. All five fixed: 0.49 → 0.83.
+
+**Two more came from not reading, but running.** Pointing the workspace host's own code at the NOLF
+checkout found that a plugin whose tool list is COMPUTED offered four tools that could not be
+called — the offer asked the plugin, the routing read the manifest's `tools` and expected an array,
+and `route` refused everything the same plugin had just advertised. Listing a tool and calling one
+are different paths and only one had been walked. The other: `instructions` resolved from the
+plugin's directory while `command` resolved from the project root, so a project that PINS a plugin
+had nowhere to point at the prose belonging to the service, and the only way out was a second copy.
+
+**A third came from looking at what called the tool being replaced.** A promotion skill ran
+`ki_sweep.py --ki KI-NNN` against one row; the flow replacing it could only sweep the first N of a
+list. `ki-sweep --row` now exists: 11 requests and $0.003 against $0.95.
+
+**Deleted, then.** NOLF's four Python tools and their degrade test — 1,431 lines — are gone
+(`85b86b78`), its pin moved `71a243bc` → `e8b16dd`, and every caller was retargeted: CLAUDE.md,
+AGENTS.md, and the field-bugs, nolf-audit, nolf-ki-promote and typesafe-ai skills. A skill that
+tells an agent to run a deleted script is a broken skill.
+
+**What did not survive is tracked, not dropped.** KI-132: the report `area` Choice, because
+`classify` takes a subject that is already an id in a corpus and a report being triaged is not in
+one yet. KI-133: both sweeps are actions a person starts, but they are not DECLARED workspace
+actions, so `dashboard_actions` does not offer them and the runbook has to explain `pgrep` instead.
+
+**Corrections to spec 153, made by running it.** `passage-triage` was proposed for NOLF because its
+reports come from strangers; it takes a `claim` that is an id IN a corpus, so it cannot triage an
+incoming report, and the question that repo wanted is inside `prior-art` already. And `ki-sweep`
+now carries `settings.only`, because "open" is a word in a project's own document and not a concept
+this plugin has — a sweep that guesses spends most of $0.95 on closed rows.
+
+One more came from asking whether the mechanism was general or NOLF-shaped. `settings.only` needs a
+marker to be PRESENT, which suits a list that writes `major (OPEN — …)`; rEngine's own rows say
+nothing when open and `**Closed YYYY-MM-DD.**` when done, so the same mechanism could not express
+this project's own sweep. `except` is the other direction, and rEngine now declares it: 126 rows to
+115. Two projects saying the same thing in opposite directions is the argument for a declaration
+rather than a constant.
+
+Commits: `023a88a` the four defects and `red-jev corpus`; `7750c27` the two consumer-path fixes;
+`953cd97` one row by name; `e8b16dd` the runbook and the lesson; `ef8c94f` `except`.
+NOLF: `85b86b78`.
+
+Evidence `docs/evidence/jev-migration-2026-09-19.md`, recipe
+`docs/runbooks/jev-project-adoption.md`, rule `docs/lessons-learned.md`.
+
+Gates: 54 plugin unit tests, 80 red-project tests, the red workspace green, `npm test` 380/380,
+`./init.sh`, `design.py check`, `agent_names.py check`, `features.py validate` (195 rows).
+
+**Two things for the owner.** rEngine `main` is ahead of `origin/main` and NOLF's new pin is not on
+the remote yet, so the bump is not fetchable from a fresh clone until rEngine is pushed. And a live
+agent session was working in the NOLF tree throughout — its uncommitted files are untouched and
+only this task's paths were staged, but that workspace is running binaries built from the OLD pin.
+
 ## Session 178f (opus-5) — 2026-09-19 — The subset, verified where an agent actually stands
 
 The claim the whole goal rests on, checked through the real path rather than a fixture: an agent

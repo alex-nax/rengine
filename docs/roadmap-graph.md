@@ -443,11 +443,11 @@ flowchart TD
   F240["F240: passing"]
   F236 --> F240
   F237 --> F240
-  F241["F241: ready"]
+  F241["F241: passing"]
   F240 --> F241
-  F242["F242: blocked"]
+  F242["F242: passing"]
   F241 --> F242
-  F243["F243: blocked"]
+  F243["F243: passing"]
   F242 --> F243
 ```
 
@@ -645,6 +645,6 @@ flowchart TD
 | F238 | O1 | rengine | passing | The routing flows: `classify` (hierarchical_classification's beam search, K=3, edges scored by geometric mean so a shallow leaf and a deep one compare fairly), `skill-pick` (skill_suggestion's two stages - rank the whole roster with a gate on whether a skill is wanted at all, then read the top three properly and allow rejecting all of them) and `action-intent` (function_calling: a sentence to one declared dashboard action and its closed-set arguments, with confidence the WEAKEST argument rather than the product). Spec 153. |
 | F239 | O1 | rengine | passing | The reading flows: `reformat` (autoformat's two passes - stitch hard-wrapped lines, then classify every block with companion questions read only when they apply - with the Markdown assembled in code so no word is generated), `extract` (pre_parsed_value_extraction: a regex finds candidates, a Choice picks one span, and the value comes back copied unchanged), `dates` (date_extraction's seven Choices with every calendar calculation in code, and a review below 0.60), `hazards` (llm_guardrails' four Nouls and severity Score, ADVISORY and named for what it does) and `featurize` (autoresearch's questions-to-columns half; no regressor, because the labelled target and the gradient-boosting dependency are both absent - spec 153 decision 10). Spec 153. |
 | F240 | O1 | rengine | passing | The composites NOLF proved, rebuilt from the flows rather than beside them: `prior-art` (chunked sweep with an explicit no-match option, every candidate above the floor kept rather than the argmax alone, then `align` per candidate, plus the report's own three judgements asked in parallel over the same state), `prior-findings` (`find` over a project's lessons and antipatterns), `assert-check` (`evidence-check` swept over a tests tree, surface `action`) and `ki-sweep` (`prior-art` over known-issues rows, surface `action`). Spec 153. |
-| F241 | O1 | rengine | ready | The NOLF workspace adopts the flow library in place of its four standalone Python tools. Its declaration is written in spec 153 and its prerequisite is a submodule bump: third_party/rengine is pinned at a revision that predates this plugin, so the service its manifest would name is not in that checkout. The subset differs from rEngine's - it declares `antipatterns`, which rEngine has no document for, and `passage-triage`, which it needs because its reports come from strangers at release. |
-| F242 | O1 | rengine | blocked | The NOLF migration is measured rather than reviewed: the fixed comparison set of spec 154 runs through the four standalone Python tools and through the library flows that replace them, and every difference is explained before anything is deleted. The defects that measurement finds are fixed in the library, because they are the library's, not NOLF's - a project adopting these flows next would meet the same ones. |
-| F243 | O1 | rengine | blocked | The transferable half: a runbook another project follows to adopt the flow library, and the retirement of NOLF's four Python tools once their replacements are measured. What the Python did and the library does not is tracked as work rather than kept as a second implementation. |
+| F241 | O1 | rengine | passing | The NOLF workspace adopts the flow library in place of its four standalone Python tools. Its declaration is written in spec 153 and its prerequisite is a submodule bump: third_party/rengine is pinned at a revision that predates this plugin, so the service its manifest would name is not in that checkout. The subset differs from rEngine's - it declares `antipatterns`, which rEngine has no document for, and `passage-triage`, which it needs because its reports come from strangers at release. |
+| F242 | O1 | rengine | passing | The NOLF migration is measured rather than reviewed: the fixed comparison set of spec 154 runs through the four standalone Python tools and through the library flows that replace them, and every difference is explained before anything is deleted. The defects that measurement finds are fixed in the library, because they are the library's, not NOLF's - a project adopting these flows next would meet the same ones. |
+| F243 | O1 | rengine | passing | The transferable half: a runbook another project follows to adopt the flow library, and the retirement of NOLF's four Python tools once their replacements are measured. What the Python did and the library does not is tracked as work rather than kept as a second implementation. |

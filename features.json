@@ -4858,7 +4858,7 @@
         "NOLF declares its own flows.json and gets exactly that subset, different from rEngine's, offered to an agent.",
         "The four Python tools are either retired or recorded as kept, with a reason either way - two implementations of one judgement is two answers to it."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         240
       ],
@@ -4866,7 +4866,13 @@
       "deliverable": "A submodule bump in the NOLF workspace, its plugins/jev declaration, and a decision recorded about the Python tools.",
       "external_references": [],
       "evidence": [
-        "NOT STARTED. Blocked on an owner decision: bumping a pinned submodule in a workspace whose broader development is paused is not a change this task may make on its own. The declaration it needs is written out in spec 153 so applying it is a copy rather than a design."
+        "NOLF's pinned rEngine carries the plugin and its built service: third_party/rengine moved 71a243bc -> e8b16dd (NOLF commit 85b86b78), `git submodule update --init --recursive`, and `cargo build` in third_party/rengine/plugins/jev/server produces red-jev in that checkout. One binary, shared by every project that pins it; no copy.",
+        "NOLF declares its own subset in plugins/jev/flows.json and gets exactly it. `red-jev flows` run from the NOLF root: prior-art and prior-findings as tools, assert-check and ki-sweep as actions. Different from rEngine's six, which declare find and triage that NOLF has no use for, and lack the `antipatterns` source and the `only` marker that NOLF needs.",
+        "Verified through the workspace host's own code rather than the CLI - plugins::tools, ::instructions, ::route and ::call against /Users/alex/nolf-improved: two tools offered as jev.prior-art and jev.prior-findings, 3,756 characters of instructions read out of the pinned checkout with no refusal, the tool routable, and a call answering {reads: yes, probability: 0.84} for 2 requests and $0.0006. Two defects were found doing this and fixed in 7750c27.",
+        "The four Python tools are RETIRED, not kept: tools/prior_art.py, tools/prior_findings.py, tools/assert_check.py, tools/ki_sweep.py and tests/test_jev_tools_degrade.py are deleted in NOLF 85b86b78, 1,431 lines. Every caller was retargeted - CLAUDE.md, AGENTS.md, the field-bugs, nolf-audit and nolf-ki-promote skills, and the typesafe-ai adapter. docs/jev-cookbooks.md is kept deliberately: it is the measurement that decided which cookbooks are worth asking there, and it outlived the code it described.",
+        "The declaration proposed in spec 153 was corrected by running it: passage-triage takes a `claim` that is an id IN a corpus, so it cannot triage an incoming report, and the injection question NOLF wanted is inside prior-art already. Spec 153 now records what the project runs on rather than what was proposed for it.",
+        "One judgement did not survive and is tracked rather than dropped: KI-132, the report `area` Choice. KI-133 tracks the two sweeps not being declared workspace actions.",
+        "Another session was working in that tree throughout; only this task's paths were staged, and its uncommitted files are untouched."
       ]
     },
     {
@@ -4884,7 +4890,7 @@
         "`red-jev corpus` prints what the reader made of a declared source, so a project can count its entries before it trusts a verdict.",
         "Every flow reports what it cost - requests, input tokens and dollars - not input tokens alone."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         241
       ],
@@ -4900,7 +4906,10 @@
         "`red-jev corpus --flow NAME --source KEY` prints the path, entry count, shape, option budget, the requests a sweep would cost and a sample. It contacts nothing. Run against NOLF's declared lessons: 73 entries, document shape, budget 260.",
         "Every flow reports `cost` as requests, input tokens and dollars, accumulated on the client from the service's own usage field. what_a_run_cost_is_measured_and_not_estimated pins the rate against a run both implementations measured (66,909 tokens, $0.0028); sabotaged to ten times the rate it FAILED with 0.0281 against 0.0028.",
         "Gates: 54 plugin unit tests green, the red workspace green, design.py check, agent_names.py check and features.py validate green.",
-        "Held at false until F241 lands: the adoption it depends on is the NOLF-side commit, and a row does not pass ahead of its dependency."
+        "Two further defects came from pointing the workspace host's own code at the NOLF checkout instead of reading it (7750c27). A computed tool list was offered but not callable - the offer asked the plugin and the routing read the manifest's `tools`, which for such a plugin is the name of a subcommand rather than an array, so route() refused every tool the same plugin had just advertised. Observed failing first: a_computed_tool_is_callable_and_not_only_listed panicked at 'a tool an agent is offered is a tool it can reach' before the fix. And a manifest's `instructions` resolved from the plugin's own directory while `command` resolved from the project root, so a project pinning the plugin had nowhere to point at the prose that belongs with the service; now both resolve from the project root with `..` and absolute still refused.",
+        "A third came from looking at what CALLED the tool being replaced (953cd97): a promotion skill ran `ki_sweep.py --ki KI-NNN` against one row, and the flow replacing it could only sweep the first N of a list. `ki-sweep --row KI-494` on NOLF: 11 requests, $0.003, ranking F1584 first - the feature that row's own second cell names - against $0.95 for the list.",
+        "A sweep is about the rows the project says are live, and the two projects say it in opposite directions: NOLF writes `major (OPEN - ...)` in a severity cell and declares `settings.only: \"OPEN\"`; rEngine's rows say nothing when open and open with `**Closed YYYY-MM-DD.**` when done, so it declares `settings.except: \"**Closed\"`, which takes its sweep from 126 rows to 115. Observed failing for its own reason: with the filter stubbed to accept everything, a_sweep_is_about_the_rows_the_project_declared_it_is_about FAILED with ['KI-1','KI-2'] against ['KI-2'].",
+        "Gates: 54 plugin unit tests, 80 red-project tests, the red workspace green, npm 380/380, ./init.sh, design.py check, agent_names.py check and features.py validate green."
       ]
     },
     {
@@ -4915,14 +4924,20 @@
         "Everything the Python did that the library does not is a tracked row or a known issue, with the measurement behind it - nothing is dropped silently.",
         "The insights the migration produced are recorded where the next project reads them, not only in this spec."
       ],
-      "passes": false,
+      "passes": true,
       "dependencies": [
         242
       ],
       "owner_workspace": "rengine",
       "deliverable": "docs/runbooks/jev-project-adoption.md, the removal commit in the NOLF workspace, and the follow-up rows for what did not survive.",
       "external_references": [],
-      "evidence": []
+      "evidence": [
+        "docs/runbooks/jev-project-adoption.md takes a project from no plugin to a declared subset answering, in six numbered steps that name commands: pin and build, declare flows.json, declare plugin.json, switch on and key, verify in the order that catches the silent failure first (`corpus` before anything, because a reader that made 145 entries out of 75 still answers), and only then retire what it replaces.",
+        "The retirement protocol is the part that transfers: fix the comparison set before starting, include at least two inputs the corpus cannot answer, run both, and allow only three outcomes for a difference - fix the library, record it as deliberate, or track the capability as not surviving. The five traps are listed so the next project checks for them rather than finding them.",
+        "NOLF 85b86b78: the four tools and the degrade test are gone, and CLAUDE.md, AGENTS.md, the field-bugs / nolf-audit / nolf-ki-promote skills and the typesafe-ai adapter all point at the flows. A skill telling an agent to run a deleted script is a broken skill, so each call site was rewritten rather than annotated.",
+        "What did not survive is tracked, not dropped: KI-132 (the report `area` judgement, because `classify` takes a subject that is already an id in a corpus) and KI-133 (the two sweeps are not declared workspace actions, so `dashboard_actions` does not offer them).",
+        "The insight is recorded where the next project reads it: docs/lessons-learned.md, 'a port is not a migration until the same inputs give the same answer', with what each of the five defects cost and why a review cannot catch any of them."
+      ]
     }
   ]
 }
