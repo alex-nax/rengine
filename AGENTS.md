@@ -35,6 +35,7 @@ project-skills location that Codex and Kimi Code discover; the canonical definit
 | Spec/doc reconciliation batch | `/rengine-housekeep` | `$rengine-housekeep` | `/skill:rengine-housekeep` |
 | Known-issue → feature promotion batch | `/rengine-ki-promote` | `$rengine-ki-promote` | `/skill:rengine-ki-promote` |
 | Integrate a new project with rEngine (no skill yet) | `docs/runbooks/project-integration.md` + `actions/posix/integrate-project.sh` | same runbook and action | same runbook and action |
+| Adopt the Jev flows in a project, and retire what they replace | `docs/runbooks/jev-project-adoption.md` | same runbook | same runbook |
 
 After the one-time layered bootstrap, use root-bound MCP `update_status`/`update_workspace`
 (or `orchestrator/runtime/client.mjs` with the existing context) for routine updates. Select a

@@ -95,3 +95,49 @@ valid code that compiled. What caught it was the first test that drove the deskt
 The corollary is about where a feature's first test points. Every check on the new routes ran against
 the worker, because that is where the handlers had been written; the one thing none of them asked was
 whether the surface a person actually opens could reach them.
+
+---
+
+## LESSON — a port is not a migration until the same inputs give the same answer
+
+**What it cost.** `~/nolf-improved` had 1,183 lines of Python asking a judgement service four
+questions. Those four were rebuilt as library flows, each verified against real corpora, each with
+tests, each reviewed against the Python beside it. The first query of the first side-by-side
+comparison answered **0.92** through the Python and **0.49** through the library — "this has been
+decided before" against "unsure" — on a question whose answer is the first entry in the file, and
+which *both* implementations ranked first.
+
+Five defects had compounded, and every one of them reads as correct in the source:
+
+- The presence question's instructions were generic and the query sat in the state. Naming the
+  query in the instructions was worth **+0.21**.
+- The options were a list of `{id, says}` objects rather than a map keyed by id: **+0.07–0.14**.
+- Each criterion had been trimmed to its first clause: **+0.06–0.17**.
+- A corpus entry's summary was its heading, with the body dropped, so a Choice over documents
+  ranked headings: **+0.12**, and it compounds with the criteria.
+- A document that carries an index table and the sections that table indexes yielded every entry
+  twice. 145 entries where there are 75, each lesson ranked against its own one-line summary, and
+  every lookup by id finding the summary rather than the lesson.
+
+**The rule.** When a new implementation replaces one that people already trust, the old one is the
+reference and the comparison is a measurement, not a review. Fix a set of inputs first, including
+at least two the corpus cannot answer, run both, and treat every difference as a defect until it is
+explained — fixed, recorded as deliberate, or tracked as a capability that did not survive. Delete
+only then.
+
+**Why a review cannot do this.** Nothing above is a mistake a careful reader catches. They are
+differences in *text* — what a question says, how a set is shaped, how much of an entry travels —
+and the only thing that separates a good one from a bad one is what comes back. The negative
+controls are what make the measurement honest: all five fixes together moved the true hit from 0.49
+to 0.83 and left the two controls at 0.01 and 0.02, which is the difference between sharpening a
+judgement and putting a thumb on it.
+
+**The corollary that found two more.** Go and look at what *called* the thing being replaced. A
+promotion skill ran the old sweep against one named row; the flow replacing it could only sweep the
+first N of a list, at a hundred times the cost. And a plugin whose tool list is computed offered
+four tools that could not be called, because the routing behind the offer read a different list
+from the one the offer was built from — listing a tool and calling it are different paths, and only
+one of them had been walked.
+
+Measured 2026-09-19: `docs/evidence/jev-migration-2026-09-19.md`. The recipe generalised:
+`docs/runbooks/jev-project-adoption.md`.
