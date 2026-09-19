@@ -1,3 +1,15 @@
+## Session 180 (kimi) — 2026-09-19 — Committing the regenerated surface-adapter CMakeLists
+
+The NOLF F1703 launcher gate (its agent pane, run from the workspace this repo serves) found
+`adapters/sdl2/CMakeLists.txt` stale at the pin: `da7c1c4` moved the fixture source from
+`orchestrator/tests/` to `tests/` in `cmake.toml` but never regenerated the generated file, so
+pin `589b586` still named the deleted path. Builds self-healed through the cmkr bootstrap at
+configure time — which rewrote the file into every consumer's working tree and left each
+submodule dirty; NOLF's clean-tree launcher test went red on exactly that. This change is the
+regeneration plus KI-139. No `cmake.toml`, source, or pin edits; `python3 tools/design.py check`
+green before and after. Remaining and untouched: KI-135 (30 s worker-startup timeouts), the
+KI-136/137/138 flow gaps.
+
 ## Session 179 (opus-5) — 2026-09-19 — A port is not a migration until the same inputs agree
 
 The owner asked for the NOLF baseline captured, the standalone integration removed, the flow
