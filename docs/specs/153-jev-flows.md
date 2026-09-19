@@ -126,6 +126,8 @@ the flow takes a `claim` that is an id IN a corpus, so it triages a passage alre
 than an incoming report — and the injection question NOLF wanted is inside `prior-art` already. And
 **`ki-sweep` declares `only`**, because "open" is a word in that project's own document rather than
 a concept this plugin has, and a sweep that does not know it spends most of $0.95 on closed rows.
+rEngine's own list marks the opposite — nothing when open, `**Closed` when done — so it declares
+`except`, which is why this is a declaration rather than a constant.
 
 It sits beside a manifest whose `service.command` is
 `["third_party/rengine/plugins/jev/server/target/debug/red-jev"]` — one binary, shared by every

@@ -117,7 +117,9 @@ test('a switched-on plugin reaches an agent at initialize, and a switched-off on
     name: 'fixture',
     service: {
       command: ['plugins/fixture/service.sh'],
-      instructions: 'say.md',
+      // Named from the project root, the same way `command` is: a project that PINS a plugin
+      // points at the prose in the pinned checkout rather than keeping a second copy of it.
+      instructions: 'plugins/fixture/say.md',
       tools: [{ name: 'ask', command: 'ask', description: 'A fixture tool.', inputSchema: { type: 'object' } }],
     },
   }));

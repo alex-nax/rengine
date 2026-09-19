@@ -46,8 +46,10 @@ no declared source is not enabled, rather than guessing where you keep your less
 `red-jev flows --state DIR` lists what the registry offers, each flow's sources and its surface.
 
 **`settings` is where your own words go.** `ki-sweep`'s `only` is the marker your document uses for
-an issue that is still open — `OPEN`, `status: open`, whatever you actually write. The library does
-not have a concept of open, and a sweep that guesses spends most of a dollar on closed rows.
+an issue that is still open — `OPEN`, `status: open`, whatever you actually write. Some lists mark
+the opposite: rEngine's own rows say nothing when open and open with `**Closed YYYY-MM-DD.**` when
+done, so it declares `"except": "**Closed"` instead. The library does not have a concept of open,
+and a sweep that guesses spends most of a dollar on rows somebody already closed.
 
 ## 3. Declare the manifest — `plugins/jev/plugin.json`
 

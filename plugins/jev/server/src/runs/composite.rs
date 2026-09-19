@@ -395,22 +395,26 @@ pub fn assert_check(jev: &Jev, flow: &Flow, arguments: &Arguments, root: &Path) 
 ///
 /// "Open" is a word in a project's own document, not a concept this has: one writes
 /// `major (OPEN — …)` in a severity cell and another keeps a status column. So the project
-/// declares the marker in `settings.only` and the library does not guess at it. Without it the
+/// declares the marker in `settings.only` — or, when its documents mark what is DONE rather than
+/// what is open, in `settings.except` — and the library does not guess at it. Without it the
 /// most expensive flow here spends most of $0.95 re-examining issues somebody already closed, and
 /// the symptom is a bill rather than a wrong answer — which is why a marker that matches nothing
 /// is a refusal naming the marker, not a sweep that quietly does nothing.
-fn rows_to_sweep<'a>(issues: &'a [Entry], only: Option<&str>, limit: usize)
+fn rows_to_sweep<'a>(issues: &'a [Entry], only: Option<&str>, except: Option<&str>, limit: usize)
                      -> Result<Vec<&'a Entry>, String> {
+    let says = |issue: &Entry, word: &str| issue.body.contains(word) || issue.title.contains(word);
     let rows: Vec<&Entry> = issues.iter()
-        .filter(|issue| only.is_none_or(|marker| issue.body.contains(marker)
-                                              || issue.title.contains(marker)))
+        .filter(|issue| only.is_none_or(|marker| says(issue, marker)))
+        .filter(|issue| except.is_none_or(|marker| !says(issue, marker)))
         .take(limit).collect();
     if rows.is_empty() {
-        return Err(match only {
-            Some(marker) => format!(
+        return Err(match (only, except) {
+            (Some(marker), _) => format!(
                 "no row carries {marker:?}. That marker is this project's own word for an issue \
                  still open, declared as `settings.only` beside the flow"),
-            None => "there are no rows to sweep".to_string(),
+            (None, Some(marker)) => format!(
+                "every row carries {marker:?}, which `settings.except` says means a row is done"),
+            (None, None) => "there are no rows to sweep".to_string(),
         });
     }
     Ok(rows)
@@ -427,6 +431,7 @@ pub fn ki_sweep(jev: &Jev, flow: &Flow, arguments: &Arguments, root: &Path) -> R
     let features = corpus::read(root, flow.source("features")?)?;
     let limit: usize = arguments.get("limit").and_then(|l| l.parse().ok()).unwrap_or(10);
     let only = flow.setting("only").and_then(Value::as_str);
+    let except = flow.setting("except").and_then(Value::as_str);
     let named = flow.source("issues")?.display().to_string();
     // One row by name is the other half of this flow, and the commoner half: a promotion decision
     // is about ONE issue, and asking the whole list to answer it costs a hundred times as much.
@@ -434,7 +439,8 @@ pub fn ki_sweep(jev: &Jev, flow: &Flow, arguments: &Arguments, root: &Path) -> R
     // already decided it is the row they mean.
     let rows = match arguments.get("row").map(String::as_str).filter(|row| !row.is_empty()) {
         Some(row) => vec![corpus::find(&issues, row)?],
-        None => rows_to_sweep(&issues, only, limit).map_err(|error| format!("{error} ({named})"))?,
+        None => rows_to_sweep(&issues, only, except, limit)
+            .map_err(|error| format!("{error} ({named})"))?,
     };
 
     let mut swept = Vec::new();
@@ -474,7 +480,7 @@ pub fn ki_sweep(jev: &Jev, flow: &Flow, arguments: &Arguments, root: &Path) -> R
     Ok(json!({
         "flow": "ki-sweep",
         "rows": swept.len(), "matched": matched, "issues": issues.len(), "features": features.len(),
-        "only": only,
+        "only": only, "except": except,
         "swept": swept,
         "inputTokens": tokens, "acted": false,
         "thresholds": [gates::CONFIDENT.report(), gates::CANDIDATE_FLOOR.report()],
@@ -518,17 +524,22 @@ mod tests {
         let issues = corpus::read(&root, std::path::Path::new("known-issues.md")).expect("read");
         assert_eq!(issues.len(), 2, "two rows on file");
 
-        let selected = rows_to_sweep(&issues, Some("OPEN"), 10).expect("one row is open");
+        let selected = rows_to_sweep(&issues, Some("OPEN"), None, 10).expect("one row is open");
         assert_eq!(selected.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(), ["KI-2"],
                    "a sweep costs one row here, not two");
 
+        // The other way round, because one project marks what is open and another marks what is
+        // done. Same row survives either way.
+        let selected = rows_to_sweep(&issues, None, Some("FIXED"), 10).expect("one row is not done");
+        assert_eq!(selected.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(), ["KI-2"]);
+
         // A marker no row carries is a refusal that names the marker, not a sweep that does nothing.
-        let error = rows_to_sweep(&issues, Some("WONTFIX"), 10).expect_err("refused");
+        let error = rows_to_sweep(&issues, Some("WONTFIX"), None, 10).expect_err("refused");
         assert!(error.contains("WONTFIX"), "{error}");
         assert!(error.contains("settings.only"), "and says where to declare it: {error}");
 
         // Undeclared means every row, which is what a project with no such word gets.
-        assert_eq!(rows_to_sweep(&issues, None, 10).expect("all").len(), 2);
+        assert_eq!(rows_to_sweep(&issues, None, None, 10).expect("all").len(), 2);
 
         // And one row BY NAME is swept whatever its status, because a promotion decision is about
         // one issue and asking the whole list to answer it costs a hundred times as much.

@@ -110,7 +110,10 @@ body once rather than the body and its name separately.
 sweep that does not know which rows are open spends most of $0.95 on issues somebody already
 closed. **"Open" is a word in a project's own document**, written here as `major (OPEN — …)` inside
 a free-text severity cell, so the project declares the marker and the library does not guess:
-`"settings": { "only": "OPEN" }`.
+`"settings": { "only": "OPEN" }`. rEngine's own list marks the opposite — an open row says nothing
+and a closed one opens with `**Closed YYYY-MM-DD.**` — so it declares `"except": "**Closed"`, which
+takes its sweep from 126 rows to 115. One project marking what is open and another marking what is
+done is the reason this is a declaration rather than a constant.
 
 | | Python | library |
 |---|---|---|

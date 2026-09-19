@@ -32,6 +32,11 @@
       "sources": {
         "issues": "known-issues.md",
         "features": "features.json"
+      },
+      "//": "This list marks what is DONE, not what is open: a closed row opens with **Closed",
+      "//2": "YYYY-MM-DD.** and an open one says nothing. So `except` rather than `only`.",
+      "settings": {
+        "except": "**Closed"
       }
     }
   ]
